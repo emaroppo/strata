@@ -25,7 +25,10 @@ def run_training(
     if not labeled:
         raise ValueError("No labeled samples found in dataset")
 
-    train_samples, val_samples = train_val_split(labeled)
+    # Group by video folder so near-duplicate frames can't straddle the split
+    train_samples, val_samples = train_val_split(
+        labeled, group_key=lambda s: str(Path(s.path).parent)
+    )
 
     if round_num is None:
         round_num = _next_round_num(settings.paths.rounds_dir)
@@ -33,6 +36,7 @@ def run_training(
     metrics = model.finetune(
         [{"path": s.path, "labels": s.labels} for s in train_samples],
         classes,
+        val_samples=[{"path": s.path, "labels": s.labels} for s in val_samples],
     )
 
     checkpoint_path = settings.paths.checkpoints_dir / f"round_{round_num:03d}.pt"
@@ -48,6 +52,7 @@ def run_training(
         "num_train": len(train_samples),
         "num_val": len(val_samples),
         "num_unlabeled": len(unlabeled),
+        "num_skipped": sum(1 for s in dataset if s.skipped),
         "classes": classes,
         "metrics": metrics,
         "checkpoint": str(checkpoint_path),

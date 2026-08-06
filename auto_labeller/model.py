@@ -18,13 +18,21 @@ class BaseModel(ABC):
     """
 
     @abstractmethod
-    def finetune(self, samples: list[dict], classes: list[str]) -> dict:
+    def finetune(
+        self,
+        samples: list[dict],
+        classes: list[str],
+        val_samples: list[dict] | None = None,
+    ) -> dict:
         """Fine-tune on labeled data.
 
         ``samples`` is a list of dicts, each with keys ``"path"`` (str)
         and ``"labels"`` (list[str]).  ``classes`` is the full class list.
+        ``val_samples`` (same shape) is held-out data: evaluate on it after
+        training and include the results in the metrics dict.
 
-        Return a metrics dict, e.g. ``{"loss": 0.12, "accuracy": 0.93}``.
+        Return a metrics dict, e.g.
+        ``{"loss": 0.12, "accuracy": 0.93, "val_loss": 0.2, "val_accuracy": 0.9}``.
         """
         ...
 
