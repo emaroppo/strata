@@ -1,4 +1,16 @@
+# Project payload — ignored wherever a project lives (projects/<name>/ or elsewhere).
+# Each project's project.toml and model.py stay in version control.
 data/
-models
+dataset.json
+checkpoints/
+rounds/
+.state/
+# Pre-project checkpoint dir; anchored so it can't match auto_labeller/models/
+/models/
+
 config*.toml
+!config.example.toml
+__pycache__/
 *.pyc
+.venv/
+projects/*

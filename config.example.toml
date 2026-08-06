@@ -1,0 +1,11 @@
+# Host settings: how this machine reaches Label Studio.
+# Copy to config.toml (gitignored) and fill in your token, or set
+# LABEL_STUDIO_API_KEY in the environment instead.
+#
+# Everything about a labelling job lives in that project's project.toml.
+
+[label_studio]
+url = "http://localhost:8080"
+api_key = ""
+# Where the images mount appears inside the Label Studio container
+local_storage_path = "/label-studio/data/images"
