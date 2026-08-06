@@ -43,8 +43,12 @@ class Prediction:
 class LabelSchema(Protocol):
     """The contract every task type implements."""
 
-    type: ClassVar[str]
-    data_key: ClassVar[str]
+    #: "<media>_<task>", e.g. "text_classification"
+    type: str
+    #: Key under task["data"] Label Studio reads the sample from
+    data_key: str
+    #: The Label Studio control this schema annotates with
+    control_tag: ClassVar[str]
     classes: list[str]
     from_name: str
     to_name: str

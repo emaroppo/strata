@@ -23,8 +23,6 @@ from .project import PROJECT_ENV_VAR, PROJECTS_DIR, Project, ProjectError
 app = typer.Typer(name="auto-labeller")
 console = Console()
 
-_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "bmp", "tiff", "gif"}
-
 ProjectOption = typer.Option(
     None,
     "--project",
@@ -166,7 +164,7 @@ def new(
         raise typer.Exit(1) from None
 
     console.print(f"[green]Created project '{project.name}' in {directory}[/green]")
-    console.print(f"  Put images in {project.images_dir}, then run:")
+    console.print(f"  Put {project.schema.media.name} files in {project.data_dir}, then run:")
     console.print(f"    auto-labeller ingest --project {project.name}")
 
 
@@ -177,13 +175,15 @@ def templates() -> None:
 
     table = Table(title="Label config templates")
     table.add_column("Template", style="cyan")
+    table.add_column("Files", style="magenta")
     table.add_column("Annotations", style="green")
     for name in schemas.available_templates():
         if name == schemas.CUSTOM_TEMPLATE:
-            described = "whatever label_config.xml in the project declares"
-        else:
-            described = schemas.TEMPLATES[name].control_tag
-        table.add_row(name, described)
+            table.add_row(name, "-", "whatever label_config.xml declares")
+            continue
+        spec = schemas.TEMPLATES[name]
+        extensions = ", ".join(f".{e}" for e in sorted(spec.media.extensions))
+        table.add_row(name, extensions, spec.control_tag)
     console.print(table)
 
 
@@ -406,18 +406,21 @@ def init(
 def ingest(
     project_path: Path | None = ProjectOption,
 ) -> None:
-    """Scan the project's data root for new images and add them to the dataset.
+    """Scan the project's data root for new files and add them to the dataset.
 
-    Label Studio tasks are created on demand by `push`, so new images only
+    Which files count comes from the project's media type, so a text
+    project picks up documents where an image project picks up pictures.
+    Label Studio tasks are created on demand by `push`, so new files only
     need to be registered here.
     """
     from .dataset import Sample, load_dataset, save_dataset
 
     project = _load_project(project_path)
-    images_dir = project.images_dir
+    data_dir = project.data_dir
+    media = project.schema.media
 
-    if not images_dir.exists():
-        console.print(f"[red]Data root does not exist: {images_dir}[/red]")
+    if not data_dir.exists():
+        console.print(f"[red]Data root does not exist: {data_dir}[/red]")
         raise typer.Exit(1)
 
     # Load existing dataset to find already-tracked paths
@@ -426,22 +429,25 @@ def ingest(
         dataset = load_dataset(project.dataset_path, project.schema)
     existing_paths = {s.path for s in dataset}
 
-    # Scan for new images; sample paths are relative to the data root
+    # Sample paths are relative to the data root
     new_samples: list[Sample] = []
-    for path in sorted(images_dir.rglob("*")):
-        if path.suffix.lstrip(".").lower() in _IMAGE_EXTENSIONS:
-            rel = str(path.relative_to(images_dir))
+    for path in sorted(data_dir.rglob("*")):
+        if media.matches(path.name):
+            rel = str(path.relative_to(data_dir))
             if rel not in existing_paths:
                 new_samples.append(Sample(path=rel))
 
     if not new_samples:
-        console.print("[yellow]No new images found.[/yellow]")
+        console.print(
+            f"[yellow]No new {media.name} files found "
+            f"({', '.join(sorted(media.extensions))}).[/yellow]"
+        )
         raise typer.Exit(0)
 
     updated = dataset + new_samples
     save_dataset(updated, project.dataset_path)
     console.print(
-        f"[green]Added {len(new_samples)} new images "
+        f"[green]Added {len(new_samples)} new {media.name} files "
         f"({len(updated)} total samples)[/green]"
     )
 

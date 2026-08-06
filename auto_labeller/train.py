@@ -45,7 +45,7 @@ def run_training(
         # Models receive absolute paths and the schema's own target type
         return [
             {
-                "path": str(project.image_path(s.path)),
+                "path": str(project.sample_file(s.path)),
                 "target": schema.decode_target(s.results),
             }
             for s in samples

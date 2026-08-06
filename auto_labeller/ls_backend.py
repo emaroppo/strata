@@ -50,17 +50,17 @@ def predict(request: PredictRequest) -> dict:
     prefix = _project.label_studio.local_files_prefix
     data_key = _project.schema.data_key
 
-    image_paths: list[Path] = []
+    paths: list[Path] = []
     for task in request.tasks:
-        image_url = task.get("data", {}).get(data_key, "")
-        if "local-files" in image_url:
-            rel = unquote(image_url.split(f"d={prefix}/", 1)[-1])
-            image_paths.append(_project.image_path(_project.sample_path_from_mount(rel)))
+        url = task.get("data", {}).get(data_key, "")
+        if "local-files" in url:
+            rel = unquote(url.split(f"d={prefix}/", 1)[-1])
+            paths.append(_project.sample_file(_project.sample_path_from_mount(rel)))
         else:
-            image_paths.append(Path(image_url))
+            paths.append(Path(url))
 
     schema = _project.schema
-    outputs = _model.predict(image_paths)
+    outputs = _model.predict(paths)
     return {
         "results": [
             {"result": schema.encode_output(output), "score": schema.score(output)}

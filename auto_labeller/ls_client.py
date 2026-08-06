@@ -71,7 +71,7 @@ class LSClient:
     # Image URL mapping
     # ------------------------------------------------------------------
 
-    def _image_url(self, sample_path: str) -> str:
+    def _sample_url(self, sample_path: str) -> str:
         # Percent-encode so characters like '&' or '#' don't break the query string
         rel = self.project.mount_relative_path(sample_path)
         prefix = self.project.label_studio.local_files_prefix
@@ -92,7 +92,7 @@ class LSClient:
         data_key = self.project.schema.data_key
         tasks: list[dict] = []
         for s in samples:
-            task: dict = {"data": {data_key: self._image_url(s.path)}}
+            task: dict = {"data": {data_key: self._sample_url(s.path)}}
             if s.is_labeled:
                 # Already stored in Label Studio's own shape
                 task["annotations"] = [{"result": s.results}]
@@ -174,7 +174,7 @@ class LSClient:
         tasks = self.client.projects.exports.as_json(project_id, timeout=600)
         samples: list[Sample] = []
         for task in tasks:
-            image_path = self._url_to_path(task.get("data", {}).get(schema.data_key, ""))
+            sample_path = self._url_to_path(task.get("data", {}).get(schema.data_key, ""))
 
             results = []
             annotated = False
@@ -193,7 +193,7 @@ class LSClient:
 
             samples.append(
                 Sample(
-                    path=image_path,
+                    path=sample_path,
                     results=results,
                     annotated=annotated,
                     skipped=skipped,

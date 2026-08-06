@@ -9,13 +9,13 @@ def run_predictions(
 ) -> list[Prediction]:
     """Predict on samples and convert the model's output to storage form.
 
-    The model works with absolute image paths and the schema's own output
+    The model works with absolute file paths and the schema's own output
     type; everything downstream keys off the data-root-relative sample path
     and Label Studio results.
     """
     schema = project.schema
-    image_paths = [project.image_path(s.path) for s in samples]
-    outputs = model.predict(image_paths)
+    paths = [project.sample_file(s.path) for s in samples]
+    outputs = model.predict(paths)
     return [
         Prediction(
             path=sample.path,

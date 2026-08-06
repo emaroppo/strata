@@ -1,9 +1,10 @@
-"""Image classification: one or more classes per image."""
+"""Classification: one or more classes for a whole sample."""
 
 import math
 from dataclasses import dataclass, field
 
 from .base import LabelSchema, Result, strip_volatile
+from .media import IMAGE, Media
 from .render import render_template
 
 
@@ -20,21 +21,32 @@ class ChoiceOutput:
 
 
 class ClassificationSchema(LabelSchema):
-    type = "image_classification"
-    data_key = "image"
+    """Classes for a whole sample, whatever the sample is made of."""
+
+    task = "classification"
     control_tag = "Choices"
 
     def __init__(
         self,
         classes: list[str],
+        media: Media = IMAGE,
         choice: str = "multiple",
         from_name: str = "label",
-        to_name: str = "image",
+        to_name: str | None = None,
     ):
         self.classes = list(classes)
+        self.media = media
         self.choice = choice
         self.from_name = from_name
-        self.to_name = to_name
+        self.to_name = to_name or media.data_key
+
+    @property
+    def type(self) -> str:
+        return f"{self.media.name}_{self.task}"
+
+    @property
+    def data_key(self) -> str:
+        return self.media.data_key
 
     # ------------------------------------------------------------------
     # Label Studio config

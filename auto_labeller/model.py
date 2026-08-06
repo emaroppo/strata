@@ -32,7 +32,8 @@ class BaseModel(ABC):
         """Fine-tune on labeled data.
 
         ``samples`` is a list of dicts, each with keys ``"path"`` (an
-        absolute path) and ``"target"`` (whatever the schema decodes to).
+        absolute path to the sample's file, whether image or document) and
+        ``"target"`` (whatever the schema decodes to).
         ``classes`` is the full class list. ``val_samples`` (same shape) is
         held-out data: evaluate on it after training and include the
         results in the metrics dict.
@@ -43,8 +44,8 @@ class BaseModel(ABC):
         ...
 
     @abstractmethod
-    def predict(self, image_paths: list[Path]) -> list[Any]:
-        """Return one schema output per image path, in order."""
+    def predict(self, paths: list[Path]) -> list[Any]:
+        """Return one schema output per file path, in order."""
         ...
 
     @abstractmethod

@@ -9,14 +9,14 @@ outside it, in ``config.toml``; they describe your laptop, not the job.
     projects/my-project/
     ├── project.toml            # this file's schema
     ├── dataset.json            # samples + annotations
-    ├── data/raw/…              # images
+    ├── data/raw/…              # the samples: images, documents, …
     ├── model.py                # optional project-local model
     ├── checkpoints/            # round_001.pt, …
     ├── rounds/round_001/       # metadata.json, labeled.json
     └── .state/                 # Label Studio bookkeeping, not part of a handoff
 
 Sample paths in ``dataset.json`` are relative to ``[data] root``, so moving
-the images or the project never rewrites the dataset.
+the files or the project never rewrites the dataset.
 """
 
 import importlib
@@ -193,30 +193,31 @@ class Project:
         return self.root / ".state"
 
     @property
-    def images_dir(self) -> Path:
+    def data_dir(self) -> Path:
+        """Where this project's samples live, whatever kind of file they are."""
         return _resolve(self.root, self.data.root)
 
     @property
     def local_files_root(self) -> Path:
         return _resolve(self.root, self.label_studio.local_files_root)
 
-    def image_path(self, sample_path: str) -> Path:
-        """Absolute path of a sample's image (sample paths are data-root relative)."""
-        return self.images_dir / sample_path
+    def sample_file(self, sample_path: str) -> Path:
+        """Absolute path of a sample's file (sample paths are data-root relative)."""
+        return self.data_dir / sample_path
 
-    def relative_image_path(self, path: Path) -> str:
-        """Inverse of :meth:`image_path` — an absolute image path to a sample path."""
-        return str(path.resolve().relative_to(self.images_dir.resolve()))
+    def relative_sample_path(self, path: Path) -> str:
+        """Inverse of :meth:`sample_file` — an absolute path to a sample path."""
+        return str(path.resolve().relative_to(self.data_dir.resolve()))
 
     # -- Label Studio local-files URL mapping --------------------------
 
-    def _images_rel_to_mount(self) -> PurePosixPath:
-        images, mount = self.images_dir.resolve(), self.local_files_root.resolve()
+    def _data_rel_to_mount(self) -> PurePosixPath:
+        data, mount = self.data_dir.resolve(), self.local_files_root.resolve()
         try:
-            rel = images.relative_to(mount)
+            rel = data.relative_to(mount)
         except ValueError:
             raise ProjectError(
-                f"[data] root ({images}) must live inside "
+                f"[data] root ({data}) must live inside "
                 f"[label_studio] local_files_root ({mount}), which is the "
                 f"directory mounted into the Label Studio container."
             ) from None
@@ -224,11 +225,11 @@ class Project:
 
     def mount_relative_path(self, sample_path: str) -> str:
         """Sample path as Label Studio sees it, relative to the mounted root."""
-        return str(self._images_rel_to_mount() / sample_path)
+        return str(self._data_rel_to_mount() / sample_path)
 
     def sample_path_from_mount(self, mount_relative: str) -> str:
         """Inverse of :meth:`mount_relative_path`."""
-        prefix = self._images_rel_to_mount()
+        prefix = self._data_rel_to_mount()
         rel = PurePosixPath(mount_relative)
         if prefix.parts and rel.parts[: len(prefix.parts)] == prefix.parts:
             rel = PurePosixPath(*rel.parts[len(prefix.parts) :])
@@ -396,7 +397,7 @@ class Project:
             )
             + (
                 f'choice = "{choice}"  # "single" for mutually exclusive classes\n'
-                if template == "image_classification"
+                if template.endswith("_classification")
                 else ""
             )
             +

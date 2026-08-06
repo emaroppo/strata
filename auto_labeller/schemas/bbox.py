@@ -9,6 +9,7 @@ else.
 from dataclasses import dataclass, field
 
 from .base import LabelSchema, Result, strip_volatile
+from .media import IMAGE, Media
 from .render import render_template
 
 # Kept alongside coordinates: percentages are meaningless without them
@@ -33,19 +34,28 @@ class BoxOutput:
 
 
 class BBoxSchema(LabelSchema):
-    type = "image_bbox"
-    data_key = "image"
+    task = "bbox"
     control_tag = "RectangleLabels"
 
     def __init__(
         self,
         classes: list[str],
+        media: Media = IMAGE,
         from_name: str = "label",
-        to_name: str = "image",
+        to_name: str | None = None,
     ):
         self.classes = list(classes)
+        self.media = media
         self.from_name = from_name
-        self.to_name = to_name
+        self.to_name = to_name or media.data_key
+
+    @property
+    def type(self) -> str:
+        return f"{self.media.name}_{self.task}"
+
+    @property
+    def data_key(self) -> str:
+        return self.media.data_key
 
     def label_config(self) -> str:
         return render_template(
