@@ -271,10 +271,11 @@ class Project:
             try:
                 spec.loader.exec_module(module)
             except ImportError as exc:
+                extras = ", ".join(sorted(set(models.EXTRAS.values())))
                 raise ProjectError(
                     f"{module_path} will not import: {exc}. A project's own model "
                     f"brings its own dependencies; if it builds on a baseline's "
-                    f"framework, install that extra ({', '.join(sorted(set(models.EXTRAS.values())))})"
+                    f"framework, install that extra ({extras})"
                 ) from exc
         else:
             try:

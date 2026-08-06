@@ -6,8 +6,20 @@ import timm
 import torch
 import torch.nn as nn
 from PIL import Image, ImageFile
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
+
+from ..model import BaseModel
+from ..schemas import ChoiceOutput
 
 # Video-extracted frames are occasionally cut short; decode what's there
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -28,19 +40,6 @@ def _load_rgb(path: str | Path, draft_size: int | None = None) -> Image.Image:
         )
         return Image.new("RGB", (256, 256))
 
-
-from rich.console import Console
-from rich.progress import (
-    BarColumn,
-    MofNCompleteColumn,
-    Progress,
-    TextColumn,
-    TimeElapsedColumn,
-    TimeRemainingColumn,
-)
-
-from ..model import BaseModel
-from ..schemas import ChoiceOutput
 
 console = Console()
 

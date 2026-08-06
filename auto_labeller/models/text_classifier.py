@@ -24,7 +24,11 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 from torch.utils.data import DataLoader, Dataset
-from transformers import AutoModelForSequenceClassification, AutoModelForTokenClassification, AutoTokenizer
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoModelForTokenClassification,
+    AutoTokenizer,
+)
 
 from ..model import BaseModel
 from ..schemas import ChoiceOutput, Span, SpanOutput

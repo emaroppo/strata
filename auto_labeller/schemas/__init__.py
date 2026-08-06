@@ -7,7 +7,6 @@ parsing it, so a config tuned by hand stays authoritative.
 """
 
 import re
-
 from dataclasses import dataclass
 
 from .base import LabelSchema, Prediction, Result, strip_volatile

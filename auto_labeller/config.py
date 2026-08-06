@@ -4,10 +4,10 @@ Everything that belongs to a labelling job lives in the project directory
 instead — see :mod:`auto_labeller.project`.
 """
 
-from dataclasses import dataclass, field
-from pathlib import Path
 import os
 import tomllib
+from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass

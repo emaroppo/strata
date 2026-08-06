@@ -5,6 +5,7 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
@@ -13,7 +14,6 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
-from rich.markup import escape
 from rich.table import Table
 
 from .config import Settings
@@ -196,7 +196,7 @@ def list_projects_cmd() -> None:
     found = list_projects()
     if not found:
         console.print(
-            f"[yellow]No projects yet. Create one with 'auto-labeller new <name>'.[/yellow]"
+            "[yellow]No projects yet. Create one with 'auto-labeller new <name>'.[/yellow]"
         )
         return
 
@@ -304,7 +304,11 @@ def class_list(
     from .dataset import load_dataset
 
     project = _load_project(project_path)
-    dataset = load_dataset(project.dataset_path, project.schema) if project.dataset_path.exists() else []
+    dataset = (
+        load_dataset(project.dataset_path, project.schema)
+        if project.dataset_path.exists()
+        else []
+    )
 
     schema = project.schema
     counts: dict[str, int] = {c: 0 for c in schema.classes}
@@ -455,9 +459,15 @@ def ingest(
 @app.command()
 def train(
     project_path: Path | None = ProjectOption,
-    round_num: int | None = typer.Option(None, help="Round number (auto-detected if omitted)"),
-    checkpoint: Path | None = typer.Option(None, help="Checkpoint to continue from (default: latest)"),
-    fresh: bool = typer.Option(False, "--fresh/--no-fresh", help="Train from scratch, ignoring existing checkpoints"),
+    round_num: int | None = typer.Option(
+        None, help="Round number (auto-detected if omitted)"
+    ),
+    checkpoint: Path | None = typer.Option(
+        None, help="Checkpoint to continue from (default: latest)"
+    ),
+    fresh: bool = typer.Option(
+        False, "--fresh/--no-fresh", help="Train from scratch, ignoring existing checkpoints"
+    ),
 ) -> None:
     """Train the project's model on its labeled data."""
     from .train import run_training
@@ -534,10 +544,23 @@ def push(
     unlabeled_only: bool = typer.Option(True, help="Only push for unlabeled samples"),
     checkpoint: Path | None = typer.Option(None, help="Checkpoint to use (default: latest)"),
     prioritize_uncertain: bool = typer.Option(True, help="Show uncertain images first"),
-    refresh: bool = typer.Option(False, "--refresh/--no-refresh", help="Replace existing predictions instead of skipping those tasks"),
-    limit: int | None = typer.Option(None, help="Push only the top-N predictions (most uncertain first when prioritized)"),
-    sample: int | None = typer.Option(None, help="Predict on a random subset of N eligible images instead of all of them"),
-    use_cache: bool = typer.Option(True, "--cache/--no-cache", help="Use the local task-id cache (--no-cache forces a full refetch, e.g. after manual prediction changes in LS)"),
+    refresh: bool = typer.Option(
+        False,
+        "--refresh/--no-refresh",
+        help="Replace existing predictions instead of skipping those tasks",
+    ),
+    limit: int | None = typer.Option(
+        None, help="Push only the top-N predictions (most uncertain first when prioritized)"
+    ),
+    sample: int | None = typer.Option(
+        None, help="Predict on a random subset of N eligible images instead of all of them"
+    ),
+    use_cache: bool = typer.Option(
+        True,
+        "--cache/--no-cache",
+        help="Use the local task-id cache (--no-cache forces a full refetch, "
+        "e.g. after manual prediction changes in LS)",
+    ),
 ) -> None:
     """Push model predictions to Label Studio as pre-annotations."""
     from .active_learning import rank_by_uncertainty
