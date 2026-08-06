@@ -169,6 +169,7 @@ auto-labeller/
 │   ├── ls_client.py        # Label Studio SDK wrapper
 │   ├── ls_backend.py       # FastAPI ML backend server (live predictions in LS)
 │   └── cli.py              # CLI entry points
+├── tests/                  # the suite; most of it runs without a framework
 ├── projects/               # your labelling projects (payload gitignored)
 ├── scripts/                # one-off utilities (e.g. migration)
 ├── docker-compose.yml      # Label Studio container
@@ -230,6 +231,23 @@ uv run auto-labeller ingest -p cats
 ```
 
 Set `AUTO_LABELLER_PROJECT=projects/cats` before `docker compose up` so Label Studio mounts that project's images.
+
+---
+
+## Tests
+
+```bash
+uv run pytest        # the whole suite
+uv run ruff check .  # lint
+```
+
+The suite splits along the same line the dependencies do. Most of it — the schema conversions, the dataset format, project resolution and paths, config editing, the model ref contract — imports no ML framework and runs on the base install. The rest covers the image baselines' task hooks, the letterbox transform and warm start, and skips with a message when the `image` extra is absent.
+
+That split is deliberate: running the framework-free suite on a bare install is what keeps the [optional extras](#setup) honest. If anything on that path grows a `torch` import, collection fails there rather than in someone else's `pip install`.
+
+Warm start is tested against a stub backbone rather than the real one, since building the real backbone downloads pretrained weights, and a unit test should not. The one piece still uncovered is a real `finetune` run: nothing yet asserts that training moves the weights, or exercises the round → checkpoint → metadata path end to end.
+
+CI runs lint, then the suite twice — once on the base install and once with `--extra all`.
 
 ---
 
@@ -440,3 +458,5 @@ http://host.docker.internal:9090
 ```
 
 The backend auto-loads the latest checkpoint at startup and forwards Label Studio prediction requests to your model.
+
+---
