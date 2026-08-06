@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # The base install has no ML framework: this run also proves it stays that way.
+  tests:
+    name: tests (base install)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --no-default-groups --group dev
+      - run: uv run --no-sync pytest -q
+
+  # Split out because the extras pull several GB of wheels.
+  tests-extras:
+    name: tests (--extra all)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --extra all --group dev
+      - run: uv run --no-sync python -c "import auto_labeller.models.classifier"
+      - run: uv run --no-sync python -c "import auto_labeller.models.text_classifier"
+      - run: uv run --no-sync pytest -q
