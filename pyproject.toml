@@ -31,8 +31,24 @@ all = [
     "auto-labeller[image,text]",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
 [project.scripts]
 auto-labeller = "auto_labeller.cli:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+# Pinned: ruff's default set widens between releases
+select = ["E", "F", "I"]
 
 [build-system]
 requires = ["hatchling"]

@@ -24,7 +24,16 @@ EXTRAS: dict[str, str] = {
     "auto_labeller.models.text_classifier": "text",
 }
 
-__all__ = [*_MODULES, "EXTRAS", "extra_hint"]
+# Spelled out so static checkers can read it without executing the module
+__all__ = [
+    "EXTRAS",
+    "MulticlassClassifier",
+    "MultiLabelClassifier",
+    "PresenceClassifier",
+    "TextClassifier",
+    "TextSpanTagger",
+    "extra_hint",
+]
 
 
 def extra_hint(module: str) -> str | None:
