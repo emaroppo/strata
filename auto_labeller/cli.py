@@ -1,9 +1,18 @@
 import importlib
 import json
+import random
 from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 from rich.table import Table
 
 from .config import Settings
@@ -49,6 +58,26 @@ def _load_latest_checkpoint(model: BaseModel, settings: Settings) -> Path | None
     return _resolve_checkpoint(model, settings)
 
 
+def _push_with_progress(client, project_id, predictions, task_id_map, **kwargs) -> int:
+    total = sum(1 for p in predictions if p.path in task_id_map)
+    with Progress(
+        TextColumn("[bold cyan]Pushing"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    ) as progress:
+        bar = progress.add_task("push", total=total)
+        return client.push_predictions(
+            project_id,
+            predictions,
+            task_id_map,
+            on_progress=lambda n: progress.advance(bar, n),
+            **kwargs,
+        )
+
+
 @app.command()
 def init(
     name: str = typer.Argument(..., help="Project name in Label Studio"),
@@ -80,15 +109,14 @@ def init(
 
 @app.command()
 def ingest(
-    project_id: int = typer.Argument(..., help="Label Studio project ID to add images to"),
     config_path: Path = typer.Option("config.toml", help="Path to config file"),
-    auto_label: bool = typer.Option(False, "--auto-label/--no-auto-label", help="Push model predictions as pre-annotations"),
-    checkpoint: Path | None = typer.Option(None, help="Checkpoint to use for auto-labelling (default: latest)"),
-    prioritize_uncertain: bool = typer.Option(True, help="Show most uncertain images first"),
 ) -> None:
-    """Scan images_dir for new images, add them to the dataset, and import to Label Studio."""
+    """Scan images_dir for new images and add them to the dataset JSON.
+
+    Label Studio tasks are created on demand by `push`, so new images only
+    need to be registered here.
+    """
     from .dataset import Sample, load_dataset, save_dataset
-    from .ls_client import LSClient
 
     settings = Settings.load(config_path)
     images_dir = settings.paths.images_dir
@@ -115,39 +143,12 @@ def ingest(
         console.print("[yellow]No new images found in images_dir.[/yellow]")
         raise typer.Exit(0)
 
-    console.print(f"Found {len(new_samples)} new images.")
-
-    # Persist to dataset
     updated = dataset + new_samples
     save_dataset(updated, settings.paths.dataset)
-    console.print(f"[green]Updated dataset ({len(updated)} total samples)[/green]")
-
-    # Import new tasks to Label Studio
-    client = LSClient(settings)
-    client.import_tasks(project_id, new_samples)
-    console.print(f"[green]Imported {len(new_samples)} tasks to project {project_id}[/green]")
-
-    if not auto_label:
-        return
-
-    # Auto-label: predict + push
-    from .active_learning import rank_by_uncertainty
-    from .predict import run_predictions
-
-    model = _load_model(settings)
-    ckpt = _resolve_checkpoint(model, settings, checkpoint)
-    if not ckpt:
-        console.print("[red]No checkpoint found. Run 'train' first or pass --checkpoint.[/red]")
-        raise typer.Exit(1)
-    console.print(f"Using checkpoint: {ckpt}")
-
-    predictions = run_predictions(model, new_samples)
-    if prioritize_uncertain:
-        predictions = rank_by_uncertainty(predictions)
-
-    task_id_map = client.get_task_id_map(project_id)
-    client.push_predictions(project_id, predictions, task_id_map)
-    console.print(f"[green]Pushed {len(predictions)} pre-annotations[/green]")
+    console.print(
+        f"[green]Added {len(new_samples)} new images "
+        f"({len(updated)} total samples)[/green]"
+    )
 
 
 @app.command()
@@ -204,7 +205,11 @@ def predict(
     console.print(f"Loaded checkpoint: {ckpt}")
 
     dataset = load_dataset(settings.paths.dataset)
-    samples = split_labeled_unlabeled(dataset)[1] if unlabeled_only else dataset
+    samples = (
+        split_labeled_unlabeled(dataset)[1]
+        if unlabeled_only
+        else [s for s in dataset if not s.skipped]
+    )
 
     if not samples:
         console.print("[yellow]No samples to predict on.[/yellow]")
@@ -230,10 +235,14 @@ def push(
     unlabeled_only: bool = typer.Option(True, help="Only push for unlabeled samples"),
     checkpoint: Path | None = typer.Option(None, help="Checkpoint to use (default: latest)"),
     prioritize_uncertain: bool = typer.Option(True, help="Show uncertain images first"),
+    refresh: bool = typer.Option(False, "--refresh/--no-refresh", help="Replace existing predictions instead of skipping those tasks"),
+    limit: int | None = typer.Option(None, help="Push only the top-N predictions (most uncertain first when prioritized)"),
+    sample: int | None = typer.Option(None, help="Predict on a random subset of N eligible images instead of all of them"),
+    use_cache: bool = typer.Option(True, "--cache/--no-cache", help="Use the local task-id cache (--no-cache forces a full refetch, e.g. after manual prediction changes in LS)"),
 ) -> None:
     """Push model predictions to Label Studio as pre-annotations."""
     from .active_learning import rank_by_uncertainty
-    from .dataset import load_dataset, split_labeled_unlabeled
+    from .dataset import Sample, load_dataset, split_labeled_unlabeled
     from .ls_client import LSClient
     from .predict import run_predictions
 
@@ -244,20 +253,64 @@ def push(
     if not ckpt:
         console.print("[red]No checkpoint found. Run 'train' first or pass --checkpoint.[/red]")
         raise typer.Exit(1)
+    console.print(f"Using checkpoint: {ckpt}")
+
+    client = LSClient(settings)
+    with console.status("Fetching task list from Label Studio (slow on large projects)..."):
+        task_id_map = client.get_task_id_map(project_id, use_cache=use_cache)
+        if refresh:
+            already_predicted: set[str] = set()
+        else:
+            unpredicted = client.get_task_id_map(
+                project_id, exclude_predicted=True, use_cache=use_cache
+            )
+            already_predicted = set(task_id_map) - set(unpredicted)
 
     dataset = load_dataset(settings.paths.dataset)
-    samples = split_labeled_unlabeled(dataset)[1] if unlabeled_only else dataset
+    samples = (
+        split_labeled_unlabeled(dataset)[1]
+        if unlabeled_only
+        else [s for s in dataset if not s.skipped]
+    )
+    # Images without an LS task are eligible: tasks are created on demand for
+    # whatever makes the final cut. Without --refresh, skip what's already
+    # pushed so an interrupted push can resume without re-predicting.
+    samples = [s for s in samples if s.path not in already_predicted]
+    if not samples:
+        console.print("[yellow]Nothing to push — all eligible images have predictions.[/yellow]")
+        raise typer.Exit(0)
+
+    if sample is not None and len(samples) > sample:
+        # Fresh subset each run so successive rounds see different candidates
+        samples = random.sample(samples, sample)
+        console.print(f"Sampled {sample} of the eligible images")
 
     predictions = run_predictions(model, samples)
     if prioritize_uncertain:
         predictions = rank_by_uncertainty(predictions)
+    if limit is not None:
+        predictions = predictions[:limit]
 
-    client = LSClient(settings)
-    task_id_map = client.get_task_id_map(project_id)
-    client.push_predictions(project_id, predictions, task_id_map)
+    missing = [p for p in predictions if p.path not in task_id_map]
+    if missing:
+        console.print(f"Creating {len(missing)} new tasks in Label Studio...")
+        client.import_tasks(project_id, [Sample(path=p.path) for p in missing])
+        task_id_map = client.get_task_id_map(project_id, use_cache=use_cache)
 
+    num_pushed = _push_with_progress(
+        client,
+        project_id,
+        predictions,
+        task_id_map,
+        model_version=ckpt.stem,
+        replace_existing=refresh,
+    )
+
+    skipped = len(predictions) - num_pushed
     console.print(
-        f"[green]Pushed {len(predictions)} predictions to project {project_id}[/green]"
+        f"[green]Pushed {num_pushed} predictions to project {project_id} "
+        f"(model version: {ckpt.stem})[/green]"
+        + (f" [dim]({skipped} tasks already had predictions)[/dim]" if skipped else "")
     )
 
 
@@ -268,20 +321,31 @@ def export_annotations(
     output: Path | None = typer.Option(None, help="Output path (defaults to dataset path)"),
 ) -> None:
     """Export corrected annotations from Label Studio back to the dataset."""
-    from .dataset import save_dataset
+    from .dataset import load_dataset, save_dataset
     from .ls_client import LSClient
 
     settings = Settings.load(config_path)
     client = LSClient(settings)
 
-    samples = client.export_annotations(project_id)
+    with console.status("Exporting annotations from Label Studio (slow on large projects)..."):
+        exported = client.export_annotations(project_id)
+
+    # Merge: LS only holds a subset of the dataset (tasks are created on
+    # demand), so overwriting would drop every image without a task
     out_path = output or settings.paths.dataset
+    samples = list(exported)
+    if out_path.exists():
+        by_path = {e.path: e for e in exported}
+        existing = load_dataset(out_path)
+        samples = [by_path.get(s.path, s) for s in existing]
+        known = {s.path for s in existing}
+        samples += [e for e in exported if e.path not in known]
     save_dataset(samples, out_path)
 
     labeled = [s for s in samples if s.is_labeled]
     console.print(
-        f"[green]Exported {len(samples)} samples "
-        f"({len(labeled)} labeled) to {out_path}[/green]"
+        f"[green]Merged {len(exported)} exported tasks into {out_path} "
+        f"({len(samples)} samples, {len(labeled)} labeled)[/green]"
     )
 
 
@@ -346,6 +410,8 @@ def report(
     table.add_row("Training samples", str(meta["num_train"]))
     table.add_row("Validation samples", str(meta["num_val"]))
     table.add_row("Unlabeled samples", str(meta["num_unlabeled"]))
+    if meta.get("num_skipped") is not None:
+        table.add_row("Skipped samples", str(meta["num_skipped"]))
     table.add_row("Classes", ", ".join(meta["classes"]))
     table.add_row("Checkpoint", meta["checkpoint"])
 
