@@ -23,9 +23,9 @@ A semi-automatic image classification pipeline that integrates with [Label Studi
 **Each iteration:**
 1. Label a small batch of images in Label Studio
 2. Run `auto-labeller train` — fine-tunes your model on the labeled set
-3. Run `auto-labeller push <project_id>` — runs inference on unlabeled images and sends predictions to Label Studio as pre-annotations, ordered from least to most confident
+3. Run `auto-labeller push` — runs inference on unlabeled images and sends predictions to Label Studio as pre-annotations, ordered from least to most confident
 4. In Label Studio, review the pre-annotations: confirm the correct ones, fix the wrong ones
-5. Run `auto-labeller export <project_id>` — pulls corrected labels back into the dataset JSON
+5. Run `auto-labeller export` — pulls corrected labels back into the dataset JSON
 6. Repeat from step 2 — each round has more labeled data and the model keeps improving
 
 ---
@@ -36,11 +36,13 @@ All labeled and unlabeled images are tracked in a single JSON file. Each entry i
 
 ```json
 [
-  {"path": "data/raw/img001.jpg", "labels": ["cat", "indoor"]},
-  {"path": "data/raw/img002.jpg", "labels": ["dog"]},
-  {"path": "data/raw/img003.jpg", "labels": []}
+  {"path": "img001.jpg", "labels": ["cat", "indoor"]},
+  {"path": "batch2/img002.jpg", "labels": ["dog"]},
+  {"path": "batch2/img003.jpg", "labels": []}
 ]
 ```
+
+Paths are relative to the project's `[data] root`.
 
 Labels are lists, which means **multi-label classification is supported out of the box** — an image can belong to multiple classes simultaneously.
 
@@ -48,13 +50,73 @@ An entry may also carry `"skipped": true`, set when a task is skipped in Label S
 
 ---
 
-## Project structure
+## Projects
+
+A **project** is a directory holding everything that belongs to one labelling job — data, label schema, annotations, model, and checkpoints — so that once labelling is done you can pick up the folder and use it elsewhere. The tool is the machine; the project is the work.
+
+Projects live side by side under `projects/`:
+
+```
+projects/
+├── my-project/
+│   ├── project.toml        # label schema, data root, model, LS project id
+│   ├── dataset.json        # samples + annotations (paths relative to the data root)
+│   ├── data/raw/           # the images
+│   ├── model.py            # optional: a model this project carries
+│   ├── checkpoints/        # round_001.pt, round_002.pt, ...
+│   ├── rounds/round_001/   # metadata.json + labeled.json per round
+│   └── .state/             # Label Studio bookkeeping — not part of a handoff
+└── traffic-signs/
+    └── ...
+```
+
+```toml
+# project.toml
+name = "my-project"
+
+[label_config]
+template = "image_classification"
+classes  = ["cat", "dog"]
+choice   = "multiple"            # "single" for mutually exclusive classes
+
+[data]
+root = "data/raw"                # may be an absolute path for a shared corpus
+
+[model]
+ref = "auto_labeller.models.classifier:PresenceClassifier"
+
+[model.params]
+num_epochs = 4
+batch_size = 16
+lr = 5e-5
+
+[label_studio]
+project_id = 42                  # written by `auto-labeller init`
+```
+
+Every command takes `--project/-p`, which accepts a project name under `projects/` or any path — so switching jobs is one word:
+
+```bash
+auto-labeller projects                  # what's here, with class and label counts
+auto-labeller train -p my-project
+auto-labeller train -p traffic-signs
+```
+
+With a single project, `-p` can be omitted entirely; with several, set `AUTO_LABELLER_PROJECT` to pick a default for the shell. Only the payload is gitignored (`data/`, `dataset.json`, `checkpoints/`, `rounds/`, `.state/`) — each `project.toml` and `model.py` stays in version control.
+
+Sample paths in `dataset.json` are relative to `[data] root`, so moving the project — or repointing it at the same images somewhere else — never rewrites the dataset.
+
+---
+
+## Repository layout
 
 ```
 auto-labeller/
 ├── auto_labeller/
-│   ├── config.py           # Settings loaded from config.toml and env vars
+│   ├── project.py          # the Project construct: paths, schema, model loading
+│   ├── config.py           # host settings (Label Studio URL + API key)
 │   ├── model.py            # BaseModel ABC + Prediction dataclass
+│   ├── models/classifier.py# shipped baselines (ConvNeXt V2 classifiers)
 │   ├── dataset.py          # JSON dataset load / save / split utilities
 │   ├── train.py            # Training orchestration and round bookkeeping
 │   ├── predict.py          # Batch inference
@@ -62,16 +124,10 @@ auto-labeller/
 │   ├── ls_client.py        # Label Studio SDK wrapper
 │   ├── ls_backend.py       # FastAPI ML backend server (live predictions in LS)
 │   └── cli.py              # CLI entry points
-├── data/
-│   ├── raw/                # Your images go here
-│   ├── rounds/             # Exported labels + metadata per round
-│   │   └── round_001/
-│   │       ├── metadata.json
-│   │       └── labeled.json
-│   └── dataset.json        # The single source of truth for the dataset
-├── models/                 # Model checkpoints (round_001.pt, round_002.pt, ...)
+├── projects/               # your labelling projects (payload gitignored)
+├── scripts/                # one-off utilities (e.g. migration)
 ├── docker-compose.yml      # Label Studio container
-├── config.toml             # Configuration
+├── config.example.toml     # host settings template
 └── pyproject.toml
 ```
 
@@ -85,31 +141,24 @@ auto-labeller/
 docker compose up -d
 ```
 
-Label Studio is available at `http://localhost:8080`. Create an account on first launch. Your `data/raw/` folder is mounted inside the container, so images are served directly without uploading.
+Label Studio is available at `http://localhost:8080`. Create an account on first launch. The active project's `data/` folder is mounted inside the container, so images are served directly without uploading.
 
 **2. Get your API key**
 
 In Label Studio → Account & Settings → Access Token. Copy the token.
 
-**3. Configure**
+**3. Configure this machine**
 
-Edit `config.toml`:
+Copy `config.example.toml` to `config.toml` (gitignored) and paste your token — or set `LABEL_STUDIO_API_KEY` instead:
 
 ```toml
 [label_studio]
 url = "http://localhost:8080"
-api_key = ""  # paste your token here, or set LABEL_STUDIO_API_KEY env var
-
-[paths]
-dataset = "data/dataset.json"
-images_dir = "data/raw"
-checkpoints_dir = "models"
-rounds_dir = "data/rounds"
-
-[model]
-module = "my_model"      # Python module name containing your model class
-class_name = "MyModel"   # Class name inside that module
+api_key = ""
+local_storage_path = "/label-studio/data/images"
 ```
+
+That file holds *only* host settings. Everything about a labelling job lives in its project.
 
 **4. Install dependencies**
 
@@ -117,11 +166,38 @@ class_name = "MyModel"   # Class name inside that module
 uv sync
 ```
 
+**5. Create a project**
+
+```bash
+uv run auto-labeller new cats --class cat --class dog   # creates projects/cats/
+cp -r /path/to/images/* projects/cats/data/raw/
+uv run auto-labeller ingest -p cats
+```
+
+Set `AUTO_LABELLER_PROJECT=projects/cats` before `docker compose up` so Label Studio mounts that project's images.
+
 ---
 
-## Integrating your model
+## The model
 
-Create a Python file (e.g. `my_model.py`) in the project root and subclass `BaseModel`:
+A project's model is declared by `[model] ref`, in one of two forms:
+
+```toml
+ref = "auto_labeller.models.classifier:PresenceClassifier"  # a shipped baseline
+ref = "model.py:MyModel"                                    # this project's own model
+```
+
+The `*.py:Class` form loads the file from inside the project directory, so a project with a bespoke architecture stays self-contained. `[model.params]` is passed to the constructor, which is where epochs, batch size and learning rate live.
+
+Three baselines ship in `auto_labeller/models/classifier.py`, all ConvNeXt V2 Base fine-tunes sharing one training loop and differing only in their task hooks:
+
+| Class | Regime |
+|---|---|
+| `MultiLabelClassifier` | Independent sigmoids, BCE loss — an image can carry several classes |
+| `MulticlassClassifier` | Softmax + cross-entropy — classes are mutually exclusive |
+| `PresenceClassifier` | "Is X present?" detectors with an implicit `none` class for reviewed-but-empty images |
+
+To write your own, subclass `BaseModel` in a `model.py` inside the project:
 
 ```python
 from pathlib import Path
@@ -129,26 +205,21 @@ import torch
 from auto_labeller.model import BaseModel, Prediction
 
 class MyModel(BaseModel):
-    def __init__(self):
-        self.model = ...          # your nn.Module
+    def __init__(self, num_epochs: int = 4):   # filled from [model.params]
+        self.model = ...                       # your nn.Module
         self.classes: list[str] = []
 
     def finetune(self, samples: list[dict], classes: list[str], val_samples: list[dict] | None = None) -> dict:
-        # samples is a list of {"path": "...", "labels": ["cat"]} dicts
-        # classes is the sorted full list of class names
-        # val_samples is held-out data: evaluate on it after training
+        # samples is a list of {"path": "/abs/path.jpg", "labels": ["cat"]} dicts
+        # classes is the full class list; val_samples is held-out data
         self.classes = classes
         # ... your training loop here ...
         return {"loss": avg_loss, "accuracy": acc, "val_loss": vl, "val_accuracy": va}
 
     def predict(self, image_paths: list[Path]) -> list[Prediction]:
-        # run inference and return one Prediction per image
+        # one Prediction per image path, in order
         return [
-            Prediction(
-                path=str(p),
-                labels=["cat"],        # top predicted label(s)
-                confidences=[0.92],    # matching confidence scores
-            )
+            Prediction(path=str(p), labels=["cat"], confidences=[0.92])
             for p in image_paths
         ]
 
@@ -161,13 +232,7 @@ class MyModel(BaseModel):
         self.classes = checkpoint["classes"]
 ```
 
-Point `config.toml` at this file:
-
-```toml
-[model]
-module = "my_model"
-class_name = "MyModel"
-```
+Models always receive absolute image paths; the dataset keeps them relative.
 
 ---
 
@@ -175,45 +240,47 @@ class_name = "MyModel"
 
 | Command | Description |
 |---|---|
-| `auto-labeller init <name>` | Create a Label Studio project and import all dataset tasks |
-| `auto-labeller ingest` | Scan `images_dir` for new images and register them in the dataset JSON |
+| `auto-labeller new <name>` | Scaffold `projects/<name>/` (`--class`, repeatable; `--single`) |
+| `auto-labeller projects` | List projects with their classes, sample counts and LS project id |
+| `auto-labeller init` | Create the Label Studio project, import tasks, record the project id |
+| `auto-labeller ingest` | Scan the data root for new images and register them in `dataset.json` |
 | `auto-labeller train` | Fine-tune the model on labeled data, save checkpoint + round metadata |
 | `auto-labeller predict` | Run inference on unlabeled images and print results |
-| `auto-labeller push <project_id>` | Push predictions to Label Studio as pre-annotations, creating tasks on demand |
-| `auto-labeller export <project_id>` | Merge corrected annotations from Label Studio into the dataset JSON |
+| `auto-labeller push` | Push predictions to Label Studio as pre-annotations, creating tasks on demand |
+| `auto-labeller export` | Merge corrected annotations from Label Studio into `dataset.json` |
 | `auto-labeller serve` | Start the ML backend server for live predictions inside Label Studio |
 | `auto-labeller report` | Print a round summary with delta metrics vs the previous round |
 
 `push` supports `--sample N` (predict on a random subset of the unlabeled pool), `--limit N` (push only the top-N most uncertain), and `--refresh` (replace existing pre-annotations). On large datasets the typical round is:
 
 ```bash
-uv run auto-labeller push 1 --refresh --limit 1000 --sample 20000
+uv run auto-labeller push --refresh --limit 1000 --sample 20000
 ```
 
 Label Studio only ever holds the tasks you have reviewed or are about to review; the full image inventory lives in the dataset JSON, maintained by `ingest`.
 
-Every command accepts `--config-path` to point at a non-default `config.toml`.
+Every command accepts `--project/-p`; the ones that talk to Label Studio also accept `--config` for a non-default host `config.toml`.
 
 ### Full iteration example
 
 ```bash
 # Round 1: you have hand-labeled ~50 images in dataset.json already
-uv run auto-labeller init "my-project"   # creates LS project, note the project ID
+export AUTO_LABELLER_PROJECT=projects/cats     # or pass -p cats to every command
 
-uv run auto-labeller train               # trains round 1, saves models/round_001.pt
-
-uv run auto-labeller push 1              # pushes predictions for unlabeled images
+uv run auto-labeller init                # creates the LS project, records its id
+uv run auto-labeller train               # trains round 1, saves checkpoints/round_001.pt
+uv run auto-labeller push                # pushes predictions for unlabeled images
                                          # uncertain images appear first in LS
 
 # ... review and correct labels in Label Studio ...
 
-uv run auto-labeller export 1            # writes corrected labels back to dataset.json
+uv run auto-labeller export              # writes corrected labels back to dataset.json
 
 # Round 2
 uv run auto-labeller train
-uv run auto-labeller push 1
+uv run auto-labeller push
 # ... review ...
-uv run auto-labeller export 1
+uv run auto-labeller export
 
 uv run auto-labeller report              # compare round metrics
 ```
@@ -232,7 +299,7 @@ Pass `--no-prioritize-uncertain` to push in original dataset order instead.
 
 ## Round bookkeeping
 
-Each `train` run writes a `data/rounds/round_NNN/` directory:
+Each `train` run writes a `rounds/round_NNN/` directory inside the project:
 
 ```
 round_001/
@@ -251,7 +318,7 @@ round_001/
   "num_unlabeled": 200,
   "classes": ["cat", "dog", "bird"],
   "metrics": {"loss": 0.312, "accuracy": 0.875},
-  "checkpoint": "models/round_001.pt"
+  "checkpoint": "checkpoints/round_001.pt"
 }
 ```
 
