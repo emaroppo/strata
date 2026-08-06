@@ -48,31 +48,22 @@ def setup() -> dict:
 def predict(request: PredictRequest) -> dict:
     assert _model is not None and _project is not None
     prefix = _project.label_studio.local_files_prefix
+    data_key = _project.schema.data_key
 
     image_paths: list[Path] = []
     for task in request.tasks:
-        image_url = task.get("data", {}).get("image", "")
+        image_url = task.get("data", {}).get(data_key, "")
         if "local-files" in image_url:
             rel = unquote(image_url.split(f"d={prefix}/", 1)[-1])
             image_paths.append(_project.image_path(_project.sample_path_from_mount(rel)))
         else:
             image_paths.append(Path(image_url))
 
-    predictions = _model.predict(image_paths)
-
-    results = []
-    for pred in predictions:
-        results.append(
-            {
-                "result": [
-                    {
-                        "from_name": "label",
-                        "to_name": "image",
-                        "type": "choices",
-                        "value": {"choices": pred.labels},
-                    }
-                ],
-                "score": max(pred.confidences) if pred.confidences else 0.0,
-            }
-        )
-    return {"results": results}
+    schema = _project.schema
+    outputs = _model.predict(image_paths)
+    return {
+        "results": [
+            {"result": schema.encode_output(output), "score": schema.score(output)}
+            for output in outputs
+        ]
+    }

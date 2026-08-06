@@ -82,29 +82,3 @@ def add_class(xml: str, value: str) -> str:
         raise LabelConfigError(f"Could not locate </{control}> to insert before")
 
     return xml[: closing.start()] + f"{indent}{element}\n" + xml[closing.start() :]
-
-
-def build(classes: list[str], choice: str = "multiple") -> str:
-    """A default image-classification config: image left, classes right.
-
-    Keeping the class list beside the image rather than under it means every
-    option stays on screen, so a wrong pre-annotation can't hide below the
-    fold. Hotkeys are assigned so review never needs the mouse.
-    """
-    lines = []
-    for i, value in enumerate(classes, start=1):
-        hotkey = f' hotkey="{i}"' if i <= 9 else ""
-        lines.append(f'      <Choice value="{value}"{hotkey}/>')
-    rendered = "\n".join(lines)
-    return (
-        '<View style="display: flex; gap: 1em; align-items: flex-start;">\n'
-        '  <View style="flex: 1;">\n'
-        '    <Image name="image" value="$image" zoom="true" maxWidth="100%"/>\n'
-        "  </View>\n"
-        '  <View style="width: 200px;">\n'
-        f'    <Choices name="label" toName="image" choice="{choice}">\n'
-        f"{rendered}\n"
-        "    </Choices>\n"
-        "  </View>\n"
-        "</View>"
-    )

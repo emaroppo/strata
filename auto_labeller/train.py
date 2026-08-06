@@ -18,9 +18,16 @@ def run_training(
     project: Project,
     round_num: int | None = None,
 ) -> dict:
-    dataset = load_dataset(project.dataset_path)
+    schema = project.schema
+    if getattr(model, "schema_type", schema.type) != schema.type:
+        raise ValueError(
+            f"Model {type(model).__name__} is written for '{model.schema_type}' "
+            f"but this project labels with '{schema.type}'"
+        )
+
+    dataset = load_dataset(project.dataset_path, schema)
     labeled, unlabeled = split_labeled_unlabeled(dataset)
-    classes = project.label_config.classes or get_classes(labeled)
+    classes = schema.classes or get_classes(labeled, schema)
 
     if not labeled:
         raise ValueError("No labeled samples found in dataset")
@@ -35,9 +42,12 @@ def run_training(
         round_num = _next_round_num(project.rounds_dir)
 
     def to_model_input(samples):
-        # Models receive absolute paths; the dataset stores data-root-relative ones
+        # Models receive absolute paths and the schema's own target type
         return [
-            {"path": str(project.image_path(s.path)), "labels": s.labels}
+            {
+                "path": str(project.image_path(s.path)),
+                "target": schema.decode_target(s.results),
+            }
             for s in samples
         ]
 
@@ -61,6 +71,7 @@ def run_training(
         "num_val": len(val_samples),
         "num_unlabeled": len(unlabeled),
         "num_skipped": sum(1 for s in dataset if s.skipped),
+        "schema": schema.type,
         "classes": classes,
         "metrics": metrics,
         "checkpoint": str(checkpoint_path.relative_to(project.root)),

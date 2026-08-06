@@ -39,7 +39,8 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from ..model import BaseModel, Prediction
+from ..model import BaseModel
+from ..schemas import ChoiceOutput
 
 console = Console()
 
@@ -65,7 +66,7 @@ class _ImageDataset(Dataset):
     def __getitem__(self, idx: int):
         sample = self.samples[idx]
         image = self.transform(_load_rgb(sample["path"], self.draft_size))
-        return image, self.target_fn(sample["labels"], self.class_to_idx)
+        return image, self.target_fn(sample["target"], self.class_to_idx)
 
 
 class _LetterboxSquash:
@@ -115,6 +116,8 @@ class MultiLabelClassifier(BaseModel):
     Uses timm's ``convnextv2_base`` with ImageNet-22k pre-trained weights.
     Supports multi-label outputs via ``BCEWithLogitsLoss``.
     """
+
+    schema_type = "image_classification"
 
     IMG_SIZE = 288
     MEAN = (0.485, 0.456, 0.406)
@@ -235,14 +238,13 @@ class MultiLabelClassifier(BaseModel):
     def _activation(logits: torch.Tensor) -> torch.Tensor:
         return torch.sigmoid(logits.float())
 
-    def _to_prediction(self, path: Path, probs: torch.Tensor) -> Prediction:
+    def _to_output(self, probs: torch.Tensor) -> ChoiceOutput:
         indices = (probs > 0.5).nonzero(as_tuple=True)[0].tolist()
         if not indices:
             # Fall back to argmax when nothing clears the threshold
             indices = [int(probs.argmax().item())]
         indices.sort(key=lambda i: probs[i].item(), reverse=True)
-        return Prediction(
-            path=str(path),
+        return ChoiceOutput(
             labels=[self.classes[i] for i in indices],
             confidences=[round(probs[i].item(), 4) for i in indices],
         )
@@ -427,7 +429,7 @@ class MultiLabelClassifier(BaseModel):
             "val_accuracy": total_correct / max(total_samples, 1),
         }
 
-    def predict(self, image_paths: list[Path]) -> list[Prediction]:
+    def predict(self, image_paths: list[Path]) -> list[ChoiceOutput]:
         if self._backbone is None or not self.classes:
             raise RuntimeError("Model has no weights. Call finetune() or load() first.")
         if not image_paths:
@@ -472,10 +474,7 @@ class MultiLabelClassifier(BaseModel):
                 batch_probs.append(self._activation(logits).cpu())
                 progress.advance(predict_task, batch.size(0))
 
-        return [
-            self._to_prediction(path, probs)
-            for path, probs in zip(image_paths, torch.cat(batch_probs))
-        ]
+        return [self._to_output(probs) for probs in torch.cat(batch_probs)]
 
     def save(self, path: Path) -> None:
         if self._backbone is None:
@@ -528,10 +527,9 @@ class MulticlassClassifier(MultiLabelClassifier):
     def _activation(logits: torch.Tensor) -> torch.Tensor:
         return torch.softmax(logits.float(), dim=1)
 
-    def _to_prediction(self, path: Path, probs: torch.Tensor) -> Prediction:
+    def _to_output(self, probs: torch.Tensor) -> ChoiceOutput:
         idx = int(probs.argmax().item())
-        return Prediction(
-            path=str(path),
+        return ChoiceOutput(
             labels=[self.classes[idx]],
             confidences=[round(probs[idx].item(), 4)],
         )
@@ -553,17 +551,15 @@ class PresenceClassifier(MultiLabelClassifier):
     def _effective_classes(self, classes: list[str]) -> list[str]:
         return [c for c in classes if c != self.NEGATIVE_LABEL]
 
-    def _to_prediction(self, path: Path, probs: torch.Tensor) -> Prediction:
+    def _to_output(self, probs: torch.Tensor) -> ChoiceOutput:
         indices = (probs > 0.5).nonzero(as_tuple=True)[0].tolist()
         if not indices:
-            return Prediction(
-                path=str(path),
+            return ChoiceOutput(
                 labels=[self.NEGATIVE_LABEL],
                 confidences=[round(1.0 - probs.max().item(), 4)],
             )
         indices.sort(key=lambda i: probs[i].item(), reverse=True)
-        return Prediction(
-            path=str(path),
+        return ChoiceOutput(
             labels=[self.classes[i] for i in indices],
             confidences=[round(probs[i].item(), 4) for i in indices],
         )

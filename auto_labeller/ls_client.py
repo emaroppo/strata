@@ -9,8 +9,8 @@ from label_studio_sdk.client import LabelStudio
 from . import label_config
 from .config import Settings
 from .dataset import Sample
-from .model import Prediction
 from .project import Project
+from .schemas import Prediction
 
 
 class LSClient:
@@ -24,10 +24,10 @@ class LSClient:
         self.settings = settings
         self.project = project
 
-    def create_project(self, name: str, classes: list[str]) -> int:
+    def create_project(self, name: str) -> int:
         project = self.client.projects.create(
             title=name,
-            label_config=label_config.build(classes, self.project.label_config.choice),
+            label_config=self.project.schema.label_config(),
         )
         return project.id
 
@@ -89,22 +89,13 @@ class LSClient:
     # ------------------------------------------------------------------
 
     def import_tasks(self, project_id: int, samples: list[Sample]) -> None:
+        data_key = self.project.schema.data_key
         tasks: list[dict] = []
         for s in samples:
-            task: dict = {"data": {"image": self._image_url(s.path)}}
+            task: dict = {"data": {data_key: self._image_url(s.path)}}
             if s.is_labeled:
-                task["annotations"] = [
-                    {
-                        "result": [
-                            {
-                                "from_name": "label",
-                                "to_name": "image",
-                                "type": "choices",
-                                "value": {"choices": s.labels},
-                            }
-                        ]
-                    }
-                ]
+                # Already stored in Label Studio's own shape
+                task["annotations"] = [{"result": s.results}]
             tasks.append(task)
         resp = self.client.projects.import_tasks(
             id=project_id, request=tasks, return_task_ids=True
@@ -151,15 +142,8 @@ class LSClient:
         requests = [
             PredictionRequest(
                 task=task_id,
-                result=[
-                    {
-                        "from_name": "label",
-                        "to_name": "image",
-                        "type": "choices",
-                        "value": {"choices": pred.labels},
-                    }
-                ],
-                score=max(pred.confidences) if pred.confidences else 0.0,
+                result=pred.results,
+                score=pred.score,
                 model_version=model_version,
             )
             for pred, task_id in to_push
@@ -186,27 +170,35 @@ class LSClient:
     def export_annotations(self, project_id: int) -> list[Sample]:
         # Snapshot export is one bulk download instead of paging through tasks;
         # the timeout is how long we wait for LS to prepare the snapshot
+        schema = self.project.schema
         tasks = self.client.projects.exports.as_json(project_id, timeout=600)
         samples: list[Sample] = []
         for task in tasks:
-            image_path = self._url_to_path(task.get("data", {}).get("image", ""))
+            image_path = self._url_to_path(task.get("data", {}).get(schema.data_key, ""))
 
-            labels: list[str] = []
+            results = []
+            annotated = False
             skipped = False
             annotations = task.get("annotations") or []
             if annotations:
                 latest = annotations[-1]
                 if latest.get("was_cancelled"):
-                    # Skipped: reviewed but no class fits. The cancelled
+                    # Skipped: reviewed but nothing applies. The cancelled
                     # annotation snapshots the pre-annotation (a model guess),
-                    # so its choices are not labels.
+                    # so its contents are not an answer.
                     skipped = True
                 else:
-                    for result in latest.get("result") or []:
-                        if result.get("type") == "choices":
-                            labels.extend(result.get("value", {}).get("choices", []))
+                    results = schema.canonicalize(latest.get("result") or [])
+                    annotated = True
 
-            samples.append(Sample(path=image_path, labels=labels, skipped=skipped))
+            samples.append(
+                Sample(
+                    path=image_path,
+                    results=results,
+                    annotated=annotated,
+                    skipped=skipped,
+                )
+            )
         return samples
 
     # ------------------------------------------------------------------

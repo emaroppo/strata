@@ -4,53 +4,106 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .schemas import LabelSchema, Result
+
+# v1 stored {"path", "labels", "skipped"} in a bare list; v2 stores
+# canonicalized Label Studio results so any task type fits, and records
+# whether a human has annotated the sample rather than inferring it from
+# the annotation being non-empty (an image with no boxes is a real answer)
+DATASET_VERSION = 2
+
 
 @dataclass
 class Sample:
     # Relative to the project's data root, so the dataset survives moving
     # the project or repointing [data] root
     path: str
-    labels: list[str] = field(default_factory=list)
-    # Reviewed but no class fits: excluded from training and from the
+    results: list[Result] = field(default_factory=list)
+    annotated: bool = False
+    # Reviewed but nothing applies: excluded from training and from the
     # unlabeled pool, so it never reappears in the review queue
     skipped: bool = False
 
     @property
     def is_labeled(self) -> bool:
-        return len(self.labels) > 0
+        return self.annotated and not self.skipped
 
 
-def load_dataset(path: Path) -> list[Sample]:
+def load_dataset(path: Path, schema: LabelSchema | None = None) -> list[Sample]:
+    """Load a dataset, upgrading a v1 file on the way in.
+
+    ``schema`` is needed only to upgrade v1 files, whose labels carry no
+    control names of their own.
+    """
     with open(path) as f:
         data = json.load(f)
-    return [Sample(**item) for item in data]
+
+    if isinstance(data, list):
+        return [_upgrade_v1(item, schema) for item in data]
+
+    version = data.get("version")
+    if version != DATASET_VERSION:
+        raise ValueError(
+            f"{path} has dataset version {version!r}; this build reads "
+            f"version {DATASET_VERSION} and the original v1 list format"
+        )
+    return [
+        Sample(
+            path=item["path"],
+            results=item.get("results", []),
+            annotated=item.get("annotated", False),
+            skipped=item.get("skipped", False),
+        )
+        for item in data.get("samples", [])
+    ]
+
+
+def _upgrade_v1(item: dict, schema: LabelSchema | None) -> Sample:
+    labels = item.get("labels") or []
+    if labels and schema is None:
+        raise ValueError(
+            "Upgrading a v1 dataset needs the project's schema to know which "
+            "labeling control its labels belong to"
+        )
+    return Sample(
+        path=item["path"],
+        results=schema.encode_target(labels) if labels else [],
+        annotated=bool(labels),
+        skipped=item.get("skipped", False),
+    )
 
 
 def save_dataset(samples: list[Sample], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    data = []
+    items = []
     for s in samples:
-        item: dict = {"path": s.path, "labels": s.labels}
+        item: dict = {"path": s.path}
+        if s.results:
+            item["results"] = s.results
+        if s.annotated:
+            item["annotated"] = True
         if s.skipped:
             item["skipped"] = True
-        data.append(item)
+        items.append(item)
     with open(path, "w") as f:
-        json.dump(data, f, indent=2)
+        json.dump({"version": DATASET_VERSION, "samples": items}, f, indent=2)
 
 
-def get_classes(samples: list[Sample]) -> list[str]:
-    classes: set[str] = set()
-    for s in samples:
-        classes.update(s.labels)
-    return sorted(classes)
+def is_v1(path: Path) -> bool:
+    with open(path) as f:
+        return isinstance(json.load(f), list)
+
+
+def get_classes(samples: list[Sample], schema: LabelSchema) -> list[str]:
+    return schema.classes_in_use([s.results for s in samples])
 
 
 def split_labeled_unlabeled(
     samples: list[Sample],
 ) -> tuple[list[Sample], list[Sample]]:
     """Split into (labeled, unlabeled); skipped samples belong to neither."""
-    labeled = [s for s in samples if s.is_labeled and not s.skipped]
-    unlabeled = [s for s in samples if not s.is_labeled and not s.skipped]
+    labeled = [s for s in samples if s.is_labeled]
+    unlabeled = [s for s in samples if not s.annotated and not s.skipped]
     return labeled, unlabeled
 
 

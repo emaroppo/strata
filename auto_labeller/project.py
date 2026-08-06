@@ -28,16 +28,16 @@ import tomllib
 from dataclasses import dataclass, field, fields
 from pathlib import Path, PurePosixPath
 
+from . import schemas
 from .model import BaseModel
+from .schemas import LabelSchema
 
 PROJECT_FILE = "project.toml"
 PROJECT_ENV_VAR = "AUTO_LABELLER_PROJECT"
 # Projects live side by side here, addressable by name: -p cats
 PROJECTS_DIR = "projects"
 
-# Phase 1 ships the classification config only; the template registry
-# (image_bbox, image_polygon, custom, …) lands with the schema layer.
-SUPPORTED_TEMPLATES = {"image_classification"}
+CUSTOM_LABEL_CONFIG = "label_config.xml"
 
 
 class ProjectError(Exception):
@@ -48,7 +48,11 @@ class ProjectError(Exception):
 class LabelConfigSpec:
     template: str = "image_classification"
     classes: list[str] = field(default_factory=list)
-    choice: str = "multiple"
+    # Template-specific parameters (e.g. choice="single"); validated against
+    # the schema the template selects
+    choice: str | None = None
+    # For template = "custom": the project's own labeling config
+    file: str = CUSTOM_LABEL_CONFIG
 
 
 @dataclass
@@ -121,17 +125,52 @@ class Project:
         return project
 
     def _validate(self) -> None:
-        template = self.label_config.template
-        if template not in SUPPORTED_TEMPLATES:
-            supported = ", ".join(sorted(SUPPORTED_TEMPLATES))
-            raise ProjectError(
-                f"Unsupported label_config template '{template}' (supported: {supported})"
-            )
-        if self.label_config.choice not in {"single", "multiple"}:
+        if self.label_config.choice not in {None, "single", "multiple"}:
             raise ProjectError(
                 f"[label_config] choice must be 'single' or 'multiple', "
                 f"got '{self.label_config.choice}'"
             )
+        if self.label_config.template == schemas.CUSTOM_TEMPLATE:
+            if self.label_config.classes:
+                raise ProjectError(
+                    f"[label_config] template = \"{schemas.CUSTOM_TEMPLATE}\" reads its "
+                    f"classes from {self.label_config.file}; remove 'classes' from "
+                    f"{PROJECT_FILE} so the two cannot drift apart"
+                )
+        # Building it here turns a bad template or parameter into an error
+        # at load time rather than mid-push
+        self.schema
+
+    # ------------------------------------------------------------------
+    # Label schema
+    # ------------------------------------------------------------------
+
+    @property
+    def label_config_path(self) -> Path:
+        return _resolve(self.root, self.label_config.file)
+
+    @property
+    def schema(self) -> LabelSchema:
+        """The schema this project labels with.
+
+        For a custom project the XML is authoritative: it is what Label
+        Studio annotates against, so control names and classes are read
+        from it rather than declared twice.
+        """
+        spec = self.label_config
+        try:
+            if spec.template == schemas.CUSTOM_TEMPLATE:
+                path = self.label_config_path
+                if not path.exists():
+                    raise ProjectError(
+                        f"template = \"{schemas.CUSTOM_TEMPLATE}\" needs a labeling "
+                        f"config at {path}"
+                    )
+                return schemas.from_label_config(path.read_text())
+            params = {k: v for k, v in {"choice": spec.choice}.items() if v is not None}
+            return schemas.from_template(spec.template, spec.classes, **params)
+        except schemas.SchemaError as e:
+            raise ProjectError(str(e)) from None
 
     # ------------------------------------------------------------------
     # Paths
@@ -326,6 +365,7 @@ class Project:
         name: str | None = None,
         classes: list[str] | None = None,
         choice: str = "multiple",
+        template: str = "image_classification",
     ) -> "Project":
         if (root / PROJECT_FILE).exists():
             raise ProjectError(f"{root / PROJECT_FILE} already exists")
@@ -333,13 +373,33 @@ class Project:
         classes = classes or []
         rendered = "[" + ", ".join(f'"{c}"' for c in classes) + "]"
         (root / "data" / "raw").mkdir(parents=True, exist_ok=True)
+
+        custom = template == schemas.CUSTOM_TEMPLATE
+        if custom:
+            # The config is authoritative for a custom project, so give it
+            # something valid to start from rather than a dangling reference
+            config_path = root / CUSTOM_LABEL_CONFIG
+            if not config_path.exists():
+                starter = schemas.from_template(
+                    "image_classification", classes or ["example"]
+                )
+                config_path.write_text(starter.label_config() + "\n")
         (root / PROJECT_FILE).write_text(
             f'name = "{name}"\n'
             "\n"
             "[label_config]\n"
-            'template = "image_classification"\n'
-            f"classes = {rendered}\n"
-            f'choice = "{choice}"  # "single" for mutually exclusive classes\n'
+            f'template = "{template}"\n'
+            + (
+                f"# classes come from {CUSTOM_LABEL_CONFIG}\n"
+                if custom
+                else f"classes = {rendered}\n"
+            )
+            + (
+                f'choice = "{choice}"  # "single" for mutually exclusive classes\n'
+                if template == "image_classification"
+                else ""
+            )
+            +
             "\n"
             "[data]\n"
             'root = "data/raw"  # images live here; may be an absolute path\n'

@@ -66,18 +66,19 @@ def _ls_client(settings: Settings, project: Project, config_path: Path):
 
 
 def _warn_undeclared(project: Project, samples: list) -> list[str]:
-    """Warn about labels present in the data but missing from project.toml.
+    """Warn about classes present in the data but missing from the schema.
 
     A class added in the Label Studio UI only trains as nothing: the model's
-    head is built from the declared list, so ``_encode_target`` drops every
-    label outside it without a word.
+    head is built from the declared list, so targets outside it are dropped
+    without a word.
     """
     from .dataset import get_classes
 
-    declared = set(project.label_config.classes)
+    schema = project.schema
+    declared = set(schema.classes)
     if not declared:
         return []
-    undeclared = [c for c in get_classes(samples) if c not in declared]
+    undeclared = [c for c in get_classes(samples, schema) if c not in declared]
     if undeclared:
         console.print(
             f"[yellow]Not in project.toml: {', '.join(undeclared)} — "
@@ -142,6 +143,9 @@ def new(
     name: str | None = typer.Option(None, help="Project name (default: directory name)"),
     classes: list[str] = typer.Option([], "--class", help="Label class (repeatable)"),
     single: bool = typer.Option(False, "--single", help="Classes are mutually exclusive"),
+    template: str = typer.Option(
+        "image_classification", help="Label config template (see 'templates')"
+    ),
 ) -> None:
     """Scaffold a new project under projects/ (or at an explicit path)."""
     directory = Path(name_or_path)
@@ -155,6 +159,7 @@ def new(
             name=name,
             classes=list(classes),
             choice="single" if single else "multiple",
+            template=template,
         )
     except ProjectError as e:
         _error(str(e))
@@ -163,6 +168,23 @@ def new(
     console.print(f"[green]Created project '{project.name}' in {directory}[/green]")
     console.print(f"  Put images in {project.images_dir}, then run:")
     console.print(f"    auto-labeller ingest --project {project.name}")
+
+
+@app.command()
+def templates() -> None:
+    """List the available label config templates."""
+    from . import schemas
+
+    table = Table(title="Label config templates")
+    table.add_column("Template", style="cyan")
+    table.add_column("Annotations", style="green")
+    for name in schemas.available_templates():
+        if name == schemas.CUSTOM_TEMPLATE:
+            described = "whatever label_config.xml in the project declares"
+        else:
+            described = schemas.TEMPLATES[name].control_tag
+        table.add_row(name, described)
+    console.print(table)
 
 
 @app.command(name="projects")
@@ -180,6 +202,7 @@ def list_projects_cmd() -> None:
 
     table = Table(title="Projects")
     table.add_column("Name", style="cyan")
+    table.add_column("Schema", style="magenta")
     table.add_column("Classes", style="green")
     table.add_column("Samples", justify="right")
     table.add_column("Labeled", justify="right")
@@ -189,16 +212,17 @@ def list_projects_cmd() -> None:
         try:
             project = Project.load(directory)
         except ProjectError as e:
-            table.add_row(directory.name, f"[red]{escape(str(e))}[/red]", "-", "-", "-")
+            table.add_row(directory.name, "-", f"[red]{escape(str(e))}[/red]", "-", "-", "-")
             continue
         total = labeled = 0
         if project.dataset_path.exists():
-            dataset = load_dataset(project.dataset_path)
+            dataset = load_dataset(project.dataset_path, project.schema)
             total = len(dataset)
             labeled = sum(1 for s in dataset if s.is_labeled)
         table.add_row(
             project.name,
-            ", ".join(project.label_config.classes) or "-",
+            project.schema.type,
+            ", ".join(project.schema.classes) or "-",
             str(total),
             str(labeled),
             str(project.label_studio.project_id or "-"),
@@ -232,10 +256,10 @@ def class_add(
 
     dataset = []
     if project.dataset_path.exists():
-        dataset = load_dataset(project.dataset_path)
+        dataset = load_dataset(project.dataset_path, project.schema)
 
     try:
-        classes = project.add_classes(names, known=get_classes(dataset))
+        classes = project.add_classes(names, known=get_classes(dataset, project.schema))
     except ProjectError as e:
         _error(str(e))
         raise typer.Exit(1) from None
@@ -280,11 +304,12 @@ def class_list(
     from .dataset import load_dataset
 
     project = _load_project(project_path)
-    dataset = load_dataset(project.dataset_path) if project.dataset_path.exists() else []
+    dataset = load_dataset(project.dataset_path, project.schema) if project.dataset_path.exists() else []
 
-    counts: dict[str, int] = {c: 0 for c in project.label_config.classes}
+    schema = project.schema
+    counts: dict[str, int] = {c: 0 for c in schema.classes}
     for sample in dataset:
-        for name in sample.labels:
+        for name in schema.classes_in_use([sample.results]):
             counts[name] = counts.get(name, 0) + 1
 
     table = Table(title=f"Classes — {project.name}")
@@ -292,7 +317,7 @@ def class_list(
     table.add_column("Samples", justify="right", style="green")
     table.add_column("", style="yellow")
     for name, count in counts.items():
-        undeclared = "not in project.toml" if name not in project.label_config.classes else ""
+        undeclared = "not in the label config" if name not in schema.classes else ""
         table.add_row(name, str(count), undeclared)
     console.print(table)
 
@@ -313,7 +338,7 @@ def unskip(
     from .dataset import load_dataset, save_dataset
 
     project = _load_project(project_path)
-    dataset = load_dataset(project.dataset_path)
+    dataset = load_dataset(project.dataset_path, project.schema)
     skipped = [s for s in dataset if s.skipped]
     if not skipped:
         console.print("[yellow]No skipped samples.[/yellow]")
@@ -356,15 +381,16 @@ def init(
 
     project = _load_project(project_path)
     settings = Settings.load(config_path)
-    dataset = load_dataset(project.dataset_path)
-    classes = project.label_config.classes or get_classes(dataset)
+    schema = project.schema
+    dataset = load_dataset(project.dataset_path, schema)
+    classes = schema.classes or get_classes(dataset, schema)
 
     if not classes:
         _error("No classes: set [label_config] classes in project.toml.")
         raise typer.Exit(1)
 
     client = _ls_client(settings, project, config_path)
-    project_id = client.create_project(project.name, classes)
+    project_id = client.create_project(project.name)
     client.setup_local_storage(project_id)
     client.import_tasks(project_id, dataset)
     project.save_ls_project_id(project_id)
@@ -397,7 +423,7 @@ def ingest(
     # Load existing dataset to find already-tracked paths
     dataset: list[Sample] = []
     if project.dataset_path.exists():
-        dataset = load_dataset(project.dataset_path)
+        dataset = load_dataset(project.dataset_path, project.schema)
     existing_paths = {s.path for s in dataset}
 
     # Scan for new images; sample paths are relative to the data root
@@ -468,7 +494,7 @@ def predict(
     model = project.load_model()
     _require_checkpoint(model, project, checkpoint)
 
-    dataset = load_dataset(project.dataset_path)
+    dataset = load_dataset(project.dataset_path, project.schema)
     samples = (
         split_labeled_unlabeled(dataset)[1]
         if unlabeled_only
@@ -482,12 +508,15 @@ def predict(
     console.print(f"Predicting on {len(samples)} samples...")
     predictions = run_predictions(model, samples, project)
 
+    schema = project.schema
     for pred in predictions:
-        conf = ", ".join(f"{c:.2f}" for c in pred.confidences)
-        console.print(f"  {pred.path}: {pred.labels} ({conf})")
+        summary = ", ".join(schema.classes_in_use([pred.results])) or "(nothing)"
+        console.print(f"  {pred.path}: {summary} (score {pred.score:.2f})")
 
     if output:
-        pred_samples = [Sample(path=p.path, labels=p.labels) for p in predictions]
+        pred_samples = [
+            Sample(path=p.path, results=p.results, annotated=False) for p in predictions
+        ]
         save_dataset(pred_samples, output)
         console.print(f"[green]Saved predictions to {output}[/green]")
 
@@ -531,7 +560,7 @@ def push(
             )
             already_predicted = set(task_id_map) - set(unpredicted)
 
-    dataset = load_dataset(project.dataset_path)
+    dataset = load_dataset(project.dataset_path, project.schema)
     samples = (
         split_labeled_unlabeled(dataset)[1]
         if unlabeled_only
@@ -606,7 +635,7 @@ def export_annotations(
     samples = list(exported)
     if out_path.exists():
         by_path = {e.path: e for e in exported}
-        existing = load_dataset(out_path)
+        existing = load_dataset(out_path, project.schema)
         samples = [by_path.get(s.path, s) for s in existing]
         known = {s.path for s in existing}
         samples += [e for e in exported if e.path not in known]

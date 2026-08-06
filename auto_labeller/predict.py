@@ -1,18 +1,27 @@
 from .dataset import Sample
-from .model import BaseModel, Prediction
+from .model import BaseModel
 from .project import Project
+from .schemas import Prediction
 
 
 def run_predictions(
     model: BaseModel, samples: list[Sample], project: Project
 ) -> list[Prediction]:
-    """Predict on samples, keeping prediction paths dataset-relative.
+    """Predict on samples and convert the model's output to storage form.
 
-    The model works with absolute image paths; everything downstream keys
-    off the data-root-relative sample path, so the paths are mapped back.
+    The model works with absolute image paths and the schema's own output
+    type; everything downstream keys off the data-root-relative sample path
+    and Label Studio results.
     """
+    schema = project.schema
     image_paths = [project.image_path(s.path) for s in samples]
-    predictions = model.predict(image_paths)
-    for prediction, sample in zip(predictions, samples):
-        prediction.path = sample.path
-    return predictions
+    outputs = model.predict(image_paths)
+    return [
+        Prediction(
+            path=sample.path,
+            results=schema.encode_output(output),
+            score=schema.score(output),
+            uncertainty=schema.uncertainty(output),
+        )
+        for sample, output in zip(samples, outputs)
+    ]
