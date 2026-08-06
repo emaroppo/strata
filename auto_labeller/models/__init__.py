@@ -2,25 +2,52 @@
 
 A project selects one through ``[model] ref`` in ``project.toml``, or points
 at its own ``model.py`` when it needs a bespoke architecture. Importing a
-baseline pulls in its framework, so they are imported on demand.
+baseline pulls in its framework, so they are imported on demand — and the
+frameworks are optional dependencies, so a project carrying its own model
+never installs them.
 """
 
-__all__ = [
-    "MulticlassClassifier",
-    "MultiLabelClassifier",
-    "PresenceClassifier",
-    "TextClassifier",
-    "TextSpanTagger",
-]
+import importlib
+
+#: Baseline class -> the module implementing it
+_MODULES: dict[str, str] = {
+    "MulticlassClassifier": "auto_labeller.models.classifier",
+    "MultiLabelClassifier": "auto_labeller.models.classifier",
+    "PresenceClassifier": "auto_labeller.models.classifier",
+    "TextClassifier": "auto_labeller.models.text_classifier",
+    "TextSpanTagger": "auto_labeller.models.text_classifier",
+}
+
+#: Baseline module -> the install extra carrying its framework
+EXTRAS: dict[str, str] = {
+    "auto_labeller.models.classifier": "image",
+    "auto_labeller.models.text_classifier": "text",
+}
+
+__all__ = [*_MODULES, "EXTRAS", "extra_hint"]
+
+
+def extra_hint(module: str) -> str | None:
+    """How to install the framework a baseline module needs.
+
+    ``None`` for anything that is not a shipped baseline: a project's own
+    model brings its own dependencies and we have nothing to suggest.
+    """
+    extra = EXTRAS.get(module)
+    if extra is None:
+        return None
+    return (
+        f"it needs the '{extra}' extra — `uv sync --extra {extra}` in a "
+        f'checkout, or `uv pip install "auto-labeller[{extra}]"`'
+    )
 
 
 def __getattr__(name: str):
-    if name in {"MulticlassClassifier", "MultiLabelClassifier", "PresenceClassifier"}:
-        from . import classifier
-
-        return getattr(classifier, name)
-    if name in {"TextClassifier", "TextSpanTagger"}:
-        from . import text_classifier
-
-        return getattr(text_classifier, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name = _MODULES.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError as exc:
+        raise ImportError(f"Cannot import {name}: {extra_hint(module_name)}") from exc
+    return getattr(module, name)

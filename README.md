@@ -161,7 +161,7 @@ auto-labeller/
 │   ├── label_configs/      # packaged Label Studio config templates
 │   ├── config.py           # host settings (Label Studio URL + API key)
 │   ├── model.py            # BaseModel ABC + Prediction dataclass
-│   ├── models/             # shipped baselines: ConvNeXt image, transformer text
+│   ├── models/             # shipped baselines (optional extras): ConvNeXt, transformer
 │   ├── dataset.py          # JSON dataset load / save / split utilities
 │   ├── train.py            # Training orchestration and round bookkeeping
 │   ├── predict.py          # Batch inference
@@ -208,8 +208,18 @@ That file holds *only* host settings. Everything about a labelling job lives in 
 **4. Install dependencies**
 
 ```bash
-uv sync
+uv sync --extra image     # or --extra text, or --extra all
 ```
+
+The base install carries no ML framework — only the pipeline itself, which needs nothing heavier than the Label Studio SDK. Torch and friends come with the extra for the media you are labelling, because they are needed by exactly one thing: the [baseline models](#the-model). A project pointing `[model] ref` at its own `model.py` can stay on the base install and bring whatever framework it likes.
+
+| Extra | Pulls in | For |
+|---|---|---|
+| `image` | torch, torchvision, timm, Pillow | the image baselines |
+| `text` | torch, transformers | the text baselines |
+| `all` | both | |
+
+Asking for a baseline you have not installed the extra for fails at `train`/`predict` time with a message naming the extra, not a stray `ModuleNotFoundError`.
 
 **5. Create a project**
 
@@ -233,6 +243,8 @@ ref = "model.py:MyModel"                                    # this project's own
 ```
 
 The `*.py:Class` form loads the file from inside the project directory, so a project with a bespoke architecture stays self-contained. `[model.params]` is passed to the constructor, which is where epochs, batch size and learning rate live.
+
+The ref is also the extension point: any importable `pkg.module:Class` works, so a model maintained in its own package needs no change here — `pip install` it and point at it. That is why the frameworks are [optional extras](#setup) and the baselines import on demand; the tool itself has no opinion about what trains your data.
 
 Baselines ship for both media. The image models (`models/classifier.py`) are ConvNeXt V2 Base fine-tunes sharing one training loop and differing only in their task hooks; the text models (`models/text_classifier.py`) fine-tune a Hugging Face encoder, DistilBERT by default:
 

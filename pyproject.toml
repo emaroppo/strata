@@ -1,7 +1,7 @@
 [project]
 name = "auto-labeller"
 version = "0.1.0"
-description = "Semi-automatic image classification pipeline with Label Studio"
+description = "Semi-automatic labelling pipeline with Label Studio"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -10,11 +10,25 @@ dependencies = [
     "label-studio-sdk>=1.0",
     "fastapi>=0.100",
     "uvicorn>=0.20",
+]
+
+# The baseline models are the only thing here that needs an ML framework, and
+# a project pointing [model] ref at its own model.py needs none of them. They
+# are installed per media type so that a text project does not pull in a
+# vision stack, or the other way round.
+[project.optional-dependencies]
+image = [
     "Pillow>=10.0",
     "timm>=1.0",
     "torch>=2.0",
     "torchvision>=0.15",
+]
+text = [
+    "torch>=2.0",
     "transformers>=4.40",
+]
+all = [
+    "auto-labeller[image,text]",
 ]
 
 [project.scripts]

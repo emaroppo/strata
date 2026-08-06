@@ -28,7 +28,7 @@ import tomllib
 from dataclasses import dataclass, field, fields
 from pathlib import Path, PurePosixPath
 
-from . import schemas
+from . import models, schemas
 from .model import BaseModel
 from .schemas import LabelSchema
 
@@ -245,6 +245,10 @@ class Project:
         A ``*.py:Class`` ref is loaded from a file inside the project, so a
         project can carry a bespoke model. Note this executes code from the
         project directory.
+
+        A model is the only part of the pipeline that needs an ML framework,
+        and the frameworks are optional dependencies, so this is where a
+        missing one surfaces — as an error naming the extra to install.
         """
         ref = self.model.ref
         if ":" not in ref:
@@ -264,9 +268,26 @@ class Project:
             module = importlib.util.module_from_spec(spec)
             # Registered before exec so dataclasses/pickle inside can find it
             sys.modules[module_name] = module
-            spec.loader.exec_module(module)
+            try:
+                spec.loader.exec_module(module)
+            except ImportError as exc:
+                raise ProjectError(
+                    f"{module_path} will not import: {exc}. A project's own model "
+                    f"brings its own dependencies; if it builds on a baseline's "
+                    f"framework, install that extra ({', '.join(sorted(set(models.EXTRAS.values())))})"
+                ) from exc
         else:
-            module = importlib.import_module(target)
+            try:
+                module = importlib.import_module(target)
+            except ImportError as exc:
+                hint = models.extra_hint(target)
+                if hint is None:
+                    raise ProjectError(
+                        f"[model] ref points at a module that will not import: {exc}"
+                    ) from exc
+                raise ProjectError(
+                    f"[model] ref = '{ref}' is a baseline model and {hint}"
+                ) from exc
 
         try:
             model_cls = getattr(module, class_name)

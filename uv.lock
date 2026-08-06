@@ -77,29 +77,46 @@ source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "label-studio-sdk" },
-    { name = "pillow" },
     { name = "rich" },
-    { name = "timm" },
-    { name = "torch" },
-    { name = "torchvision" },
-    { name = "transformers" },
     { name = "typer" },
     { name = "uvicorn" },
 ]
 
+[package.optional-dependencies]
+all = [
+    { name = "pillow" },
+    { name = "timm" },
+    { name = "torch" },
+    { name = "torchvision" },
+    { name = "transformers" },
+]
+image = [
+    { name = "pillow" },
+    { name = "timm" },
+    { name = "torch" },
+    { name = "torchvision" },
+]
+text = [
+    { name = "torch" },
+    { name = "transformers" },
+]
+
 [package.metadata]
 requires-dist = [
+    { name = "auto-labeller", extras = ["image", "text"], marker = "extra == 'all'" },
     { name = "fastapi", specifier = ">=0.100" },
     { name = "label-studio-sdk", specifier = ">=1.0" },
-    { name = "pillow", specifier = ">=10.0" },
+    { name = "pillow", marker = "extra == 'image'", specifier = ">=10.0" },
     { name = "rich", specifier = ">=13.0" },
-    { name = "timm", specifier = ">=1.0" },
-    { name = "torch", specifier = ">=2.0" },
-    { name = "torchvision", specifier = ">=0.15" },
-    { name = "transformers", specifier = ">=4.40" },
+    { name = "timm", marker = "extra == 'image'", specifier = ">=1.0" },
+    { name = "torch", marker = "extra == 'image'", specifier = ">=2.0" },
+    { name = "torch", marker = "extra == 'text'", specifier = ">=2.0" },
+    { name = "torchvision", marker = "extra == 'image'", specifier = ">=0.15" },
+    { name = "transformers", marker = "extra == 'text'", specifier = ">=4.40" },
     { name = "typer", specifier = ">=0.9" },
     { name = "uvicorn", specifier = ">=0.20" },
 ]
+provides-extras = ["image", "text", "all"]
 
 [[package]]
 name = "black"
