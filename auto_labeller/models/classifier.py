@@ -29,6 +29,7 @@ def _load_rgb(path: str | Path, draft_size: int | None = None) -> Image.Image:
         return Image.new("RGB", (256, 256))
 
 
+from rich.console import Console
 from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
@@ -39,6 +40,8 @@ from rich.progress import (
 )
 
 from ..model import BaseModel, Prediction
+
+console = Console()
 
 
 class _ImageDataset(Dataset):
@@ -150,6 +153,58 @@ class MultiLabelClassifier(BaseModel):
         )
         return model.to(self.device)
 
+    def _expand_head(self, num_classes: int) -> None:
+        """Grow the classifier head, keeping the weights of existing classes.
+
+        Adding a class should not cost the rounds already trained: the new
+        neurons start from a fresh init while every existing class keeps the
+        row it learned.
+        """
+        old = self._backbone.get_classifier()
+        old_weight = old.weight.data.clone()
+        old_bias = old.bias.data.clone() if old.bias is not None else None
+
+        self._backbone.reset_classifier(num_classes)
+        self._backbone.to(self.device)
+
+        new = self._backbone.get_classifier()
+        with torch.no_grad():
+            new.weight[: old_weight.shape[0]] = old_weight
+            if old_bias is not None and new.bias is not None:
+                new.bias[: old_bias.shape[0]] = old_bias
+
+    def _prepare_backbone(self, classes: list[str]) -> None:
+        """Continue from the loaded weights when the class list allows it.
+
+        Training resumes from whatever ``load`` put in place, so each round
+        builds on the last instead of restarting from ImageNet. Appending
+        classes only grows the head; any other change to the list would
+        shift the index each neuron stands for, so the model is rebuilt.
+        """
+        if self._backbone is None:
+            self._backbone = self._build_backbone(len(classes))
+            return
+
+        current = list(self.classes)
+        if current == classes:
+            return
+
+        if classes[: len(current)] == current:
+            added = classes[len(current) :]
+            console.print(
+                f"Expanding head {len(current)} -> {len(classes)} for "
+                f"{', '.join(added)}; existing weights kept."
+            )
+            self._expand_head(len(classes))
+            return
+
+        console.print(
+            f"[yellow]Class list changed incompatibly "
+            f"({', '.join(current)} -> {', '.join(classes)}); "
+            f"training from pretrained weights.[/yellow]"
+        )
+        self._backbone = self._build_backbone(len(classes))
+
     # ------------------------------------------------------------------
     # Task hooks — override these to change the classification regime
     # (see MulticlassClassifier); the training/eval/predict loops are shared.
@@ -224,9 +279,9 @@ class MultiLabelClassifier(BaseModel):
         classes: list[str],
         val_samples: list[dict] | None = None,
     ) -> dict:
-        self.classes = self._effective_classes(classes)
-        classes = self.classes
-        self._backbone = self._build_backbone(len(classes))
+        classes = self._effective_classes(classes)
+        self._prepare_backbone(classes)
+        self.classes = classes
 
         dataset = _ImageDataset(
             samples,
@@ -441,10 +496,9 @@ class MultiLabelClassifier(BaseModel):
     def load(self, path: Path) -> None:
         checkpoint = torch.load(path, weights_only=True, map_location=self.device)
         self.classes = checkpoint["classes"]
-        cfg = checkpoint.get("config", {})
-        self.num_epochs = cfg.get("num_epochs", self.num_epochs)
-        self.batch_size = cfg.get("batch_size", self.batch_size)
-        self.lr = cfg.get("lr", self.lr)
+        # The checkpoint's config is provenance only: hyperparameters belong
+        # to [model.params] in project.toml, and letting a checkpoint
+        # override them made editing them look like it did nothing
         self._backbone = self._build_backbone(len(self.classes))
         self._backbone.load_state_dict(checkpoint["state_dict"])
 

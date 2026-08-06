@@ -234,6 +234,12 @@ class MyModel(BaseModel):
 
 Models always receive absolute image paths; the dataset keeps them relative.
 
+### Rounds build on each other
+
+`train` continues from the latest checkpoint rather than restarting: the loaded weights are kept, and only the optimiser and schedule are new each round. Adding a class grows the classifier head — existing classes keep the rows they learned, the new one starts fresh — so `class add` costs nothing in accumulated training. If the class list changes in any way other than appending, the index each neuron stands for would shift, so the model is rebuilt from pretrained weights and says so.
+
+`--fresh` forces that rebuild deliberately. Hyperparameters always come from `[model.params]`; a checkpoint contributes weights and the class list only.
+
 ---
 
 ## CLI reference
@@ -244,6 +250,9 @@ Models always receive absolute image paths; the dataset keeps them relative.
 | `auto-labeller projects` | List projects with their classes, sample counts and LS project id |
 | `auto-labeller init` | Create the Label Studio project, import tasks, record the project id |
 | `auto-labeller ingest` | Scan the data root for new images and register them in `dataset.json` |
+| `auto-labeller class add <name>` | Add a class to the project and to the Label Studio config |
+| `auto-labeller class list` | List classes with sample counts, flagging any not declared |
+| `auto-labeller unskip` | Return skipped samples to the review queue (`--limit N`) |
 | `auto-labeller train` | Fine-tune the model on labeled data, save checkpoint + round metadata |
 | `auto-labeller predict` | Run inference on unlabeled images and print results |
 | `auto-labeller push` | Push predictions to Label Studio as pre-annotations, creating tasks on demand |
@@ -284,6 +293,34 @@ uv run auto-labeller export
 
 uv run auto-labeller report              # compare round metrics
 ```
+
+---
+
+## Adding a class mid-project
+
+Classes rarely survive first contact with the data — a bunny turns up while you are labelling cats and dogs. Adding one takes a single command:
+
+```bash
+uv run auto-labeller class add bunny
+```
+
+It appends the class to `project.toml` and inserts a `<Choice>` into the project's *live* Label Studio config, assigning the next hotkey. The config is edited in place rather than regenerated, so a layout you tuned in the LS UI survives untouched. Refresh the tab and the new option is there; existing tasks, annotations and predictions are unaffected.
+
+Two rules make this safe:
+
+- **Classes are append-only.** A checkpoint maps output neurons to the class list by position, so new classes go on the end and never reorder existing ones. If `classes` was empty and being inferred from the data, `class add` pins the inferred order first.
+- **Undeclared labels are reported.** If you add the class in the Label Studio UI instead, `export` warns that the label exists in the data but not in `project.toml` — where it would otherwise train as nothing, since the model's head is built from the declared list.
+
+### Skipped images are where the new class hides
+
+Skipping is the natural response to an image whose content has no class yet, and skipped samples are excluded from both training and the review queue. After adding the class, bring them back:
+
+```bash
+uv run auto-labeller unskip --limit 200
+uv run auto-labeller push
+```
+
+`unskip` clears the cancelled annotation in Label Studio (which is what a skip is) and returns the samples to the unlabeled pool, so the next `push` queues them with fresh predictions.
 
 ---
 
