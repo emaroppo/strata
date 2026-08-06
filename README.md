@@ -1,6 +1,8 @@
 # auto-labeller
 
-A semi-automatic image classification pipeline that integrates with [Label Studio](https://labelstud.io/) to close the loop between model training and human review. Instead of labelling thousands of images by hand, you label a small seed set, train a model, let it pre-label the rest, then only correct what it got wrong. Each round the model improves and there is less to fix.
+A semi-automatic labelling pipeline that integrates with [Label Studio](https://labelstud.io/) to close the loop between model training and human review. Instead of labelling thousands of samples by hand, you label a small seed set, train a model, let it pre-label the rest, then only correct what it got wrong. Each round the model improves and there is less to fix.
+
+Images and text documents are both supported, for whole-sample classification, bounding boxes, or character spans — a project declares which, and everything else follows from that.
 
 ---
 
@@ -125,21 +127,27 @@ Sample paths in `dataset.json` are relative to `[data] root`, so moving the proj
 A project's `[label_config] template` picks both the Label Studio labeling config and the **schema** that reads it. The schema is the only place that knows what a task type looks like: it generates the config, converts between stored results and what the model consumes, and defines what "uncertain" means for the review queue.
 
 ```bash
-uv run auto-labeller templates                                  # what is available
-uv run auto-labeller new roads --template image_bbox --class car --class van
+uv run auto-labeller templates                                    # what is available
+uv run auto-labeller new docs --template text_classification --class spam --class ham
 ```
 
-| Template | Annotations | Model sees |
-|---|---|---|
-| `image_classification` | `<Choices>` | `list[str]` in, `ChoiceOutput(labels, confidences)` out |
-| `image_bbox` | `<RectangleLabels>` | `list[Box]` in, `BoxOutput(boxes)` out, coordinates as fractions |
-| `custom` | whatever your `label_config.xml` declares | per the control it finds |
+| Template | Files | Annotations | Model sees |
+|---|---|---|---|
+| `image_classification` | images | `<Choices>` | `list[str]` in, `ChoiceOutput` out |
+| `image_bbox` | images | `<RectangleLabels>` | `list[Box]` in, `BoxOutput` out, coordinates as fractions |
+| `text_classification` | `.txt`, `.md` | `<Choices>` | `list[str]` in, `ChoiceOutput` out |
+| `text_span` | `.txt`, `.md` | `<Labels>` | `list[Span]` in, `SpanOutput` out, character offsets |
+| `custom` | per its media tag | per its control | per the control it finds |
 
-`template = "custom"` hands your own `label_config.xml` to Label Studio verbatim and derives the schema by parsing it — control names and classes come from the XML, because that is what annotations reference. Declaring `classes` in `project.toml` alongside it is an error rather than a second source of truth waiting to drift.
+**Media is orthogonal to task.** A media type declares its Label Studio tag, the key tasks are read from, and the extensions `ingest` accepts; a task type declares the annotation shape. Templates are the valid combinations rather than their product, since boxes only make sense on images and character spans only on text. Documents are served from the same local-files mount images use (`valueType="url"`), so paths, the task-id cache and export work identically whatever a project labels.
 
-Uncertainty is schema-owned, because it does not generalise: classification ranks by least confidence, while detection ranks boxes near the decision threshold and treats an image with no boxes as maximally uncertain.
+`template = "custom"` hands your own `label_config.xml` to Label Studio verbatim and derives the schema by parsing it — media, control names and classes all come from the XML, because that is what annotations reference. Declaring `classes` in `project.toml` alongside it is an error rather than a second source of truth waiting to drift.
 
-Adding a task type means adding a schema and a template — nothing in `ls_client`, `train`, `predict`, `active_learning` or the CLI needs to change.
+Uncertainty is schema-owned, because it does not generalise: classification ranks by least confidence, while detection and span tagging rank by proximity to the decision threshold and treat a sample with nothing found as maximally uncertain — the model either found nothing or missed everything, and only a human settles which.
+
+Adding a task type means adding a schema and a template. Nothing in `ls_client`, `train`, `predict`, `active_learning` or the CLI changes.
+
+---
 
 ---
 
@@ -153,7 +161,7 @@ auto-labeller/
 │   ├── label_configs/      # packaged Label Studio config templates
 │   ├── config.py           # host settings (Label Studio URL + API key)
 │   ├── model.py            # BaseModel ABC + Prediction dataclass
-│   ├── models/classifier.py# shipped baselines (ConvNeXt V2 classifiers)
+│   ├── models/             # shipped baselines: ConvNeXt image, transformer text
 │   ├── dataset.py          # JSON dataset load / save / split utilities
 │   ├── train.py            # Training orchestration and round bookkeeping
 │   ├── predict.py          # Batch inference
@@ -226,13 +234,17 @@ ref = "model.py:MyModel"                                    # this project's own
 
 The `*.py:Class` form loads the file from inside the project directory, so a project with a bespoke architecture stays self-contained. `[model.params]` is passed to the constructor, which is where epochs, batch size and learning rate live.
 
-Three baselines ship in `auto_labeller/models/classifier.py`, all ConvNeXt V2 Base fine-tunes sharing one training loop and differing only in their task hooks:
+Baselines ship for both media. The image models (`models/classifier.py`) are ConvNeXt V2 Base fine-tunes sharing one training loop and differing only in their task hooks; the text models (`models/text_classifier.py`) fine-tune a Hugging Face encoder, DistilBERT by default:
 
-| Class | Regime |
-|---|---|
-| `MultiLabelClassifier` | Independent sigmoids, BCE loss — an image can carry several classes |
-| `MulticlassClassifier` | Softmax + cross-entropy — classes are mutually exclusive |
-| `PresenceClassifier` | "Is X present?" detectors with an implicit `none` class for reviewed-but-empty images |
+| Class | Schema | Regime |
+|---|---|---|
+| `MultiLabelClassifier` | `image_classification` | Independent sigmoids, BCE loss — an image can carry several classes |
+| `MulticlassClassifier` | `image_classification` | Softmax + cross-entropy — classes are mutually exclusive |
+| `PresenceClassifier` | `image_classification` | "Is X present?" detectors with an implicit `none` class for reviewed-but-empty images |
+| `TextClassifier` | `text_classification` | Sequence classification with a sigmoid head, multi-label |
+| `TextSpanTagger` | `text_span` | Token classification in BIO tagging, decoded back to character offsets |
+
+Pick the encoder with `[model.params] encoder = "roberta-base"` or any Hugging Face id. A model declares the schema it is written for, so training a text model on an image project fails before it starts rather than midway.
 
 To write your own, subclass `BaseModel` in a `model.py` inside the project:
 
@@ -269,7 +281,7 @@ class MyModel(BaseModel):
         self.classes = checkpoint["classes"]
 ```
 
-Models always receive absolute image paths; the dataset keeps them relative.
+Models always receive absolute file paths — an image model opens them as pictures, a text model reads them as documents — while the dataset keeps them relative.
 
 ### Rounds build on each other
 
