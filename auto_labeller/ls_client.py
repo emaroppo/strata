@@ -6,6 +6,7 @@ from urllib.parse import quote, unquote
 from label_studio_sdk import PredictionRequest
 from label_studio_sdk.client import LabelStudio
 
+from . import label_config
 from .config import Settings
 from .dataset import Sample
 from .model import Prediction
@@ -24,21 +25,47 @@ class LSClient:
         self.project = project
 
     def create_project(self, name: str, classes: list[str]) -> int:
-        choices = "\n".join(f'    <Choice value="{c}" />' for c in classes)
-        label_config = (
-            "<View>\n"
-            '  <Image name="image" value="$image" />\n'
-            '  <Choices name="label" toName="image" '
-            f'choice="{self.project.label_config.choice}">\n'
-            f"{choices}\n"
-            "  </Choices>\n"
-            "</View>"
-        )
         project = self.client.projects.create(
             title=name,
-            label_config=label_config,
+            label_config=label_config.build(classes, self.project.label_config.choice),
         )
         return project.id
+
+    # ------------------------------------------------------------------
+    # Labeling config
+    # ------------------------------------------------------------------
+
+    def get_label_config(self, project_id: int) -> str:
+        return self.client.projects.get(id=project_id).label_config or ""
+
+    def update_label_config(self, project_id: int, xml: str) -> None:
+        self.client.projects.update(id=project_id, label_config=xml)
+
+    def add_class_to_config(self, project_id: int, name: str) -> str:
+        """Insert a class into the project's live config, layout untouched."""
+        current = self.get_label_config(project_id)
+        if not current:
+            raise label_config.LabelConfigError(
+                f"Label Studio project {project_id} has no labeling config"
+            )
+        updated = label_config.add_class(current, name)
+        self.update_label_config(project_id, updated)
+        return updated
+
+    def delete_annotations(self, project_id: int, task_ids: list[int]) -> None:
+        """Bulk-delete the annotations on the given tasks.
+
+        Used to bring skipped tasks back into the review queue: the skip is
+        recorded as a cancelled annotation, so the task stays out of the
+        queue until that annotation is gone.
+        """
+        if not task_ids:
+            return
+        self.client.actions.create(
+            id="delete_tasks_annotations",
+            project=project_id,
+            selected_items={"all": False, "included": task_ids},
+        )
 
     # ------------------------------------------------------------------
     # Image URL mapping

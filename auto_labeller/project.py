@@ -265,6 +265,48 @@ class Project:
             text = text.rstrip("\n") + f"\n\n[label_studio]\n{line}\n"
         toml_path.write_text(text)
 
+    def add_classes(self, names: list[str], known: list[str] | None = None) -> list[str]:
+        """Append classes to project.toml and return the new full list.
+
+        Classes are append-only: a checkpoint maps output neurons to this
+        list by position, so reordering would silently invalidate every
+        checkpoint. When the list is empty the classes in use are written out
+        first (``known``), turning an inferred order into a pinned one.
+        """
+        classes = list(self.label_config.classes) or sorted(known or [])
+        for name in names:
+            if not name.strip():
+                raise ProjectError("Class names cannot be empty")
+            if name in classes:
+                raise ProjectError(f"Class '{name}' already exists in {PROJECT_FILE}")
+            classes.append(name)
+
+        rendered = "[" + ", ".join(f'"{c}"' for c in classes) + "]"
+        toml_path = self.root / PROJECT_FILE
+        text = toml_path.read_text()
+        if re.search(r"^classes\s*=\s*\[.*?\]", text, flags=re.MULTILINE | re.DOTALL):
+            text = re.sub(
+                r"^classes\s*=\s*\[.*?\]",
+                f"classes = {rendered}",
+                text,
+                count=1,
+                flags=re.MULTILINE | re.DOTALL,
+            )
+        elif re.search(r"^\[label_config\]\s*$", text, flags=re.MULTILINE):
+            text = re.sub(
+                r"^(\[label_config\]\s*)$",
+                rf"\1\nclasses = {rendered}",
+                text,
+                count=1,
+                flags=re.MULTILINE,
+            )
+        else:
+            text = text.rstrip("\n") + f"\n\n[label_config]\nclasses = {rendered}\n"
+        toml_path.write_text(text)
+
+        self.label_config.classes = classes
+        return classes
+
     def require_ls_project_id(self) -> int:
         if self.label_studio.project_id is None:
             raise ProjectError(

@@ -65,6 +65,28 @@ def _ls_client(settings: Settings, project: Project, config_path: Path):
     return LSClient(settings, project)
 
 
+def _warn_undeclared(project: Project, samples: list) -> list[str]:
+    """Warn about labels present in the data but missing from project.toml.
+
+    A class added in the Label Studio UI only trains as nothing: the model's
+    head is built from the declared list, so ``_encode_target`` drops every
+    label outside it without a word.
+    """
+    from .dataset import get_classes
+
+    declared = set(project.label_config.classes)
+    if not declared:
+        return []
+    undeclared = [c for c in get_classes(samples) if c not in declared]
+    if undeclared:
+        console.print(
+            f"[yellow]Not in project.toml: {', '.join(undeclared)} — "
+            f"these labels are ignored during training until declared:[/yellow]"
+        )
+        console.print(f"  auto-labeller class add {' '.join(undeclared)}")
+    return undeclared
+
+
 def _resolve_checkpoint(
     model: BaseModel,
     project: Project,
@@ -182,6 +204,146 @@ def list_projects_cmd() -> None:
             str(project.label_studio.project_id or "-"),
         )
     console.print(table)
+
+
+class_app = typer.Typer(name="class", help="Inspect and extend a project's label classes.")
+app.add_typer(class_app, name="class")
+
+
+@class_app.command("add")
+def class_add(
+    names: list[str] = typer.Argument(..., help="Class name(s) to add"),
+    project_path: Path | None = ProjectOption,
+    config_path: Path = ConfigOption,
+    push: bool = typer.Option(
+        True, "--push/--no-push", help="Also add the class to the Label Studio config"
+    ),
+) -> None:
+    """Add a class to the project, and to Label Studio's labeling config.
+
+    The live config is edited in place rather than regenerated, so a
+    hand-tuned layout survives. Refresh your Label Studio tab afterwards and
+    the new option is there.
+    """
+    from .dataset import get_classes, load_dataset
+    from .label_config import LabelConfigError
+
+    project = _load_project(project_path)
+
+    dataset = []
+    if project.dataset_path.exists():
+        dataset = load_dataset(project.dataset_path)
+
+    try:
+        classes = project.add_classes(names, known=get_classes(dataset))
+    except ProjectError as e:
+        _error(str(e))
+        raise typer.Exit(1) from None
+    console.print(f"[green]Added {', '.join(names)}[/green] — classes: {', '.join(classes)}")
+
+    if push and project.label_studio.project_id is not None:
+        settings = Settings.load(config_path)
+        client = _ls_client(settings, project, config_path)
+        for name in names:
+            try:
+                client.add_class_to_config(project.label_studio.project_id, name)
+            except LabelConfigError as e:
+                _error(f"Label Studio config not updated: {e}")
+                console.print(
+                    "[yellow]project.toml is updated; add the class in the Label "
+                    "Studio UI to match.[/yellow]"
+                )
+                raise typer.Exit(1) from None
+        console.print(
+            f"Label Studio project {project.label_studio.project_id} updated — "
+            "refresh the tab to see it."
+        )
+
+    labeled = sum(1 for s in dataset if s.is_labeled)
+    skipped = sum(1 for s in dataset if s.skipped)
+    if labeled:
+        console.print(
+            f"[dim]{labeled} samples were labeled before this class existed.[/dim]"
+        )
+    if skipped:
+        console.print(
+            f"[dim]{skipped} skipped samples may contain it — "
+            f"'auto-labeller unskip' returns them to the review queue.[/dim]"
+        )
+
+
+@class_app.command("list")
+def class_list(
+    project_path: Path | None = ProjectOption,
+) -> None:
+    """List the project's classes with how many samples carry each."""
+    from .dataset import load_dataset
+
+    project = _load_project(project_path)
+    dataset = load_dataset(project.dataset_path) if project.dataset_path.exists() else []
+
+    counts: dict[str, int] = {c: 0 for c in project.label_config.classes}
+    for sample in dataset:
+        for name in sample.labels:
+            counts[name] = counts.get(name, 0) + 1
+
+    table = Table(title=f"Classes — {project.name}")
+    table.add_column("Class", style="cyan")
+    table.add_column("Samples", justify="right", style="green")
+    table.add_column("", style="yellow")
+    for name, count in counts.items():
+        undeclared = "not in project.toml" if name not in project.label_config.classes else ""
+        table.add_row(name, str(count), undeclared)
+    console.print(table)
+
+
+@app.command()
+def unskip(
+    project_path: Path | None = ProjectOption,
+    config_path: Path = ConfigOption,
+    limit: int | None = typer.Option(None, help="Return only the first N skipped samples"),
+) -> None:
+    """Return skipped samples to the review queue.
+
+    Skipping is how you park an image whose content has no class yet, so
+    after adding a class those samples are the best place to find examples
+    of it. In Label Studio a skip is a cancelled annotation, which is
+    deleted here so the task becomes reviewable again.
+    """
+    from .dataset import load_dataset, save_dataset
+
+    project = _load_project(project_path)
+    dataset = load_dataset(project.dataset_path)
+    skipped = [s for s in dataset if s.skipped]
+    if not skipped:
+        console.print("[yellow]No skipped samples.[/yellow]")
+        raise typer.Exit(0)
+
+    selected = skipped[:limit] if limit is not None else skipped
+
+    if project.label_studio.project_id is not None:
+        settings = Settings.load(config_path)
+        client = _ls_client(settings, project, config_path)
+        project_id = project.label_studio.project_id
+        with console.status("Fetching task list from Label Studio..."):
+            task_id_map = client.get_task_id_map(project_id)
+        task_ids = [task_id_map[s.path] for s in selected if s.path in task_id_map]
+        if task_ids:
+            with console.status(f"Clearing skips on {len(task_ids)} tasks..."):
+                client.delete_annotations(project_id, task_ids)
+        console.print(f"Cleared the skip on {len(task_ids)} Label Studio tasks")
+
+    unskipped = {s.path for s in selected}
+    for sample in dataset:
+        if sample.path in unskipped:
+            sample.skipped = False
+    save_dataset(dataset, project.dataset_path)
+
+    console.print(
+        f"[green]Returned {len(selected)} samples to the unlabeled pool[/green] "
+        f"({len(skipped) - len(selected)} still skipped)"
+    )
+    console.print("Run 'auto-labeller push' to queue them with fresh predictions.")
 
 
 @app.command()
@@ -455,6 +617,8 @@ def export_annotations(
         f"[green]Merged {len(exported)} exported tasks into {out_path} "
         f"({len(samples)} samples, {len(labeled)} labeled)[/green]"
     )
+
+    _warn_undeclared(project, samples)
 
 
 @app.command()
