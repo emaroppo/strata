@@ -1,3 +1,9 @@
+"""Machine-level settings: how to reach Label Studio on this host.
+
+Everything that belongs to a labelling job lives in the project directory
+instead — see :mod:`auto_labeller.project`.
+"""
+
 from dataclasses import dataclass, field
 from pathlib import Path
 import os
@@ -8,28 +14,13 @@ import tomllib
 class LabelStudioConfig:
     url: str = "http://localhost:8080"
     api_key: str = ""
+    # Where the images mount shows up inside the Label Studio container
     local_storage_path: str = "/label-studio/data/images"
-
-
-@dataclass
-class PathsConfig:
-    dataset: Path = field(default_factory=lambda: Path("data/dataset.json"))
-    images_dir: Path = field(default_factory=lambda: Path("data/raw"))
-    checkpoints_dir: Path = field(default_factory=lambda: Path("models"))
-    rounds_dir: Path = field(default_factory=lambda: Path("data/rounds"))
-
-
-@dataclass
-class ModelConfig:
-    module: str = "my_model"
-    class_name: str = "MyModel"
 
 
 @dataclass
 class Settings:
     label_studio: LabelStudioConfig = field(default_factory=LabelStudioConfig)
-    paths: PathsConfig = field(default_factory=PathsConfig)
-    model: ModelConfig = field(default_factory=ModelConfig)
 
     @classmethod
     def load(cls, path: Path = Path("config.toml")) -> "Settings":
@@ -39,12 +30,6 @@ class Settings:
                 data = tomllib.load(f)
             if "label_studio" in data:
                 settings.label_studio = LabelStudioConfig(**data["label_studio"])
-            if "paths" in data:
-                settings.paths = PathsConfig(
-                    **{k: Path(v) for k, v in data["paths"].items()}
-                )
-            if "model" in data:
-                settings.model = ModelConfig(**data["model"])
 
         api_key = os.environ.get("LABEL_STUDIO_API_KEY")
         if api_key:

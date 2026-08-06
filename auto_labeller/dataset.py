@@ -7,6 +7,8 @@ from pathlib import Path
 
 @dataclass
 class Sample:
+    # Relative to the project's data root, so the dataset survives moving
+    # the project or repointing [data] root
     path: str
     labels: list[str] = field(default_factory=list)
     # Reviewed but no class fits: excluded from training and from the

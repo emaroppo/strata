@@ -2,7 +2,6 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from .config import Settings
 from .dataset import (
     get_classes,
     load_dataset,
@@ -11,39 +10,48 @@ from .dataset import (
     train_val_split,
 )
 from .model import BaseModel
+from .project import Project
 
 
 def run_training(
     model: BaseModel,
-    settings: Settings,
+    project: Project,
     round_num: int | None = None,
 ) -> dict:
-    dataset = load_dataset(settings.paths.dataset)
+    dataset = load_dataset(project.dataset_path)
     labeled, unlabeled = split_labeled_unlabeled(dataset)
-    classes = get_classes(labeled)
+    classes = project.label_config.classes or get_classes(labeled)
 
     if not labeled:
         raise ValueError("No labeled samples found in dataset")
 
-    # Group by video folder so near-duplicate frames can't straddle the split
+    # Group by parent folder (e.g. one video's frames) so near-duplicates
+    # can't straddle the split
     train_samples, val_samples = train_val_split(
         labeled, group_key=lambda s: str(Path(s.path).parent)
     )
 
     if round_num is None:
-        round_num = _next_round_num(settings.paths.rounds_dir)
+        round_num = _next_round_num(project.rounds_dir)
+
+    def to_model_input(samples):
+        # Models receive absolute paths; the dataset stores data-root-relative ones
+        return [
+            {"path": str(project.image_path(s.path)), "labels": s.labels}
+            for s in samples
+        ]
 
     metrics = model.finetune(
-        [{"path": s.path, "labels": s.labels} for s in train_samples],
+        to_model_input(train_samples),
         classes,
-        val_samples=[{"path": s.path, "labels": s.labels} for s in val_samples],
+        val_samples=to_model_input(val_samples),
     )
 
-    checkpoint_path = settings.paths.checkpoints_dir / f"round_{round_num:03d}.pt"
+    checkpoint_path = project.checkpoints_dir / f"round_{round_num:03d}.pt"
     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
     model.save(checkpoint_path)
 
-    round_dir = settings.paths.rounds_dir / f"round_{round_num:03d}"
+    round_dir = project.rounds_dir / f"round_{round_num:03d}"
     round_dir.mkdir(parents=True, exist_ok=True)
 
     round_meta = {
@@ -55,7 +63,7 @@ def run_training(
         "num_skipped": sum(1 for s in dataset if s.skipped),
         "classes": classes,
         "metrics": metrics,
-        "checkpoint": str(checkpoint_path),
+        "checkpoint": str(checkpoint_path.relative_to(project.root)),
     }
     with open(round_dir / "metadata.json", "w") as f:
         json.dump(round_meta, f, indent=2)

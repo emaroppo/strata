@@ -9,10 +9,11 @@ from label_studio_sdk.client import LabelStudio
 from .config import Settings
 from .dataset import Sample
 from .model import Prediction
+from .project import Project
 
 
 class LSClient:
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, project: Project):
         self.client = LabelStudio(
             base_url=settings.label_studio.url,
             api_key=settings.label_studio.api_key,
@@ -20,13 +21,15 @@ class LSClient:
             timeout=300,
         )
         self.settings = settings
+        self.project = project
 
     def create_project(self, name: str, classes: list[str]) -> int:
         choices = "\n".join(f'    <Choice value="{c}" />' for c in classes)
         label_config = (
             "<View>\n"
             '  <Image name="image" value="$image" />\n'
-            '  <Choices name="label" toName="image" choice="multiple">\n'
+            '  <Choices name="label" toName="image" '
+            f'choice="{self.project.label_config.choice}">\n'
             f"{choices}\n"
             "  </Choices>\n"
             "</View>"
@@ -37,22 +40,31 @@ class LSClient:
         )
         return project.id
 
-    def import_tasks(
-        self,
-        project_id: int,
-        samples: list[Sample],
-        images_base_url: str = "",
-    ) -> None:
+    # ------------------------------------------------------------------
+    # Image URL mapping
+    # ------------------------------------------------------------------
+
+    def _image_url(self, sample_path: str) -> str:
+        # Percent-encode so characters like '&' or '#' don't break the query string
+        rel = self.project.mount_relative_path(sample_path)
+        prefix = self.project.label_studio.local_files_prefix
+        return f"/data/local-files/?d={prefix}/{quote(rel)}"
+
+    def _url_to_path(self, image_url: str) -> str:
+        if "local-files" not in image_url:
+            return image_url
+        prefix = self.project.label_studio.local_files_prefix
+        rel = unquote(image_url.split(f"d={prefix}/", 1)[-1])
+        return self.project.sample_path_from_mount(rel)
+
+    # ------------------------------------------------------------------
+    # Tasks, predictions, annotations
+    # ------------------------------------------------------------------
+
+    def import_tasks(self, project_id: int, samples: list[Sample]) -> None:
         tasks: list[dict] = []
         for s in samples:
-            if images_base_url:
-                image_url = f"{images_base_url}/{s.path}"
-            else:
-                # Strip the leading 'data/' because ./data is mounted as images/ in the container
-                path = s.path.removeprefix("data/")
-                # Percent-encode so characters like '&' or '#' don't break the query string
-                image_url = f"/data/local-files/?d=images/{quote(path)}"
-            task: dict = {"data": {"image": image_url}}
+            task: dict = {"data": {"image": self._image_url(s.path)}}
             if s.is_labeled:
                 task["annotations"] = [
                     {
@@ -144,12 +156,6 @@ class LSClient:
             self._save_task_map_cache(project_id, cache)
         return len(to_push)
 
-    @staticmethod
-    def _url_to_path(image_url: str) -> str:
-        if "local-files" in image_url:
-            return "data/" + unquote(image_url.split("d=images/")[-1])
-        return image_url
-
     def export_annotations(self, project_id: int) -> list[Sample]:
         # Snapshot export is one bulk download instead of paging through tasks;
         # the timeout is how long we wait for LS to prepare the snapshot
@@ -180,15 +186,16 @@ class LSClient:
     # Task-id map + local cache
     #
     # Listing every task takes minutes on large projects, so we keep a
-    # local {path: [task_id, has_prediction]} cache. It is extended on
-    # import, updated on push, and rebuilt whenever the project's task
-    # count no longer matches (e.g. tasks added/deleted in the LS UI).
-    # Prediction changes made manually in LS are NOT detected; pass
-    # use_cache=False (CLI: --no-cache) to force a full refetch.
+    # local {path: [task_id, has_prediction]} cache in the project's
+    # .state/ directory. It is extended on import, updated on push, and
+    # rebuilt whenever the project's task count no longer matches (e.g.
+    # tasks added/deleted in the LS UI). Prediction changes made manually
+    # in LS are NOT detected; pass use_cache=False (CLI: --no-cache) to
+    # force a full refetch.
     # ------------------------------------------------------------------
 
     def _task_map_cache_path(self, project_id: int) -> Path:
-        return self.settings.paths.dataset.parent / f"task_map_{project_id}.json"
+        return self.project.state_dir / f"task_map_{project_id}.json"
 
     def _load_task_map_cache(self, project_id: int) -> dict[str, list] | None:
         path = self._task_map_cache_path(project_id)

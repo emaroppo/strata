@@ -1,28 +1,22 @@
-import importlib
+"""FastAPI ML backend serving live predictions to Label Studio.
+
+The project to serve comes from the AUTO_LABELLER_PROJECT environment
+variable (set by ``auto-labeller serve --project``), since uvicorn imports
+this module rather than calling into it.
+"""
+
 from pathlib import Path
+from urllib.parse import unquote
 
 from fastapi import FastAPI
 from pydantic import BaseModel as PydanticBaseModel
 
-from .config import Settings
 from .model import BaseModel
+from .project import Project
 
 app = FastAPI(title="auto-labeller ML backend")
 _model: BaseModel | None = None
-_settings: Settings | None = None
-
-
-def _load_model(settings: Settings) -> BaseModel:
-    module = importlib.import_module(settings.model.module)
-    model_cls = getattr(module, settings.model.class_name)
-    model: BaseModel = model_cls()
-
-    checkpoint_dir = settings.paths.checkpoints_dir
-    if checkpoint_dir.exists():
-        checkpoints = sorted(checkpoint_dir.glob("round_*.pt"))
-        if checkpoints:
-            model.load(checkpoints[-1])
-    return model
+_project: Project | None = None
 
 
 class PredictRequest(PydanticBaseModel):
@@ -32,9 +26,12 @@ class PredictRequest(PydanticBaseModel):
 
 @app.on_event("startup")
 def startup() -> None:
-    global _model, _settings
-    _settings = Settings.load()
-    _model = _load_model(_settings)
+    global _model, _project
+    _project = Project.load()
+    _model = _project.load_model()
+    checkpoint = _project.latest_checkpoint()
+    if checkpoint:
+        _model.load(checkpoint)
 
 
 @app.get("/health")
@@ -49,14 +46,17 @@ def setup() -> dict:
 
 @app.post("/predict")
 def predict(request: PredictRequest) -> dict:
+    assert _model is not None and _project is not None
+    prefix = _project.label_studio.local_files_prefix
+
     image_paths: list[Path] = []
     for task in request.tasks:
         image_url = task.get("data", {}).get("image", "")
         if "local-files" in image_url:
-            path = "data/" + image_url.split("d=images/")[-1]
+            rel = unquote(image_url.split(f"d={prefix}/", 1)[-1])
+            image_paths.append(_project.image_path(_project.sample_path_from_mount(rel)))
         else:
-            path = image_url
-        image_paths.append(Path(path))
+            image_paths.append(Path(image_url))
 
     predictions = _model.predict(image_paths)
 

@@ -1,0 +1,378 @@
+"""The project construct: a self-contained, portable labelling job.
+
+A project is a directory holding everything that belongs to one labelling
+job — the data, the label schema, the annotations, the model and its
+checkpoints — so it can be picked up and moved somewhere else once the
+labelling is done. Machine-level settings (Label Studio URL, API key) stay
+outside it, in ``config.toml``; they describe your laptop, not the job.
+
+    projects/my-project/
+    ├── project.toml            # this file's schema
+    ├── dataset.json            # samples + annotations
+    ├── data/raw/…              # images
+    ├── model.py                # optional project-local model
+    ├── checkpoints/            # round_001.pt, …
+    ├── rounds/round_001/       # metadata.json, labeled.json
+    └── .state/                 # Label Studio bookkeeping, not part of a handoff
+
+Sample paths in ``dataset.json`` are relative to ``[data] root``, so moving
+the images or the project never rewrites the dataset.
+"""
+
+import importlib
+import importlib.util
+import os
+import re
+import sys
+import tomllib
+from dataclasses import dataclass, field, fields
+from pathlib import Path, PurePosixPath
+
+from .model import BaseModel
+
+PROJECT_FILE = "project.toml"
+PROJECT_ENV_VAR = "AUTO_LABELLER_PROJECT"
+# Projects live side by side here, addressable by name: -p cats
+PROJECTS_DIR = "projects"
+
+# Phase 1 ships the classification config only; the template registry
+# (image_bbox, image_polygon, custom, …) lands with the schema layer.
+SUPPORTED_TEMPLATES = {"image_classification"}
+
+
+class ProjectError(Exception):
+    """Raised for a missing, malformed, or inconsistent project."""
+
+
+@dataclass
+class LabelConfigSpec:
+    template: str = "image_classification"
+    classes: list[str] = field(default_factory=list)
+    choice: str = "multiple"
+
+
+@dataclass
+class ModelSpec:
+    # "<file>.py:Class" resolves inside the project; "pkg.module:Class"
+    # falls back to an installed package
+    ref: str = "auto_labeller.models.classifier:MultiLabelClassifier"
+    params: dict = field(default_factory=dict)
+
+
+@dataclass
+class DataSpec:
+    root: str = "data/raw"
+
+
+@dataclass
+class LabelStudioSpec:
+    project_id: int | None = None
+    # Host directory mounted into the Label Studio container, and the name
+    # it has under LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT. Image URLs are
+    # built from the sample path relative to this mount.
+    local_files_root: str = "data"
+    local_files_prefix: str = "images"
+
+
+@dataclass
+class Project:
+    root: Path
+    name: str
+    label_config: LabelConfigSpec = field(default_factory=LabelConfigSpec)
+    model: ModelSpec = field(default_factory=ModelSpec)
+    data: DataSpec = field(default_factory=DataSpec)
+    label_studio: LabelStudioSpec = field(default_factory=LabelStudioSpec)
+
+    # ------------------------------------------------------------------
+    # Loading
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def load(cls, path: Path | None = None) -> "Project":
+        root = _resolve_root(path)
+        toml_path = root / PROJECT_FILE
+        if not toml_path.exists():
+            available = [p.name for p in list_projects()]
+            hint = (
+                f" Available: {', '.join(available)}."
+                if available
+                else f" Create one with 'auto-labeller new {root.name}'."
+            )
+            raise ProjectError(f"No {PROJECT_FILE} in {root}.{hint}")
+        with open(toml_path, "rb") as f:
+            data = tomllib.load(f)
+
+        known_sections = {"label_config", "model", "data", "label_studio"}
+        unknown = set(data) - known_sections - {"name"}
+        if unknown:
+            raise ProjectError(
+                f"Unknown section(s) in {toml_path}: {', '.join(sorted(unknown))}"
+            )
+
+        project = cls(
+            root=root,
+            name=data.get("name", root.name),
+            label_config=_section(LabelConfigSpec, data.get("label_config", {}), "label_config"),
+            model=_section(ModelSpec, data.get("model", {}), "model"),
+            data=_section(DataSpec, data.get("data", {}), "data"),
+            label_studio=_section(LabelStudioSpec, data.get("label_studio", {}), "label_studio"),
+        )
+        project._validate()
+        return project
+
+    def _validate(self) -> None:
+        template = self.label_config.template
+        if template not in SUPPORTED_TEMPLATES:
+            supported = ", ".join(sorted(SUPPORTED_TEMPLATES))
+            raise ProjectError(
+                f"Unsupported label_config template '{template}' (supported: {supported})"
+            )
+        if self.label_config.choice not in {"single", "multiple"}:
+            raise ProjectError(
+                f"[label_config] choice must be 'single' or 'multiple', "
+                f"got '{self.label_config.choice}'"
+            )
+
+    # ------------------------------------------------------------------
+    # Paths
+    # ------------------------------------------------------------------
+
+    @property
+    def dataset_path(self) -> Path:
+        return self.root / "dataset.json"
+
+    @property
+    def checkpoints_dir(self) -> Path:
+        return self.root / "checkpoints"
+
+    @property
+    def rounds_dir(self) -> Path:
+        return self.root / "rounds"
+
+    @property
+    def state_dir(self) -> Path:
+        return self.root / ".state"
+
+    @property
+    def images_dir(self) -> Path:
+        return _resolve(self.root, self.data.root)
+
+    @property
+    def local_files_root(self) -> Path:
+        return _resolve(self.root, self.label_studio.local_files_root)
+
+    def image_path(self, sample_path: str) -> Path:
+        """Absolute path of a sample's image (sample paths are data-root relative)."""
+        return self.images_dir / sample_path
+
+    def relative_image_path(self, path: Path) -> str:
+        """Inverse of :meth:`image_path` — an absolute image path to a sample path."""
+        return str(path.resolve().relative_to(self.images_dir.resolve()))
+
+    # -- Label Studio local-files URL mapping --------------------------
+
+    def _images_rel_to_mount(self) -> PurePosixPath:
+        images, mount = self.images_dir.resolve(), self.local_files_root.resolve()
+        try:
+            rel = images.relative_to(mount)
+        except ValueError:
+            raise ProjectError(
+                f"[data] root ({images}) must live inside "
+                f"[label_studio] local_files_root ({mount}), which is the "
+                f"directory mounted into the Label Studio container."
+            ) from None
+        return PurePosixPath(rel.as_posix())
+
+    def mount_relative_path(self, sample_path: str) -> str:
+        """Sample path as Label Studio sees it, relative to the mounted root."""
+        return str(self._images_rel_to_mount() / sample_path)
+
+    def sample_path_from_mount(self, mount_relative: str) -> str:
+        """Inverse of :meth:`mount_relative_path`."""
+        prefix = self._images_rel_to_mount()
+        rel = PurePosixPath(mount_relative)
+        if prefix.parts and rel.parts[: len(prefix.parts)] == prefix.parts:
+            rel = PurePosixPath(*rel.parts[len(prefix.parts) :])
+        return str(rel)
+
+    # ------------------------------------------------------------------
+    # Model
+    # ------------------------------------------------------------------
+
+    def load_model(self) -> BaseModel:
+        """Instantiate the project's model with its configured parameters.
+
+        A ``*.py:Class`` ref is loaded from a file inside the project, so a
+        project can carry a bespoke model. Note this executes code from the
+        project directory.
+        """
+        ref = self.model.ref
+        if ":" not in ref:
+            raise ProjectError(
+                f"[model] ref must be '<file>.py:Class' or 'pkg.module:Class', got '{ref}'"
+            )
+        target, class_name = ref.rsplit(":", 1)
+
+        if target.endswith(".py"):
+            module_path = _resolve(self.root, target)
+            if not module_path.exists():
+                raise ProjectError(f"[model] ref points at a missing file: {module_path}")
+            module_name = f"auto_labeller_project_model_{module_path.stem}"
+            spec = importlib.util.spec_from_file_location(module_name, module_path)
+            if spec is None or spec.loader is None:
+                raise ProjectError(f"Could not load model module from {module_path}")
+            module = importlib.util.module_from_spec(spec)
+            # Registered before exec so dataclasses/pickle inside can find it
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+        else:
+            module = importlib.import_module(target)
+
+        try:
+            model_cls = getattr(module, class_name)
+        except AttributeError:
+            raise ProjectError(f"No class '{class_name}' in {target}") from None
+        return model_cls(**self.model.params)
+
+    def latest_checkpoint(self) -> Path | None:
+        if not self.checkpoints_dir.exists():
+            return None
+        checkpoints = sorted(self.checkpoints_dir.glob("round_*.pt"))
+        return checkpoints[-1] if checkpoints else None
+
+    # ------------------------------------------------------------------
+    # Mutation
+    # ------------------------------------------------------------------
+
+    def save_ls_project_id(self, project_id: int) -> None:
+        """Write the Label Studio project id back into project.toml.
+
+        A targeted text edit rather than a TOML round-trip, so comments and
+        formatting in a hand-written project.toml survive.
+        """
+        self.label_studio.project_id = project_id
+        toml_path = self.root / PROJECT_FILE
+        text = toml_path.read_text()
+        line = f"project_id = {project_id}"
+
+        if re.search(r"^\s*project_id\s*=.*$", text, flags=re.MULTILINE):
+            text = re.sub(r"^\s*project_id\s*=.*$", line, text, count=1, flags=re.MULTILINE)
+        elif re.search(r"^\[label_studio\]\s*$", text, flags=re.MULTILINE):
+            text = re.sub(
+                r"^(\[label_studio\]\s*)$", rf"\1\n{line}", text, count=1, flags=re.MULTILINE
+            )
+        else:
+            text = text.rstrip("\n") + f"\n\n[label_studio]\n{line}\n"
+        toml_path.write_text(text)
+
+    def require_ls_project_id(self) -> int:
+        if self.label_studio.project_id is None:
+            raise ProjectError(
+                "No Label Studio project yet. Run 'auto-labeller init' first, or set "
+                "[label_studio] project_id in project.toml."
+            )
+        return self.label_studio.project_id
+
+    # ------------------------------------------------------------------
+    # Scaffolding
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def create(
+        cls,
+        root: Path,
+        name: str | None = None,
+        classes: list[str] | None = None,
+        choice: str = "multiple",
+    ) -> "Project":
+        if (root / PROJECT_FILE).exists():
+            raise ProjectError(f"{root / PROJECT_FILE} already exists")
+        name = name or root.resolve().name
+        classes = classes or []
+        rendered = "[" + ", ".join(f'"{c}"' for c in classes) + "]"
+        (root / "data" / "raw").mkdir(parents=True, exist_ok=True)
+        (root / PROJECT_FILE).write_text(
+            f'name = "{name}"\n'
+            "\n"
+            "[label_config]\n"
+            'template = "image_classification"\n'
+            f"classes = {rendered}\n"
+            f'choice = "{choice}"  # "single" for mutually exclusive classes\n'
+            "\n"
+            "[data]\n"
+            'root = "data/raw"  # images live here; may be an absolute path\n'
+            "\n"
+            "[model]\n"
+            '# "model.py:MyModel" to use a model carried by this project\n'
+            'ref = "auto_labeller.models.classifier:MultiLabelClassifier"\n'
+            "\n"
+            "[model.params]\n"
+            "num_epochs = 4\n"
+            "batch_size = 16\n"
+            "lr = 5e-5\n"
+            "\n"
+            "[label_studio]\n"
+        )
+        return cls.load(root)
+
+
+def _resolve(root: Path, value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else root / path
+
+
+def list_projects(base: Path | None = None) -> list[Path]:
+    """Every project directory under ``projects/`` (or another base)."""
+    base = base if base is not None else Path(PROJECTS_DIR)
+    if not base.is_dir():
+        return []
+    return sorted(d for d in base.iterdir() if (d / PROJECT_FILE).exists())
+
+
+def _resolve_named(path: Path) -> Path:
+    """A path to a project directory, or a bare name under ``projects/``."""
+    if path.name == PROJECT_FILE:
+        path = path.parent
+    if (path / PROJECT_FILE).exists():
+        return path.resolve()
+    named = Path(PROJECTS_DIR) / path
+    if (named / PROJECT_FILE).exists():
+        return named.resolve()
+    # Absolute so paths handed to models and workers don't depend on cwd;
+    # load() raises the missing-project.toml error from here
+    return path.resolve()
+
+
+def _resolve_root(path: Path | None) -> Path:
+    if path is not None:
+        return _resolve_named(path)
+
+    env = os.environ.get(PROJECT_ENV_VAR)
+    if env:
+        return _resolve_named(Path(env))
+    if (Path(".") / PROJECT_FILE).exists():
+        return Path(".").resolve()
+
+    # Bare command inside a repo with a projects/ folder: unambiguous only
+    # when there is exactly one project
+    candidates = list_projects()
+    if len(candidates) == 1:
+        return candidates[0].resolve()
+    if len(candidates) > 1:
+        names = ", ".join(p.name for p in candidates)
+        raise ProjectError(
+            f"Several projects found — pass --project NAME (one of: {names}) "
+            f"or set ${PROJECT_ENV_VAR}."
+        )
+    return Path(".").resolve()
+
+
+def _section(spec: type, data: dict, name: str):
+    known = {f.name for f in fields(spec)}
+    unknown = set(data) - known
+    if unknown:
+        raise ProjectError(
+            f"Unknown key(s) in [{name}]: {', '.join(sorted(unknown))} "
+            f"(known: {', '.join(sorted(known))})"
+        )
+    return spec(**data)

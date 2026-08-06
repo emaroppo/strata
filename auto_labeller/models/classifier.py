@@ -38,7 +38,7 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from auto_labeller.model import BaseModel, Prediction
+from ..model import BaseModel, Prediction
 
 
 class _ImageDataset(Dataset):
@@ -106,7 +106,7 @@ class _InferenceDataset(Dataset):
         return self.transform(_load_rgb(self.paths[idx], self.draft_size))
 
 
-class MyModel(BaseModel):
+class MultiLabelClassifier(BaseModel):
     """ConvNeXt V2 Base fine-tuned multi-label classifier.
 
     Uses timm's ``convnextv2_base`` with ImageNet-22k pre-trained weights.
@@ -152,7 +152,7 @@ class MyModel(BaseModel):
 
     # ------------------------------------------------------------------
     # Task hooks — override these to change the classification regime
-    # (see MyMulticlassModel); the training/eval/predict loops are shared.
+    # (see MulticlassClassifier); the training/eval/predict loops are shared.
     # ------------------------------------------------------------------
 
     def _effective_classes(self, classes: list[str]) -> list[str]:
@@ -449,10 +449,10 @@ class MyModel(BaseModel):
         self._backbone.load_state_dict(checkpoint["state_dict"])
 
 
-class MyMulticlassModel(MyModel):
+class MulticlassClassifier(MultiLabelClassifier):
     """Single-label variant: classes are mutually exclusive.
 
-    Same backbone, training loop, and data pipeline as MyModel — only the
+    Same backbone, training loop, and data pipeline as MultiLabelClassifier — only the
     loss (cross-entropy vs BCE), target encoding, and prediction decoding
     differ. Predictions carry exactly one label with its softmax confidence.
     """
@@ -483,7 +483,7 @@ class MyMulticlassModel(MyModel):
         )
 
 
-class MyPresenceModel(MyModel):
+class PresenceClassifier(MultiLabelClassifier):
     """Independent presence detectors with an implicit negative class.
 
     One sigmoid per positive class ("is X present in the picture?"), so any

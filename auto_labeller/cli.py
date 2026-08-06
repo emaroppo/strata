@@ -1,5 +1,5 @@
-import importlib
 import json
+import os
 import random
 from pathlib import Path
 
@@ -13,26 +13,61 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
+from rich.markup import escape
 from rich.table import Table
 
 from .config import Settings
 from .model import BaseModel
+from .project import PROJECT_ENV_VAR, PROJECTS_DIR, Project, ProjectError
 
 app = typer.Typer(name="auto-labeller")
 console = Console()
 
 _IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "bmp", "tiff", "gif"}
 
+ProjectOption = typer.Option(
+    None,
+    "--project",
+    "-p",
+    help=(
+        f"Project name under {PROJECTS_DIR}/, or a path "
+        f"(default: ${PROJECT_ENV_VAR}, else the only project found)"
+    ),
+)
+ConfigOption = typer.Option(
+    "config.toml", "--config", help="Host settings: Label Studio URL and API key"
+)
 
-def _load_model(settings: Settings) -> BaseModel:
-    module = importlib.import_module(settings.model.module)
-    model_cls = getattr(module, settings.model.class_name)
-    return model_cls()
+
+def _error(message: str) -> None:
+    """Print an error. Escaped, since messages carry TOML section names."""
+    console.print(escape(message), style="red")
+
+
+def _load_project(path: Path | None) -> Project:
+    try:
+        return Project.load(path)
+    except ProjectError as e:
+        _error(str(e))
+        raise typer.Exit(1) from None
+
+
+def _ls_client(settings: Settings, project: Project, config_path: Path):
+    """Build a Label Studio client, failing early on a missing token."""
+    from .ls_client import LSClient
+
+    if not settings.label_studio.api_key:
+        _error(
+            f"No Label Studio API key. Set it in {config_path} "
+            "(see config.example.toml) or in $LABEL_STUDIO_API_KEY."
+        )
+        raise typer.Exit(1)
+    return LSClient(settings, project)
 
 
 def _resolve_checkpoint(
     model: BaseModel,
-    settings: Settings,
+    project: Project,
     checkpoint: Path | None = None,
     fresh: bool = False,
 ) -> Path | None:
@@ -42,20 +77,19 @@ def _resolve_checkpoint(
     if checkpoint is not None:
         model.load(checkpoint)
         return checkpoint
-    checkpoint_dir = settings.paths.checkpoints_dir
-    if not checkpoint_dir.exists():
-        return None
-    checkpoints = sorted(checkpoint_dir.glob("round_*.pt"))
-    if not checkpoints:
-        return None
-    latest = checkpoints[-1]
-    model.load(latest)
+    latest = project.latest_checkpoint()
+    if latest is not None:
+        model.load(latest)
     return latest
 
 
-# Keep old name for backward compat within this file
-def _load_latest_checkpoint(model: BaseModel, settings: Settings) -> Path | None:
-    return _resolve_checkpoint(model, settings)
+def _require_checkpoint(model: BaseModel, project: Project, checkpoint: Path | None) -> Path:
+    ckpt = _resolve_checkpoint(model, project, checkpoint)
+    if not ckpt:
+        console.print("[red]No checkpoint found. Run 'train' first or pass --checkpoint.[/red]")
+        raise typer.Exit(1)
+    console.print(f"Using checkpoint: {ckpt}")
+    return ckpt
 
 
 def _push_with_progress(client, project_id, predictions, task_id_map, **kwargs) -> int:
@@ -79,29 +113,102 @@ def _push_with_progress(client, project_id, predictions, task_id_map, **kwargs) 
 
 
 @app.command()
-def init(
-    name: str = typer.Argument(..., help="Project name in Label Studio"),
-    config_path: Path = typer.Option("config.toml", help="Path to config file"),
+def new(
+    name_or_path: str = typer.Argument(
+        ..., metavar="NAME", help=f"Project name (created under {PROJECTS_DIR}/) or a path"
+    ),
+    name: str | None = typer.Option(None, help="Project name (default: directory name)"),
+    classes: list[str] = typer.Option([], "--class", help="Label class (repeatable)"),
+    single: bool = typer.Option(False, "--single", help="Classes are mutually exclusive"),
 ) -> None:
-    """Create a Label Studio project and import tasks from the dataset."""
-    from .dataset import get_classes, load_dataset
-    from .ls_client import LSClient
+    """Scaffold a new project under projects/ (or at an explicit path)."""
+    directory = Path(name_or_path)
+    # A bare name lands in projects/; anything path-shaped is taken literally
+    if len(directory.parts) == 1 and not directory.is_absolute():
+        directory = Path(PROJECTS_DIR) / directory
+    directory.mkdir(parents=True, exist_ok=True)
+    try:
+        project = Project.create(
+            directory,
+            name=name,
+            classes=list(classes),
+            choice="single" if single else "multiple",
+        )
+    except ProjectError as e:
+        _error(str(e))
+        raise typer.Exit(1) from None
 
+    console.print(f"[green]Created project '{project.name}' in {directory}[/green]")
+    console.print(f"  Put images in {project.images_dir}, then run:")
+    console.print(f"    auto-labeller ingest --project {project.name}")
+
+
+@app.command(name="projects")
+def list_projects_cmd() -> None:
+    """List the projects under projects/."""
+    from .dataset import load_dataset
+    from .project import list_projects
+
+    found = list_projects()
+    if not found:
+        console.print(
+            f"[yellow]No projects yet. Create one with 'auto-labeller new <name>'.[/yellow]"
+        )
+        return
+
+    table = Table(title="Projects")
+    table.add_column("Name", style="cyan")
+    table.add_column("Classes", style="green")
+    table.add_column("Samples", justify="right")
+    table.add_column("Labeled", justify="right")
+    table.add_column("LS id", justify="right")
+
+    for directory in found:
+        try:
+            project = Project.load(directory)
+        except ProjectError as e:
+            table.add_row(directory.name, f"[red]{escape(str(e))}[/red]", "-", "-", "-")
+            continue
+        total = labeled = 0
+        if project.dataset_path.exists():
+            dataset = load_dataset(project.dataset_path)
+            total = len(dataset)
+            labeled = sum(1 for s in dataset if s.is_labeled)
+        table.add_row(
+            project.name,
+            ", ".join(project.label_config.classes) or "-",
+            str(total),
+            str(labeled),
+            str(project.label_studio.project_id or "-"),
+        )
+    console.print(table)
+
+
+@app.command()
+def init(
+    project_path: Path | None = ProjectOption,
+    config_path: Path = ConfigOption,
+) -> None:
+    """Create the Label Studio project and import the dataset's tasks."""
+    from .dataset import get_classes, load_dataset
+
+    project = _load_project(project_path)
     settings = Settings.load(config_path)
-    dataset = load_dataset(settings.paths.dataset)
-    classes = get_classes(dataset)
+    dataset = load_dataset(project.dataset_path)
+    classes = project.label_config.classes or get_classes(dataset)
 
     if not classes:
-        console.print("[red]No classes found in dataset. Label some samples first.[/red]")
+        _error("No classes: set [label_config] classes in project.toml.")
         raise typer.Exit(1)
 
-    client = LSClient(settings)
-    project_id = client.create_project(name, classes)
+    client = _ls_client(settings, project, config_path)
+    project_id = client.create_project(project.name, classes)
     client.setup_local_storage(project_id)
     client.import_tasks(project_id, dataset)
+    project.save_ls_project_id(project_id)
 
     console.print(
-        f"[green]Created project '{name}' (ID: {project_id}) "
+        f"[green]Created Label Studio project '{project.name}' (ID: {project_id}) "
         f"with {len(dataset)} tasks[/green]"
     )
     console.print(f"Classes: {', '.join(classes)}")
@@ -109,42 +216,42 @@ def init(
 
 @app.command()
 def ingest(
-    config_path: Path = typer.Option("config.toml", help="Path to config file"),
+    project_path: Path | None = ProjectOption,
 ) -> None:
-    """Scan images_dir for new images and add them to the dataset JSON.
+    """Scan the project's data root for new images and add them to the dataset.
 
     Label Studio tasks are created on demand by `push`, so new images only
     need to be registered here.
     """
     from .dataset import Sample, load_dataset, save_dataset
 
-    settings = Settings.load(config_path)
-    images_dir = settings.paths.images_dir
+    project = _load_project(project_path)
+    images_dir = project.images_dir
 
     if not images_dir.exists():
-        console.print(f"[red]images_dir does not exist: {images_dir}[/red]")
+        console.print(f"[red]Data root does not exist: {images_dir}[/red]")
         raise typer.Exit(1)
 
     # Load existing dataset to find already-tracked paths
     dataset: list[Sample] = []
-    if settings.paths.dataset.exists():
-        dataset = load_dataset(settings.paths.dataset)
+    if project.dataset_path.exists():
+        dataset = load_dataset(project.dataset_path)
     existing_paths = {s.path for s in dataset}
 
-    # Scan for new images
+    # Scan for new images; sample paths are relative to the data root
     new_samples: list[Sample] = []
     for path in sorted(images_dir.rglob("*")):
         if path.suffix.lstrip(".").lower() in _IMAGE_EXTENSIONS:
-            path_str = str(path)
-            if path_str not in existing_paths:
-                new_samples.append(Sample(path=path_str))
+            rel = str(path.relative_to(images_dir))
+            if rel not in existing_paths:
+                new_samples.append(Sample(path=rel))
 
     if not new_samples:
-        console.print("[yellow]No new images found in images_dir.[/yellow]")
+        console.print("[yellow]No new images found.[/yellow]")
         raise typer.Exit(0)
 
     updated = dataset + new_samples
-    save_dataset(updated, settings.paths.dataset)
+    save_dataset(updated, project.dataset_path)
     console.print(
         f"[green]Added {len(new_samples)} new images "
         f"({len(updated)} total samples)[/green]"
@@ -153,25 +260,25 @@ def ingest(
 
 @app.command()
 def train(
-    config_path: Path = typer.Option("config.toml", help="Path to config file"),
+    project_path: Path | None = ProjectOption,
     round_num: int | None = typer.Option(None, help="Round number (auto-detected if omitted)"),
     checkpoint: Path | None = typer.Option(None, help="Checkpoint to continue from (default: latest)"),
     fresh: bool = typer.Option(False, "--fresh/--no-fresh", help="Train from scratch, ignoring existing checkpoints"),
 ) -> None:
-    """Train the model on current labeled data."""
+    """Train the project's model on its labeled data."""
     from .train import run_training
 
-    settings = Settings.load(config_path)
-    model = _load_model(settings)
+    project = _load_project(project_path)
+    model = project.load_model()
 
-    ckpt = _resolve_checkpoint(model, settings, checkpoint, fresh)
+    ckpt = _resolve_checkpoint(model, project, checkpoint, fresh)
     if ckpt:
         console.print(f"Loaded checkpoint: {ckpt}")
     elif fresh:
         console.print("Training from scratch.")
 
     console.print("Training...")
-    meta = run_training(model, settings, round_num)
+    meta = run_training(model, project, round_num)
 
     console.print(f"[green]Round {meta['round']} complete[/green]")
     console.print(
@@ -186,7 +293,7 @@ def train(
 
 @app.command()
 def predict(
-    config_path: Path = typer.Option("config.toml", help="Path to config file"),
+    project_path: Path | None = ProjectOption,
     unlabeled_only: bool = typer.Option(True, help="Only predict on unlabeled samples"),
     checkpoint: Path | None = typer.Option(None, help="Checkpoint to use (default: latest)"),
     output: Path | None = typer.Option(None, help="Save predictions to JSON"),
@@ -195,16 +302,11 @@ def predict(
     from .dataset import Sample, load_dataset, save_dataset, split_labeled_unlabeled
     from .predict import run_predictions
 
-    settings = Settings.load(config_path)
-    model = _load_model(settings)
+    project = _load_project(project_path)
+    model = project.load_model()
+    _require_checkpoint(model, project, checkpoint)
 
-    ckpt = _resolve_checkpoint(model, settings, checkpoint)
-    if not ckpt:
-        console.print("[red]No checkpoint found. Run 'train' first or pass --checkpoint.[/red]")
-        raise typer.Exit(1)
-    console.print(f"Loaded checkpoint: {ckpt}")
-
-    dataset = load_dataset(settings.paths.dataset)
+    dataset = load_dataset(project.dataset_path)
     samples = (
         split_labeled_unlabeled(dataset)[1]
         if unlabeled_only
@@ -216,7 +318,7 @@ def predict(
         raise typer.Exit(0)
 
     console.print(f"Predicting on {len(samples)} samples...")
-    predictions = run_predictions(model, samples)
+    predictions = run_predictions(model, samples, project)
 
     for pred in predictions:
         conf = ", ".join(f"{c:.2f}" for c in pred.confidences)
@@ -230,8 +332,8 @@ def predict(
 
 @app.command()
 def push(
-    project_id: int = typer.Argument(..., help="Label Studio project ID"),
-    config_path: Path = typer.Option("config.toml", help="Path to config file"),
+    project_path: Path | None = ProjectOption,
+    config_path: Path = ConfigOption,
     unlabeled_only: bool = typer.Option(True, help="Only push for unlabeled samples"),
     checkpoint: Path | None = typer.Option(None, help="Checkpoint to use (default: latest)"),
     prioritize_uncertain: bool = typer.Option(True, help="Show uncertain images first"),
@@ -243,19 +345,20 @@ def push(
     """Push model predictions to Label Studio as pre-annotations."""
     from .active_learning import rank_by_uncertainty
     from .dataset import Sample, load_dataset, split_labeled_unlabeled
-    from .ls_client import LSClient
     from .predict import run_predictions
 
+    project = _load_project(project_path)
     settings = Settings.load(config_path)
-    model = _load_model(settings)
+    try:
+        project_id = project.require_ls_project_id()
+    except ProjectError as e:
+        _error(str(e))
+        raise typer.Exit(1) from None
 
-    ckpt = _resolve_checkpoint(model, settings, checkpoint)
-    if not ckpt:
-        console.print("[red]No checkpoint found. Run 'train' first or pass --checkpoint.[/red]")
-        raise typer.Exit(1)
-    console.print(f"Using checkpoint: {ckpt}")
+    model = project.load_model()
+    ckpt = _require_checkpoint(model, project, checkpoint)
 
-    client = LSClient(settings)
+    client = _ls_client(settings, project, config_path)
     with console.status("Fetching task list from Label Studio (slow on large projects)..."):
         task_id_map = client.get_task_id_map(project_id, use_cache=use_cache)
         if refresh:
@@ -266,7 +369,7 @@ def push(
             )
             already_predicted = set(task_id_map) - set(unpredicted)
 
-    dataset = load_dataset(settings.paths.dataset)
+    dataset = load_dataset(project.dataset_path)
     samples = (
         split_labeled_unlabeled(dataset)[1]
         if unlabeled_only
@@ -285,7 +388,7 @@ def push(
         samples = random.sample(samples, sample)
         console.print(f"Sampled {sample} of the eligible images")
 
-    predictions = run_predictions(model, samples)
+    predictions = run_predictions(model, samples, project)
     if prioritize_uncertain:
         predictions = rank_by_uncertainty(predictions)
     if limit is not None:
@@ -316,23 +419,28 @@ def push(
 
 @app.command(name="export")
 def export_annotations(
-    project_id: int = typer.Argument(..., help="Label Studio project ID"),
-    config_path: Path = typer.Option("config.toml", help="Path to config file"),
-    output: Path | None = typer.Option(None, help="Output path (defaults to dataset path)"),
+    project_path: Path | None = ProjectOption,
+    config_path: Path = ConfigOption,
+    output: Path | None = typer.Option(None, help="Output path (defaults to the project dataset)"),
 ) -> None:
-    """Export corrected annotations from Label Studio back to the dataset."""
+    """Export corrected annotations from Label Studio back into the dataset."""
     from .dataset import load_dataset, save_dataset
-    from .ls_client import LSClient
 
+    project = _load_project(project_path)
     settings = Settings.load(config_path)
-    client = LSClient(settings)
+    try:
+        project_id = project.require_ls_project_id()
+    except ProjectError as e:
+        _error(str(e))
+        raise typer.Exit(1) from None
 
+    client = _ls_client(settings, project, config_path)
     with console.status("Exporting annotations from Label Studio (slow on large projects)..."):
         exported = client.export_annotations(project_id)
 
     # Merge: LS only holds a subset of the dataset (tasks are created on
     # demand), so overwriting would drop every image without a task
-    out_path = output or settings.paths.dataset
+    out_path = output or project.dataset_path
     samples = list(exported)
     if out_path.exists():
         by_path = {e.path: e for e in exported}
@@ -351,14 +459,19 @@ def export_annotations(
 
 @app.command()
 def serve(
-    config_path: Path = typer.Option("config.toml", help="Path to config file"),
+    project_path: Path | None = ProjectOption,
     host: str = typer.Option("0.0.0.0", help="Host to bind"),
     port: int = typer.Option(9090, help="Port"),
 ) -> None:
     """Start the ML backend server for Label Studio live predictions."""
     import uvicorn
 
-    console.print(f"Starting ML backend on {host}:{port}")
+    project = _load_project(project_path)
+    # uvicorn imports the app in a worker process, so the project travels
+    # through the environment rather than as an argument
+    os.environ[PROJECT_ENV_VAR] = str(project.root.resolve())
+
+    console.print(f"Starting ML backend for '{project.name}' on {host}:{port}")
     console.print("Add this URL as an ML backend in Label Studio:")
     console.print(f"  http://host.docker.internal:{port}")
     uvicorn.run(
@@ -371,12 +484,12 @@ def serve(
 
 @app.command()
 def report(
-    config_path: Path = typer.Option("config.toml", help="Path to config file"),
+    project_path: Path | None = ProjectOption,
     round_num: int | None = typer.Option(None, help="Round number (latest if omitted)"),
 ) -> None:
     """Show a round summary report."""
-    settings = Settings.load(config_path)
-    rounds_dir = settings.paths.rounds_dir
+    project = _load_project(project_path)
+    rounds_dir = project.rounds_dir
 
     if not rounds_dir.exists():
         console.print("[red]No rounds found. Run 'train' first.[/red]")
