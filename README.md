@@ -44,6 +44,8 @@ All labeled and unlabeled images are tracked in a single JSON file. Each entry i
 
 Labels are lists, which means **multi-label classification is supported out of the box** — an image can belong to multiple classes simultaneously.
 
+An entry may also carry `"skipped": true`, set when a task is skipped in Label Studio (reviewed, but no class fits). Skipped images are excluded from both training and the unlabeled pool, so they never reappear in the review queue.
+
 ---
 
 ## Project structure
@@ -131,12 +133,13 @@ class MyModel(BaseModel):
         self.model = ...          # your nn.Module
         self.classes: list[str] = []
 
-    def finetune(self, samples: list[dict], classes: list[str]) -> dict:
+    def finetune(self, samples: list[dict], classes: list[str], val_samples: list[dict] | None = None) -> dict:
         # samples is a list of {"path": "...", "labels": ["cat"]} dicts
         # classes is the sorted full list of class names
+        # val_samples is held-out data: evaluate on it after training
         self.classes = classes
         # ... your training loop here ...
-        return {"loss": avg_loss, "accuracy": acc}
+        return {"loss": avg_loss, "accuracy": acc, "val_loss": vl, "val_accuracy": va}
 
     def predict(self, image_paths: list[Path]) -> list[Prediction]:
         # run inference and return one Prediction per image
@@ -173,12 +176,21 @@ class_name = "MyModel"
 | Command | Description |
 |---|---|
 | `auto-labeller init <name>` | Create a Label Studio project and import all dataset tasks |
+| `auto-labeller ingest` | Scan `images_dir` for new images and register them in the dataset JSON |
 | `auto-labeller train` | Fine-tune the model on labeled data, save checkpoint + round metadata |
 | `auto-labeller predict` | Run inference on unlabeled images and print results |
-| `auto-labeller push <project_id>` | Push predictions to Label Studio as pre-annotations |
-| `auto-labeller export <project_id>` | Pull corrected annotations from Label Studio into the dataset JSON |
+| `auto-labeller push <project_id>` | Push predictions to Label Studio as pre-annotations, creating tasks on demand |
+| `auto-labeller export <project_id>` | Merge corrected annotations from Label Studio into the dataset JSON |
 | `auto-labeller serve` | Start the ML backend server for live predictions inside Label Studio |
 | `auto-labeller report` | Print a round summary with delta metrics vs the previous round |
+
+`push` supports `--sample N` (predict on a random subset of the unlabeled pool), `--limit N` (push only the top-N most uncertain), and `--refresh` (replace existing pre-annotations). On large datasets the typical round is:
+
+```bash
+uv run auto-labeller push 1 --refresh --limit 1000 --sample 20000
+```
+
+Label Studio only ever holds the tasks you have reviewed or are about to review; the full image inventory lives in the dataset JSON, maintained by `ingest`.
 
 Every command accepts `--config-path` to point at a non-default `config.toml`.
 
