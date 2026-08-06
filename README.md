@@ -32,21 +32,33 @@ A semi-automatic image classification pipeline that integrates with [Label Studi
 
 ## Dataset format
 
-All labeled and unlabeled images are tracked in a single JSON file. Each entry is an object with the image path and a list of labels. An empty label list means the image is unlabeled.
+All labeled and unlabeled images are tracked in a single JSON file per project. Annotations are stored as **canonicalized Label Studio results** — the format Label Studio itself speaks, with the volatile fields (ids, timestamps, lead time) stripped:
 
 ```json
-[
-  {"path": "img001.jpg", "labels": ["cat", "indoor"]},
-  {"path": "batch2/img002.jpg", "labels": ["dog"]},
-  {"path": "batch2/img003.jpg", "labels": []}
-]
+{
+  "version": 2,
+  "samples": [
+    {"path": "img001.jpg", "annotated": true, "results": [
+      {"from_name": "label", "to_name": "image", "type": "choices",
+       "value": {"choices": ["cat", "indoor"]}}
+    ]},
+    {"path": "batch2/img002.jpg"},
+    {"path": "batch2/img003.jpg", "skipped": true}
+  ]
+}
 ```
 
-Paths are relative to the project's `[data] root`.
+Paths are relative to the project's `[data] root`. Storing Label Studio's own shape means predictions and annotations are one format, any control type fits without a schema change here, and the existing conversion tools (`label-studio-converter` and friends) apply directly to a handed-off project.
 
-Labels are lists, which means **multi-label classification is supported out of the box** — an image can belong to multiple classes simultaneously.
+`annotated` says a human answered, which is not the same as the answer being non-empty: an image with no boxes on it is a real annotation, and only this flag distinguishes it from one nobody has looked at. `skipped` marks a task skipped in Label Studio — reviewed, but nothing applies. Skipped images are excluded from both training and the unlabeled pool, so they never reappear in the review queue; `unskip` brings them back.
 
-An entry may also carry `"skipped": true`, set when a task is skipped in Label Studio (reviewed, but no class fits). Skipped images are excluded from both training and the unlabeled pool, so they never reappear in the review queue.
+Multi-label classification works out of the box, since a `choices` value is a list.
+
+The earlier v1 format (a bare list of `{"path", "labels"}`) is still read — the loader upgrades it on the way in. To convert the files on disk, including round snapshots:
+
+```bash
+uv run python scripts/migrate_dataset_v2.py -p <project> --dry-run   # then without --dry-run
+```
 
 ---
 
@@ -108,12 +120,37 @@ Sample paths in `dataset.json` are relative to `[data] root`, so moving the proj
 
 ---
 
+## Label schemas
+
+A project's `[label_config] template` picks both the Label Studio labeling config and the **schema** that reads it. The schema is the only place that knows what a task type looks like: it generates the config, converts between stored results and what the model consumes, and defines what "uncertain" means for the review queue.
+
+```bash
+uv run auto-labeller templates                                  # what is available
+uv run auto-labeller new roads --template image_bbox --class car --class van
+```
+
+| Template | Annotations | Model sees |
+|---|---|---|
+| `image_classification` | `<Choices>` | `list[str]` in, `ChoiceOutput(labels, confidences)` out |
+| `image_bbox` | `<RectangleLabels>` | `list[Box]` in, `BoxOutput(boxes)` out, coordinates as fractions |
+| `custom` | whatever your `label_config.xml` declares | per the control it finds |
+
+`template = "custom"` hands your own `label_config.xml` to Label Studio verbatim and derives the schema by parsing it — control names and classes come from the XML, because that is what annotations reference. Declaring `classes` in `project.toml` alongside it is an error rather than a second source of truth waiting to drift.
+
+Uncertainty is schema-owned, because it does not generalise: classification ranks by least confidence, while detection ranks boxes near the decision threshold and treats an image with no boxes as maximally uncertain.
+
+Adding a task type means adding a schema and a template — nothing in `ls_client`, `train`, `predict`, `active_learning` or the CLI needs to change.
+
+---
+
 ## Repository layout
 
 ```
 auto-labeller/
 ├── auto_labeller/
 │   ├── project.py          # the Project construct: paths, schema, model loading
+│   ├── schemas/            # one module per task type + the template registry
+│   ├── label_configs/      # packaged Label Studio config templates
 │   ├── config.py           # host settings (Label Studio URL + API key)
 │   ├── model.py            # BaseModel ABC + Prediction dataclass
 │   ├── models/classifier.py# shipped baselines (ConvNeXt V2 classifiers)
@@ -246,7 +283,8 @@ Models always receive absolute image paths; the dataset keeps them relative.
 
 | Command | Description |
 |---|---|
-| `auto-labeller new <name>` | Scaffold `projects/<name>/` (`--class`, repeatable; `--single`) |
+| `auto-labeller new <name>` | Scaffold `projects/<name>/` (`--class`, repeatable; `--single`, `--template`) |
+| `auto-labeller templates` | List the available label config templates |
 | `auto-labeller projects` | List projects with their classes, sample counts and LS project id |
 | `auto-labeller init` | Create the Label Studio project, import tasks, record the project id |
 | `auto-labeller ingest` | Scan the data root for new images and register them in `dataset.json` |
@@ -326,11 +364,11 @@ uv run auto-labeller push
 
 ## Active learning
 
-When you run `push`, predictions are sorted by model uncertainty so the most ambiguous images appear at the top of the Label Studio review queue. This means your annotation effort is concentrated where the model is most likely to be wrong.
+When you run `push`, predictions are sorted by uncertainty so the most ambiguous images appear at the top of the Label Studio review queue. Annotation effort concentrates where the model is most likely to be wrong.
 
-Two uncertainty metrics are available internally (`least_confident` and `entropy`). The default is `least_confident` — images where the top predicted class has the lowest confidence are shown first.
+What uncertainty *means* belongs to the schema: classification uses least-confidence (the top predicted class having a low score), while detection ranks boxes sitting near the decision threshold and treats an image with no boxes as maximally uncertain — the model either found nothing or missed everything, and only a human settles which.
 
-Pass `--no-prioritize-uncertain` to push in original dataset order instead.
+Pass `--no-prioritize-uncertain` to push in dataset order instead.
 
 ---
 
