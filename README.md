@@ -102,7 +102,7 @@ auto-labeller train -p my-project
 auto-labeller train -p traffic-signs
 ```
 
-With a single project, `-p` can be omitted entirely; with several, set `AUTO_LABELLER_PROJECT` to pick a default for the shell. Only the payload is gitignored (`data/`, `dataset.json`, `checkpoints/`, `rounds/`, `.state/`) — each `project.toml` and `model.py` stays in version control.
+With a single project, `-p` can be omitted entirely; with several, set `AUTO_LABELLER_PROJECT` to pick a default for the shell. `projects/` is gitignored in full: project data stays local, and this repository holds only the tool.
 
 Sample paths in `dataset.json` are relative to `[data] root`, so moving the project — or repointing it at the same images somewhere else — never rewrites the dataset.
 
