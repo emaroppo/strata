@@ -95,6 +95,7 @@ choice   = "multiple"            # "single" for mutually exclusive classes
 
 [data]
 root = "data/raw"                # may be an absolute path for a shared corpus
+kind = "images"                  # "frames" for video frames, one folder per video
 
 [model]
 ref = "auto_labeller.models.classifier:PresenceClassifier"
@@ -119,6 +120,15 @@ auto-labeller train -p traffic-signs
 With a single project, `-p` can be omitted entirely; with several, set `AUTO_LABELLER_PROJECT` to pick a default for the shell. `projects/` is gitignored in full: project data stays local, and this repository holds only the tool.
 
 Sample paths in `dataset.json` are relative to `[data] root`, so moving the project — or repointing it at the same images somewhere else — never rewrites the dataset.
+
+`[data] kind` says how the samples relate to each other, which is what the train/val split needs to know:
+
+| `kind` | Layout | Split |
+| --- | --- | --- |
+| `images` (default) | Whatever suits you; folders are just folders | Samples are independent, so they are shuffled and split individually |
+| `frames` | One folder per video, its frames inside | Whole videos land on one side of the split |
+
+Frames a fraction of a second apart are near-duplicates. Splitting them individually would put a frame in validation whose neighbours the model trained on, and the resulting score measures memorisation rather than generalisation — so under `kind = "frames"` a video is indivisible.
 
 ---
 
