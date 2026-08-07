@@ -9,3 +9,8 @@ url = "http://localhost:8080"
 api_key = ""
 # Where the images mount appears inside the Label Studio container
 local_storage_path = "/label-studio/data/images"
+
+# Where the catalog lives on this machine. Which label set inside it a
+# project annotates against is that project's business, in its project.toml.
+[catalog]
+root = "catalog"
