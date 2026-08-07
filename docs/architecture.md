@@ -1,78 +1,226 @@
 # Architecture — planned direction
 
-Status: **plan, not built.** Everything here is a decision record for a
-restructuring that has not started. The shipped tool today is one package
-that does all three jobs described below in-process.
+Status: **plan, not built.** A decision record for a restructuring that has
+not started. The shipped tool today is one package doing all of this
+in-process, against files on local disk.
+
+Sequencing lives in `roadmap.md`.
 
 ---
 
-## The problem with one package
+## What the system is for
 
-Two axes are tangled together in the current code.
+The durable assets are **a labelled data catalog** and **a model catalog**.
+The labelling tool is scaffolding that produces the first one. Anything that
+makes the catalog depend on the scaffolding has the relationship backwards.
 
-The first is **what a sample is**. Media is modelled as a flat pair —
-`image` or `text` — but the real shape is a hierarchy: frames are a kind of
-image that arrive in near-duplicate runs, satellite imagery is a kind of
-image with more than three bands and a coordinate system, email is a kind of
-text with headers and threads. Each subtype wants its own reading, grouping
-and preprocessing. That surface will keep growing, and none of it has
-anything to do with annotation.
+That principle decides most of what follows.
 
-The second is **where a model runs**. Models are imported and executed
-in-process, which forces the labelling side to carry an ML framework, ties
-training to whichever machine is running the CLI, and makes a model that
-became good enough at its job awkward to use for anything else.
-
-Neither axis is about labelling, and both are things worth reusing
-elsewhere.
-
-## Three packages
+## Four packages
 
 | Package | Owns | Depends on |
 | --- | --- | --- |
-| `corpus` | what a sample is, how to find it, how to read it, how samples relate | — |
-| `modelling` | train and predict over samples and targets; model plugins | `corpus` |
-| `labeller` | which sample to ask a human about next; Label Studio plumbing | `corpus`, `modelling` |
+| `labels` | what an annotation *is*: value types, schema descriptors, the indexing contract | — |
+| `catalog` | samples, storage, grouping, annotations, datasets | `labels` |
+| `modelling` | train and predict; model plugins; runs and checkpoints | `catalog`, `labels` |
+| `labeller` | active learning, and the Label Studio adapter that feeds it | `catalog`, `modelling`, `labels` |
 
-The graph is acyclic and each edge points at something more general than
-itself.
+Acyclic, with `labels` as the leaf.
 
-Two consequences that settle questions the current code keeps re-opening:
+`labeller` is deliberately thin — active learning plus a UI adapter. The
+centre of gravity is the catalog.
 
-- **The train/val split belongs to `corpus`.** Whether two samples are
-  near-duplicates is a fact about the corpus, not about the annotation job.
-  `modelling` consumes a split; `labeller` asks for one.
-- **Decoding belongs to `corpus` too.** `_load_rgb` inside the image
-  classifier is why satellite imagery would be painful today: a model that
-  hardcodes three channels cannot take an eight-band GeoTIFF. If `corpus`
-  owns "read a sample of this subtype into an array", the subtype axis stops
-  leaking into model code.
+### One repo, not four
 
-### One repo, not three
+A `uv` workspace, which the build already uses everywhere. That gives a
+`pyproject.toml` per package, independently declared dependencies, separate
+extras, and independent publishability — without a version-pinning dance on
+every change touching two packages, which during a restructuring is most of
+them. `git subtree split` peels a package out later with history intact.
 
-A `uv` workspace, which the build already uses everywhere.
+## `labels`
 
-This gives the parts of a split that are actually wanted — a `pyproject.toml`
-per package, independently declared dependencies, separate extras so that
-satellite support does not pull the Label Studio SDK and the labeller does
-not pull a raster stack, independent publishability — without the part that
-is pure cost: a version-pinning dance on every change that touches two
-packages, which during a restructuring is most of them.
+The neutral representation, shared by everything.
 
-`git subtree split` peels a package into its own repo later with history
-intact. The expensive part of a split is settling the interface; the repo is
-a mechanical step afterwards, and the interface is still moving.
+**Label Studio's format must not go in it.** What `schemas/` is today is an
+LS adapter wearing a schema layer's clothes: `Result` is an LS result dict,
+`canonicalize` and `strip_volatile` exist to drop LS's volatile fields,
+`label_config()` emits LS XML, `MEDIA_TAGS` parses it. If that becomes
+`labels`, the catalog is shaped by a replaceable annotation UI.
 
-### Subtypes are classes, not entry points
+So `labels` holds value types, schema descriptors, encode/decode/validate —
+and LS's XML and result handling stay in `labeller` as a boundary adapter.
 
-In-tree classes with extras for the heavy dependencies. Entry-point
-discovery only once something out-of-tree needs to register, which is the
-same bar that was applied to model plugins and not yet met for media.
+**This reverses a decision that was right at the time.** The README says
+`dataset.json` deliberately stores canonicalized Label Studio results, so
+predictions and annotations share one format and LS's own conversion tools
+work on a handoff. Good, while LS was the centre. As the storage format of a
+durable catalog it is a vendor wire format in a permanent record — and
+`strip_volatile` is the tell: you already scrub it on the way in.
 
-## Two containers
+**The indexing contract.** The catalog cannot index opaque JSON, but it does
+not need to understand every task type either. It needs each schema to
+answer one question: *which classes does this annotation assert?* That is
+`classes_in_use`, which already exists. A new task type implements the
+contract and becomes queryable without the catalog changing.
 
-Not three. One of the three boundaries is a data plane and does not want a
-network in it.
+**The rule that keeps it from becoming a monolith with extra steps:** no
+I/O, no storage, no SDK, no framework. Pure types and pure functions. Shared
+kernels are where coupling hides, so this belongs in the package docstring.
+
+## `catalog`
+
+### Storage: shards in object storage, index in Postgres
+
+Images are packed into tars in S3-compatible object storage (Garage
+self-hosted) rather than stored as individual objects — small-object
+overhead and listing cost make per-file storage the wrong shape at volume.
+
+Tar has no index, so Postgres records `(shard, offset, length)` per sample.
+Tar members are contiguous, so one sample is one HTTP range request. That
+gives two access modes, chosen per query by selectivity:
+
+- **Sparse** (labelling, review) → range requests, coalescing adjacent members.
+- **Dense** (training) → pull whole shards and stream them.
+
+Two things to get right from the start:
+
+- **Shards are immutable.** You cannot append to a tar in object storage
+  without rewriting it. New data means new shards; deletion means a
+  tombstone in the index and a compaction pass later.
+- **Pack with locality.** Keep a video's frames in one shard, so a shard
+  tends to fall on one side of a split and dense reads stay dense.
+  100MB–1GB per shard.
+
+### Text is stored differently, queried identically
+
+Text documents are kilobytes. Rather than packing them, put the content in
+Postgres directly: no index, no range reads, no serving hop, and full-text
+search comes free. Email especially — headers and threads want to be
+columns, and thread id is the group id.
+
+The line is content type, not size: binary to object storage, text to the
+database, with an escape hatch for genuinely large documents. The storage
+layer differs; the query layer must not.
+
+### Schema
+
+```
+catalog.sample            id, shard, offset, length, media, subtype,
+                          group_id, checksum, metadata JSONB
+
+catalog.label_set         id, name, schema (task type, classes, ...)
+
+catalog.annotation        sample_id, label_set_id, results JSONB,
+                          annotated, skipped, source, updated_at
+                          PK (sample_id, label_set_id)
+
+catalog.annotation_class  sample_id, label_set_id, class_name
+                          -- derived on write via labels' indexing contract
+
+catalog.dataset           id, name, version, query, created_at
+catalog.dataset_member    dataset_id, sample_id, val
+```
+
+**Annotations are scoped by label set, not by project.** A sample carries as
+many annotations as there are label sets over it, so "presence, labelled
+last year" and "boxes, labelled this year" coexist without either being
+owned by the tool that produced it.
+
+**`group_id` is a column, assigned at ingest by the subtype's rule** — one
+per video for frames, unique per sample for standalone images. This retires
+the mixed-corpora problem outright: one catalog holds both kinds, splitting
+groups by a column, with no `[data] kind` and no directory globs. It also
+retires the `[data] kind` setting shipped in `65e3a28`.
+
+**Datasets are materialised, not queries.** A dataset is a saved selection
+plus its split. That makes a training run reproducible by id, and it makes
+validation membership stable *by construction*: a new version inherits
+membership for samples it shares with the previous one and assigns only what
+is new. That replaces the persisted-`val`-flag design this document
+previously described, and retires `Sample.val` in the working tree.
+
+`val` is per-dataset, which is what it always actually was — two projects
+over one catalog should be free to hold out different samples.
+
+## `modelling`
+
+Model plugins, training runs, checkpoints and metrics, with each run
+pointing at the dataset version it trained on. Lineage runs end to end:
+checkpoint → dataset version → the exact samples and annotations behind it.
+
+**Decoding moves to `catalog`.** `_load_rgb` inside the image classifier is
+why satellite imagery would be painful today: a model hardcoding three
+channels cannot take an eight-band GeoTIFF. If the catalog owns "read a
+sample of this subtype into an array", the subtype axis stops leaking into
+model code.
+
+### The request is the contract
+
+`modelling` is a library with an HTTP adapter, never HTTP-only. `labeller`
+builds a request and hands it to either the in-process handler or an HTTP
+client — and the in-process path **calls the same handler** rather than
+bypassing it. Validation is one code path, error text is identical local and
+remote, `pytest` needs no containers, and the boundary cannot rot because
+both sides stay exercised.
+
+A train request carries: model name, params, label set, dataset id.
+
+### The backend is the only authority on what it can serve
+
+No capability negotiation. A fetched capability list is stale by the time a
+job is submitted, so the request-time check is needed regardless; building
+both makes the list a cache that can only be wrong.
+
+That pulls the schema check across too — `run_training` compares
+`model.schema_type` against the project's schema in-process today; the
+backend should validate "plugin installed, and it handles this task type" in
+one place, on the side with the facts.
+
+Two consequences: a bad param must come back as a **structured error naming
+the parameter** rather than a 500 with a traceback, and an
+`auto-labeller models` command should proxy the backend's list — not for
+validation, but because nothing otherwise checks configuration until a
+train, which can be after labelling a few hundred samples.
+
+### Where a model comes from
+
+Machine-level and job-level settings stay separated the way `config.py`
+already states: *how this host reaches things* in `config.toml`, *what this
+job is* in the job's own config.
+
+```toml
+# config.toml — this machine
+[modelling]
+url = "http://gpu-host:8000"    # omit to run in-process
+```
+
+The endpoint must not live with the job. If it did, one endpoint would mean
+one model, a job could not move between a laptop and the GPU host without an
+edit, and a backend could not serve several jobs — which was the reason to
+have a backend.
+
+**Entry points are now justified for model plugins.** They were rejected
+earlier, correctly, because every plugin shipped in the same repo. A backend
+makes a plugin an installable package someone else can publish.
+
+**`ref = "model.py:Class"` survives for in-process mode.** Requiring a
+package and an image rebuild for a quick experiment is a real regression,
+and there is no container boundary in-process to force giving it up.
+
+### Checkpoint version pinning
+
+Checkpoints map output neurons to the class list *by position*, which is why
+`add_classes` is append-only. Today the model code sits inside the project
+and cannot change underneath it; with a remote backend, a plugin upgrade
+between rounds silently invalidates the mapping.
+
+So: record model name and version on the run, and refuse a checkpoint whose
+recorded version does not match what the backend now serves.
+
+## Deployment: two containers, not four
+
+One of these boundaries is a data plane and does not want a network in it.
 
 ```
 ┌───────────────┐     HTTP      ┌──────────────┐
@@ -80,11 +228,10 @@ network in it.
 │  + Label      │               │  (GPU host)  │
 │    Studio     │               │              │
 └───────┬───────┘               └──────┬───────┘
-        │                              │
-        │      both import corpus      │
+        │      both import catalog     │
         └──────────────┬───────────────┘
                        ▼
-             shared storage (volume or object store)
+            Garage (shards) + Postgres (index)
 ```
 
 **`labeller` ↔ `modelling` over HTTP.** Training is long-running, so it
@@ -92,184 +239,44 @@ wants to be a submitted job rather than a blocking call. The framework image
 is multi-GB while the labelling image is small. And the payoff is locality:
 `modelling` runs where the GPU is, labelling happens from anywhere, and a
 model that got good enough serves other work without dragging an annotation
-tool along. `ls_backend.py` is already a FastAPI service that loads a
-project's model and serves predictions — the modelling container is that
-generalised from predict-only to predict-and-train.
+tool along. `ls_backend.py` is already a FastAPI service loading a model and
+serving predictions — the modelling container is that generalised from
+predict-only to predict-and-train.
 
-**`corpus` is a library, not a service.** Training reads the bytes of every
-sample several times per epoch. HTTP in that path turns a page-cache read
-into a round trip inside the inner loop. Both containers import `corpus` and
-both see the same storage. If storage should be owned properly, the
-container to add is MinIO or S3 and `corpus` is the client on top of it:
-object storage in the byte path, Python in the metadata path.
+**`catalog` is a library, not a service.** Training reads every sample's
+bytes several times per epoch; HTTP in that path turns a range read into a
+round trip inside the inner loop.
 
-A catalogue API over `corpus` — what samples exist, their subtypes, their
-groups, their split — is a possible later addition. Small payloads, low
-frequency, and separable from the bytes.
+### The one exception: serving samples to a browser
 
-### What makes this cheap here
+Label Studio displays images by putting a URL in an `<img>` tag. A tar
+member is a byte range, reached with a `Range` header — which a browser will
+not send for an image load and a presigned URL cannot carry. **So the
+labelling UI cannot fetch a sample out of a tar.**
 
-- `dataset.json` already stores **data-root-relative** paths, which is the
-  thing that usually breaks containerised training.
-- The mount-agreement problem is already solved once:
-  `[label_studio] local_files_root` and `local_files_prefix` exist because
-  Label Studio is a container that has to see the files at an agreed path.
-  `modelling` is the same pattern a second time.
-- `docker-compose.yml` already has the bind-mount idiom worked out.
+The alternative to duplicating every image as a standalone object is a small
+read API: `GET /sample/{id}` → range read → bytes, with Label Studio
+pointed at it instead of at the bucket. One source of truth, and it fits the
+split above — bytes for training go straight from object storage at full
+speed, bytes for humans go through a Python hop at human speed, where it
+costs nothing.
 
-## The request is the contract
+## Costs, recorded deliberately
 
-`modelling` is a library with an HTTP adapter, never HTTP-only. `labeller`
-builds a request object and hands it to either the in-process handler or an
-HTTP client.
+**Portability.** `project.py` promises a project directory is "a
+self-contained, portable labelling job." With data in a catalog and models
+as plugins on a server, handing someone that directory gives them neither.
+This is a real downgrade, accepted in exchange for an asset that outlives
+any single job. Reproducibility moves to lineage — a run names a dataset
+version and a model version — and the docstring should be corrected when the
+change lands.
 
-The in-process path **calls the same handler** rather than bypassing it. So
-validation is one code path, error text is identical local and remote, and
-the failure mode where it works on a laptop and 400s against the GPU host
-cannot arise. `pytest` needs no containers, and the boundary cannot rot
-because both sides of it stay exercised.
+**The name.** `auto-labeller` will describe the smallest of the four
+packages.
 
-A train request carries: model name, model params, schema type, class list,
-and the samples with their targets and split assignment.
-
-### The backend is the only authority on what it can serve
-
-No capability negotiation. A fetched capability list can be stale by the
-time a job is submitted, so the request-time check is needed regardless, and
-building both makes the list a cache that can only ever be wrong.
-
-That pulls the schema check across too. `run_training` currently compares
-`model.schema_type` against the project's schema in-process; with the schema
-type in the request, the backend validates "plugin installed, and it handles
-this schema type" in one place, on the side that has the facts.
-
-Two things this demands:
-
-- Params must come back as a **structured error naming the parameter**. In
-  process a bad param is a `TypeError` from `model_cls(**params)`, which
-  reads fine in a terminal; over the wire that is a 500 with a traceback.
-- An `auto-labeller models` command that proxies the backend's list. Not for
-  validation — for the fact that nothing otherwise checks `project.toml`
-  until a train, which in this tool can be after labelling a few hundred
-  samples.
-
-## Where a model comes from
-
-Machine-level and job-level settings stay separated the way `config.py`
-already states: *how this host reaches things* in `config.toml`, *what this
-job is* in the project directory.
-
-```toml
-# config.toml — this machine
-[modelling]
-url = "http://gpu-host:8000"    # omit to run in-process
-
-# project.toml — this job
-[model]
-name = "presence-classifier"    # a plugin the backend has installed
-version = "2"
-
-[model.params]
-num_epochs = 4
-```
-
-The endpoint must not live in `project.toml`. If it did, one endpoint would
-mean one model, a project could not move between a laptop and the GPU host
-without an edit, and a backend could not serve several projects — which was
-the reason to have a backend.
-
-**Entry points are now justified for models.** They were rejected earlier,
-correctly, because every "plugin" shipped in the same repo. With a backend
-that stops being true: a plugin becomes an installable package someone else
-can publish and an operator installs into the backend image.
-
-**`ref = "model.py:Class"` survives for in-process mode.** The casual path
-today is "drop a `model.py` in the project and go"; requiring a package and
-an image rebuild for a quick experiment is a real regression. There is no
-container boundary in-process, so nothing forces giving it up. Named plugins
-are how the remote backend works, and the config makes plain which mode is
-in play.
-
-### The cost, recorded deliberately
-
-`project.py` promises a project directory is "a self-contained, portable
-labelling job". Once the model is a plugin on a server, handing someone that
-directory gives them annotations and checkpoints but not the model that
-produced them.
-
-That is an acceptable trade, but it is a downgrade and should be written
-down rather than quietly stop being true:
-
-- Record model **name and version** in `rounds/*/metadata.json`, so a
-  handoff is reproducible given a backend that has the plugin.
-- **Refuse a checkpoint whose recorded version does not match** what the
-  backend now serves. This matters more than it looks: checkpoints map
-  output neurons to the class list *by position*, which is why `add_classes`
-  is append-only. Today the model code sits inside the project and cannot
-  change underneath it. With a remote backend, a plugin upgrade between
-  rounds silently invalidates the mapping.
-- Update that docstring when the change lands.
-
-## Two open problems this restructuring absorbs
-
-**A. Mixed corpora.** A project cannot hold both standalone images and video
-frames — `[data] kind` is one value for the whole project. Under `corpus`
-this becomes a question of where group keys come from rather than a question
-about the split, because the split will always group and a standalone sample
-is a group of one. The likely shape:
-
-```toml
-[data]
-kind = "images"
-frame_dirs = ["clips/*"]   # these subtrees are frame runs
-```
-
-**B. Validation membership is not stable.** Which samples are validation is
-recomputed on every train — shuffle, take the last fraction. Labelling more
-samples changes the shuffle, so samples move between the two sides. Because
-rounds warm-start from the previous checkpoint, a sample that moves into
-validation is then scored by a model that already trained on it, and the
-number flatters itself.
-
-The fix is to persist the decision instead of deriving it. A `val` flag per
-sample in `dataset.json`, tri-state so that undecided is distinguishable
-from decided-as-train, assigned once and never revisited:
-
-- Round 1, 50 labelled: 40 get `false`, 10 get `true`, written out.
-- Round 2, 50 more labelled: the original 50 keep their flags. Target is 20
-  of 100; 10 already exist; so 10 of the new samples get `true`.
-
-Assignment aims at the deficit rather than flipping a coin per sample, so a
-ratio knocked off target by an earlier round is corrected by the next one.
-Groups are taken into validation only while doing so lands closer to the
-target than skipping them, which caps overshoot at half a group. A group
-found straddling both sides is forced wholly to train — the only case where
-a decided sample is overruled, and the direction that removes the leak
-rather than preserving it. An outcome with an empty side is an error, not a
-warning: one video under `kind = "frames"` cannot produce a held-out video,
-and saying so beats reporting a meaningless score.
-
-Note `Sample.val` and its `dataset.json` round trip exist in the working
-tree already; the assignment logic does not.
-
-## Order of work
-
-1. **`corpus`** — depends on nothing, and both open problems above live in
-   it. The subtype hierarchy gets designed here.
-2. **`modelling`** — largely a move of `models/`, `model.py`, `train.py` and
-   `predict.py`, plus lifting decode out into `corpus`. In-process
-   implementation and the request types first; the HTTP adapter once the
-   interface stops moving.
-3. **`labeller`** — what remains.
-4. **Containers** — the compose stack falls out of step 2 and doubles as the
-   runnable demo the README needs.
-
-The interface is designed first and the containers ship last, so the wire
-format is not retrofitted onto an interface that grew in-process.
-
-### Honest cost
-
-This is more work than everything left on the pre-existing TODO combined,
-and it pushes publishing out. It is a defensible trade for a tool meant to
-be used rather than only shown, but it should be a decision rather than a
-drift.
+**Infrastructure must not become mandatory.** If the catalog only speaks
+Postgres and S3, nobody can run this repo without standing up a database and
+an object store — which kills the runnable demo that is the highest-value
+thing for a reader. The storage and index access want an interface with a
+local implementation (filesystem plus SQLite) behind it. Sequenced late in
+`roadmap.md`, but not dropped.
