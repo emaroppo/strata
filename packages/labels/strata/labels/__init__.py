@@ -18,6 +18,17 @@ wire is one annotation tool's format; it converts at the boundary, inside
 The indexing contract lives here too: every schema answers *which classes
 does this annotation assert*, which is what lets the catalog index
 annotations it does not otherwise understand.
-
-Empty until Phase 1 — see ``docs/roadmap.md``.
 """
+
+from .schema import AnySchema, ClassificationSchema, SchemaError
+from .values import AnyValue, Choices, ChoicesPrediction, Value
+
+__all__ = [
+    "AnySchema",
+    "AnyValue",
+    "ChoicesPrediction",
+    "Choices",
+    "ClassificationSchema",
+    "SchemaError",
+    "Value",
+]
