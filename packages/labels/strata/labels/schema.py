@@ -18,15 +18,38 @@ photograph and classifying a document are the same task, and which one a
 sample is belongs to the catalog.
 """
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from .values import Choices
+from .values import Boxes, Choices, Spans
 
 
 class SchemaError(ValueError):
     """A value that does not fit the schema it is annotated against."""
+
+
+def _shared_class_validator():
+    """The class-list rules every task type shares."""
+
+    def check(self):
+        if any(not c.strip() for c in self.classes):
+            raise ValueError("Class names cannot be empty")
+        duplicates = {c for c in self.classes if self.classes.count(c) > 1}
+        if duplicates:
+            raise ValueError(f"Duplicate class(es): {', '.join(sorted(duplicates))}")
+        return self
+
+    return model_validator(mode="after")(check)
+
+
+def _refuse_unknown_classes(known: list[str], used) -> None:
+    unknown = sorted({c for c in used if c and c not in known})
+    if unknown:
+        raise SchemaError(
+            f"Class(es) not in this label set: {', '.join(unknown)} "
+            f"(known: {', '.join(known) or 'none'})"
+        )
 
 
 class ClassificationSchema(BaseModel):
@@ -41,14 +64,7 @@ class ClassificationSchema(BaseModel):
 
     model_config = {"frozen": True}
 
-    @model_validator(mode="after")
-    def _classes_are_usable(self) -> "ClassificationSchema":
-        if any(not c.strip() for c in self.classes):
-            raise ValueError("Class names cannot be empty")
-        duplicates = {c for c in self.classes if self.classes.count(c) > 1}
-        if duplicates:
-            raise ValueError(f"Duplicate class(es): {', '.join(sorted(duplicates))}")
-        return self
+    _classes_are_usable = _shared_class_validator()
 
     def validate_value(self, value: Choices) -> None:
         """Raise if ``value`` does not fit this schema.
@@ -56,12 +72,7 @@ class ClassificationSchema(BaseModel):
         An empty value is valid and meaningful: a sample a human looked at
         and found nothing in is a real answer, not a missing one.
         """
-        unknown = [c for c in value.values if c not in self.classes]
-        if unknown:
-            raise SchemaError(
-                f"Class(es) not in this label set: {', '.join(sorted(unknown))} "
-                f"(known: {', '.join(self.classes) or 'none'})"
-            )
+        _refuse_unknown_classes(self.classes, value.values)
         if not self.multiple and len(value.values) > 1:
             raise SchemaError(
                 f"This label set is single-choice, got {len(value.values)}: "
@@ -87,6 +98,48 @@ class ClassificationSchema(BaseModel):
     # belongs to the labeller.
 
 
-#: Every schema, discriminated on ``task``. One member today — adding boxes
-#: or spans is one class and one entry here.
-AnySchema = ClassificationSchema
+class SpanSchema(BaseModel):
+    """Labelled character ranges inside a document."""
+
+    task: Literal["span"] = "span"
+    classes: list[str] = Field(default_factory=list)
+
+    model_config = {"frozen": True}
+
+    _classes_are_usable = _shared_class_validator()
+
+    def validate_value(self, value: Spans) -> None:
+        _refuse_unknown_classes(self.classes, (s.label for s in value.values))
+        for span in value.values:
+            if span.text and len(span.text) != span.end - span.start:
+                raise SchemaError(
+                    f"Span text is {len(span.text)} characters but the range "
+                    f"{span.start}..{span.end} covers {span.end - span.start}; "
+                    f"the offsets are authoritative, so one of them is wrong"
+                )
+
+    def classes_asserted(self, value: Spans) -> set[str]:
+        return {s.label for s in value.values if s.label}
+
+
+class BBoxSchema(BaseModel):
+    """Labelled rectangles over an image."""
+
+    task: Literal["bbox"] = "bbox"
+    classes: list[str] = Field(default_factory=list)
+
+    model_config = {"frozen": True}
+
+    _classes_are_usable = _shared_class_validator()
+
+    def validate_value(self, value: Boxes) -> None:
+        _refuse_unknown_classes(self.classes, (b.label for b in value.values))
+
+    def classes_asserted(self, value: Boxes) -> set[str]:
+        return {b.label for b in value.values if b.label}
+
+
+#: Every schema, discriminated on ``task``.
+AnySchema = Annotated[
+    ClassificationSchema | SpanSchema | BBoxSchema, Field(discriminator="task")
+]

@@ -9,7 +9,7 @@ A prediction is the same value plus the model's confidence in it, so ranking
 and storage speak one shape rather than two that drift.
 """
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -44,6 +44,92 @@ class ChoicesPrediction(Choices):
         return self
 
 
-#: Every annotation payload, discriminated on ``kind``. One member today —
-#: adding boxes or spans is one class and one entry here.
-AnyValue = Choices
+class Span(BaseModel):
+    """A labelled character range inside a document.
+
+    Offsets are what matter and are end-exclusive. ``text`` is carried
+    because it makes a stored annotation readable without fetching the
+    document, but it is a convenience: the offsets are authoritative.
+    """
+
+    label: str
+    start: int
+    end: int
+    text: str = ""
+
+    model_config = {"frozen": True}
+
+    @model_validator(mode="after")
+    def _range_is_forwards(self) -> "Span":
+        if self.start < 0 or self.end < self.start:
+            raise ValueError(f"Not a range: start={self.start}, end={self.end}")
+        return self
+
+
+class Spans(Value):
+    """Zero or more labelled ranges over one document."""
+
+    kind: Literal["spans"] = "spans"
+    values: list[Span] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _in_reading_order(self) -> "Spans":
+        # Sorted on the way in so a stored annotation and a model's output
+        # compare equal when they say the same thing
+        object.__setattr__(
+            self, "values", sorted(self.values, key=lambda s: (s.start, s.end))
+        )
+        return self
+
+
+class SpansPrediction(Spans):
+    """:class:`Spans` a model produced, with its confidence per span."""
+
+    confidences: list[float] = Field(default_factory=list)
+
+
+class Box(BaseModel):
+    """A labelled rectangle over an image.
+
+    Fractions of the image with a top-left origin, never pixels and never
+    percentages. Label Studio speaks percentages alongside the original
+    dimensions; converting at the boundary is what keeps a stored box
+    meaningful without them.
+    """
+
+    label: str
+    x: float
+    y: float
+    width: float
+    height: float
+    rotation: float = 0.0
+
+    model_config = {"frozen": True}
+
+    @model_validator(mode="after")
+    def _fits_the_image(self) -> "Box":
+        if self.width < 0 or self.height < 0:
+            raise ValueError(f"Negative extent: {self.width}x{self.height}")
+        if not all(0.0 <= v <= 1.0 for v in (self.x, self.y, self.width, self.height)):
+            raise ValueError(
+                f"Box is in fractions of the image, so every coordinate is 0..1; "
+                f"got x={self.x}, y={self.y}, w={self.width}, h={self.height}"
+            )
+        return self
+
+
+class Boxes(Value):
+    """Zero or more labelled rectangles over one image."""
+
+    kind: Literal["boxes"] = "boxes"
+    values: list[Box] = Field(default_factory=list)
+
+
+class BoxesPrediction(Boxes):
+    """:class:`Boxes` a model produced, with its confidence per box."""
+
+    confidences: list[float] = Field(default_factory=list)
+
+
+#: Every annotation payload, discriminated on ``kind``.
+AnyValue = Annotated[Choices | Spans | Boxes, Field(discriminator="kind")]

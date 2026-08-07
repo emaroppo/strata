@@ -20,15 +20,34 @@ does this annotation assert*, which is what lets the catalog index
 annotations it does not otherwise understand.
 """
 
-from .schema import AnySchema, ClassificationSchema, SchemaError
-from .values import AnyValue, Choices, ChoicesPrediction, Value
+from .schema import AnySchema, BBoxSchema, ClassificationSchema, SchemaError, SpanSchema
+from .values import (
+    AnyValue,
+    Box,
+    Boxes,
+    BoxesPrediction,
+    Choices,
+    ChoicesPrediction,
+    Span,
+    Spans,
+    SpansPrediction,
+    Value,
+)
 
 __all__ = [
     "AnySchema",
     "AnyValue",
-    "ChoicesPrediction",
+    "BBoxSchema",
+    "Box",
+    "Boxes",
+    "BoxesPrediction",
     "Choices",
+    "ChoicesPrediction",
     "ClassificationSchema",
     "SchemaError",
+    "Span",
+    "SpanSchema",
+    "Spans",
+    "SpansPrediction",
     "Value",
 ]
