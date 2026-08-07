@@ -163,28 +163,38 @@ Adding a task type means adding a schema and a template. Nothing in `ls_client`,
 
 ## Repository layout
 
+A `uv` workspace. `labels`, `catalog` and `modelling` are declared but empty —
+the restructuring they belong to is planned in `docs/roadmap.md` and has not
+started. Everything that runs today lives in `packages/labeller`.
+
 ```
 auto-labeller/
-├── auto_labeller/
-│   ├── project.py          # the Project construct: paths, schema, model loading
-│   ├── schemas/            # one module per task type + the template registry
-│   ├── label_configs/      # packaged Label Studio config templates
-│   ├── config.py           # host settings (Label Studio URL + API key)
-│   ├── model.py            # BaseModel ABC + Prediction dataclass
-│   ├── models/             # shipped baselines (optional extras): ConvNeXt, transformer
-│   ├── dataset.py          # JSON dataset load / save / split utilities
-│   ├── train.py            # Training orchestration and round bookkeeping
-│   ├── predict.py          # Batch inference
-│   ├── active_learning.py  # Uncertainty-based prioritisation for review
-│   ├── ls_client.py        # Label Studio SDK wrapper
-│   ├── ls_backend.py       # FastAPI ML backend server (live predictions in LS)
-│   └── cli.py              # CLI entry points
-├── tests/                  # the suite; most of it runs without a framework
+├── packages/
+│   ├── labels/             # what an annotation is — empty until Phase 1
+│   ├── catalog/            # samples, storage, datasets — empty until Phase 2
+│   ├── modelling/          # train/predict, runs — empty until Phase 4
+│   └── labeller/
+│       ├── auto_labeller/
+│       │   ├── project.py          # the Project construct: paths, schema, model loading
+│       │   ├── schemas/            # one module per task type + the template registry
+│       │   ├── label_configs/      # packaged Label Studio config templates
+│       │   ├── config.py           # host settings (Label Studio URL + API key)
+│       │   ├── model.py            # BaseModel ABC + Prediction dataclass
+│       │   ├── models/             # shipped baselines (optional extras): ConvNeXt, transformer
+│       │   ├── dataset.py          # JSON dataset load / save / split utilities
+│       │   ├── train.py            # Training orchestration and round bookkeeping
+│       │   ├── predict.py          # Batch inference
+│       │   ├── active_learning.py  # Uncertainty-based prioritisation for review
+│       │   ├── ls_client.py        # Label Studio SDK wrapper
+│       │   ├── ls_backend.py       # FastAPI ML backend server (live predictions in LS)
+│       │   └── cli.py              # CLI entry points
+│       ├── tests/          # the suite; most of it runs without a framework
+│       └── scripts/        # one-off utilities (e.g. migration)
+├── docs/                   # architecture and roadmap
 ├── projects/               # your labelling projects (payload gitignored)
-├── scripts/                # one-off utilities (e.g. migration)
 ├── docker-compose.yml      # Label Studio container
 ├── config.example.toml     # host settings template
-└── pyproject.toml
+└── pyproject.toml          # workspace root: shared lint, test and dev config
 ```
 
 ---
