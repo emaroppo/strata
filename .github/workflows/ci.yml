@@ -38,8 +38,8 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --all-packages --extra all --group dev
-      - run: uv run --no-sync python -c "import auto_labeller.models.classifier"
-      - run: uv run --no-sync python -c "import auto_labeller.models.text_classifier"
+      - run: uv run --no-sync python -c "import strata.labeller.models.classifier"
+      - run: uv run --no-sync python -c "import strata.labeller.models.text_classifier"
       - run: uv run --no-sync pytest -q
 
   # What keeps the dependency graph honest. Each package is installed alone,
@@ -52,15 +52,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - package: labels
-            module: labels
-            forbidden: catalog, modelling, auto_labeller
-          - package: catalog
-            module: catalog
-            forbidden: modelling, auto_labeller
-          - package: modelling
-            module: modelling
-            forbidden: catalog, auto_labeller
+          - package: strata-labels
+            module: strata.labels
+            forbidden: strata.catalog, strata.modelling, strata.labeller
+          - package: strata-catalog
+            module: strata.catalog
+            forbidden: strata.modelling, strata.labeller
+          - package: strata-modelling
+            module: strata.modelling
+            forbidden: strata.catalog, strata.labeller
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5

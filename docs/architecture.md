@@ -18,6 +18,15 @@ That principle decides most of what follows.
 
 ## Four packages
 
+All four live under a `strata` PEP 420 namespace — `strata.labels`,
+`strata.catalog`, `strata.modelling`, `strata.labeller`, distributed as
+`strata-labels` and so on. Namespacing rather than four bare top-level names
+because `catalog` and `labels` collide with almost anything in a shared
+environment, and because a fifth package then costs nothing. Independent
+installability is unaffected: this is how `google.cloud.*` works.
+
+Short names are used below for readability.
+
 | Package | Owns | Depends on |
 | --- | --- | --- |
 | `labels` | what an annotation *is*: value types, schema descriptors, the indexing contract | — |

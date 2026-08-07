@@ -13,7 +13,7 @@ change, and wants to be treated as one.
 **May not import:** anything doing I/O, any storage layer, any ML framework,
 and — most easily forgotten — Label Studio. What Label Studio puts on the
 wire is one annotation tool's format; it converts at the boundary, inside
-``auto_labeller``, and never reaches the catalog.
+``strata.labeller``, and never reaches the catalog.
 
 The indexing contract lives here too: every schema answers *which classes
 does this annotation assert*, which is what lets the catalog index

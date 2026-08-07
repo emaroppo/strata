@@ -98,7 +98,7 @@ root = "data/raw"                # may be an absolute path for a shared corpus
 kind = "images"                  # "frames" for video frames, one folder per video
 
 [model]
-ref = "auto_labeller.models.classifier:PresenceClassifier"
+ref = "strata.labeller.models.classifier:PresenceClassifier"
 
 [model.params]
 num_epochs = 4
@@ -170,11 +170,11 @@ started. Everything that runs today lives in `packages/labeller`.
 ```
 auto-labeller/
 ├── packages/
-│   ├── labels/             # what an annotation is — empty until Phase 1
-│   ├── catalog/            # samples, storage, datasets — empty until Phase 2
-│   ├── modelling/          # train/predict, runs — empty until Phase 4
+│   ├── labels/    strata/labels/     # what an annotation is — empty until Phase 1
+│   ├── catalog/   strata/catalog/    # samples, storage, datasets — empty until Phase 2
+│   ├── modelling/ strata/modelling/  # train/predict, runs — empty until Phase 4
 │   └── labeller/
-│       ├── auto_labeller/
+│       ├── strata/labeller/
 │       │   ├── project.py          # the Project construct: paths, schema, model loading
 │       │   ├── schemas/            # one module per task type + the template registry
 │       │   ├── label_configs/      # packaged Label Studio config templates
@@ -276,7 +276,7 @@ CI runs lint, then the suite twice — once on the base install and once with `-
 A project's model is declared by `[model] ref`, in one of two forms:
 
 ```toml
-ref = "auto_labeller.models.classifier:PresenceClassifier"  # a shipped baseline
+ref = "strata.labeller.models.classifier:PresenceClassifier"  # a shipped baseline
 ref = "model.py:MyModel"                                    # this project's own model
 ```
 
@@ -301,7 +301,7 @@ To write your own, subclass `BaseModel` in a `model.py` inside the project:
 ```python
 from pathlib import Path
 import torch
-from auto_labeller.model import BaseModel, Prediction
+from strata.labeller.model import BaseModel, Prediction
 
 class MyModel(BaseModel):
     def __init__(self, num_epochs: int = 4):   # filled from [model.params]
