@@ -10,8 +10,11 @@ rounds/
 # A local catalog: SQLite index plus the blobs. Anchored, or it would also
 # swallow packages/catalog/, which is the source.
 /catalog/
-# Run store written beside a catalog by `RunStore.local`
-/runs/
+# Project payload again: the run store and the materialised dataset versions
+# a round writes. Unanchored like checkpoints/ and rounds/, since they live
+# wherever a project does.
+runs/
+datasets/
 
 config*.toml
 !config.example.toml
