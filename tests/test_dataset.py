@@ -139,6 +139,15 @@ def test_train_val_split_is_deterministic_for_a_seed():
     assert len(first[0]) + len(first[1]) == 20
 
 
+def test_a_flat_folder_splits_by_ratio_without_a_group_key():
+    # The layout the README documents. Grouping these by folder would put
+    # them all in one group and leave nothing to train on, which is why an
+    # "images" project passes no group key at all.
+    samples = [Sample(path=f"{i}.jpg") for i in range(50)]
+    train, val = train_val_split(samples, val_ratio=0.2)
+    assert (len(train), len(val)) == (40, 10)
+
+
 def test_group_key_keeps_a_group_on_one_side():
     # All frames of one video must land together, or near-duplicates leak
     # from train into val and the metric flatters itself

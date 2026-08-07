@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from auto_labeller.dataset import Sample
 from auto_labeller.project import (
     PROJECT_ENV_VAR,
     Project,
@@ -56,6 +57,36 @@ def test_a_bad_template_fails_at_load_not_mid_push(project):
     toml.write_text(toml.read_text().replace("image_classification", "image_segmentation"))
     with pytest.raises(ProjectError, match="Unknown template"):
         Project.load(project.root)
+
+
+def set_kind(project, kind: str) -> Project:
+    toml = project.root / "project.toml"
+    toml.write_text(toml.read_text().replace('kind = "images"', f'kind = "{kind}"'))
+    return Project.load(project.root)
+
+
+def test_data_kind_defaults_to_images(project):
+    assert project.data.kind == "images"
+
+
+def test_an_unknown_data_kind_is_refused(project):
+    with pytest.raises(ProjectError, match="\\[data\\] kind must be one of"):
+        set_kind(project, "videos")
+
+
+def test_independent_images_have_no_group_key(project):
+    assert project.group_key is None
+
+
+def test_frames_are_grouped_by_their_folder(project):
+    key = set_kind(project, "frames").group_key
+    assert key is not None
+    assert key(Sample(path="vid1/frame0007.jpg")) == "vid1"
+
+
+def test_frames_in_a_nested_folder_group_on_the_containing_one(project):
+    key = set_kind(project, "frames").group_key
+    assert key(Sample(path="shoot-a/vid1/frame0007.jpg")) == "shoot-a/vid1"
 
 
 def test_a_custom_project_must_not_declare_classes_twice(make_project):
