@@ -1965,6 +1965,7 @@ name = "strata-modelling"
 version = "0.1.0"
 source = { editable = "packages/modelling" }
 dependencies = [
+    { name = "sqlalchemy" },
     { name = "strata-labels" },
 ]
 
@@ -1987,6 +1988,9 @@ service = [
     { name = "strata-catalog" },
     { name = "uvicorn" },
 ]
+test = [
+    { name = "pytest" },
+]
 text = [
     { name = "torch" },
     { name = "transformers" },
@@ -1996,6 +2000,8 @@ text = [
 requires-dist = [
     { name = "fastapi", marker = "extra == 'service'", specifier = ">=0.100" },
     { name = "pillow", marker = "extra == 'image'", specifier = ">=10.0" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
+    { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "strata-catalog", marker = "extra == 'service'", editable = "packages/catalog" },
     { name = "strata-labels", editable = "packages/labels" },
     { name = "strata-modelling", extras = ["image", "text"], marker = "extra == 'all'" },
@@ -2006,7 +2012,7 @@ requires-dist = [
     { name = "transformers", marker = "extra == 'text'", specifier = ">=4.40" },
     { name = "uvicorn", marker = "extra == 'service'", specifier = ">=0.20" },
 ]
-provides-extras = ["image", "text", "all", "service"]
+provides-extras = ["image", "text", "all", "test", "service"]
 
 [[package]]
 name = "sympy"
