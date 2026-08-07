@@ -18,8 +18,9 @@ from rich.progress import (
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
-from ..model import BaseModel
-from ..schemas import ChoiceOutput
+from strata.labels import ChoicesPrediction
+
+from ..model import Example, Model
 
 # Video-extracted frames are occasionally cut short; decode what's there
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -47,7 +48,7 @@ console = Console()
 class _ImageDataset(Dataset):
     def __init__(
         self,
-        samples: list[dict],
+        samples: list[Example],
         classes: list[str],
         transform,
         draft_size: int | None = None,
@@ -64,8 +65,8 @@ class _ImageDataset(Dataset):
 
     def __getitem__(self, idx: int):
         sample = self.samples[idx]
-        image = self.transform(_load_rgb(sample["path"], self.draft_size))
-        return image, self.target_fn(sample["target"], self.class_to_idx)
+        image = self.transform(_load_rgb(sample.path, self.draft_size))
+        return image, self.target_fn(sample.target.values, self.class_to_idx)
 
 
 class _LetterboxSquash:
@@ -109,14 +110,15 @@ class _InferenceDataset(Dataset):
         return self.transform(_load_rgb(self.paths[idx], self.draft_size))
 
 
-class MultiLabelClassifier(BaseModel):
+class MultiLabelClassifier(Model):
     """ConvNeXt V2 Base fine-tuned multi-label classifier.
 
     Uses timm's ``convnextv2_base`` with ImageNet-22k pre-trained weights.
     Supports multi-label outputs via ``BCEWithLogitsLoss``.
     """
 
-    schema_type = "image_classification"
+    task = "classification"
+    version = "1"
 
     IMG_SIZE = 288
     MEAN = (0.485, 0.456, 0.406)
@@ -237,14 +239,14 @@ class MultiLabelClassifier(BaseModel):
     def _activation(logits: torch.Tensor) -> torch.Tensor:
         return torch.sigmoid(logits.float())
 
-    def _to_output(self, probs: torch.Tensor) -> ChoiceOutput:
+    def _to_output(self, probs: torch.Tensor) -> ChoicesPrediction:
         indices = (probs > 0.5).nonzero(as_tuple=True)[0].tolist()
         if not indices:
             # Fall back to argmax when nothing clears the threshold
             indices = [int(probs.argmax().item())]
         indices.sort(key=lambda i: probs[i].item(), reverse=True)
-        return ChoiceOutput(
-            labels=[self.classes[i] for i in indices],
+        return ChoicesPrediction(
+            values=[self.classes[i] for i in indices],
             confidences=[round(probs[i].item(), 4) for i in indices],
         )
 
@@ -276,10 +278,11 @@ class MultiLabelClassifier(BaseModel):
 
     def finetune(
         self,
-        samples: list[dict],
+        train: list[Example],
         classes: list[str],
-        val_samples: list[dict] | None = None,
+        val: list[Example] | None = None,
     ) -> dict:
+        samples, val_samples = train, val
         classes = self._effective_classes(classes)
         self._prepare_backbone(classes)
         self.classes = classes
@@ -428,7 +431,7 @@ class MultiLabelClassifier(BaseModel):
             "val_accuracy": total_correct / max(total_samples, 1),
         }
 
-    def predict(self, image_paths: list[Path]) -> list[ChoiceOutput]:
+    def predict(self, image_paths: list[Path]) -> list[ChoicesPrediction]:
         if self._backbone is None or not self.classes:
             raise RuntimeError("Model has no weights. Call finetune() or load() first.")
         if not image_paths:
@@ -526,10 +529,10 @@ class MulticlassClassifier(MultiLabelClassifier):
     def _activation(logits: torch.Tensor) -> torch.Tensor:
         return torch.softmax(logits.float(), dim=1)
 
-    def _to_output(self, probs: torch.Tensor) -> ChoiceOutput:
+    def _to_output(self, probs: torch.Tensor) -> ChoicesPrediction:
         idx = int(probs.argmax().item())
-        return ChoiceOutput(
-            labels=[self.classes[idx]],
+        return ChoicesPrediction(
+            values=[self.classes[idx]],
             confidences=[round(probs[idx].item(), 4)],
         )
 
@@ -550,15 +553,15 @@ class PresenceClassifier(MultiLabelClassifier):
     def _effective_classes(self, classes: list[str]) -> list[str]:
         return [c for c in classes if c != self.NEGATIVE_LABEL]
 
-    def _to_output(self, probs: torch.Tensor) -> ChoiceOutput:
+    def _to_output(self, probs: torch.Tensor) -> ChoicesPrediction:
         indices = (probs > 0.5).nonzero(as_tuple=True)[0].tolist()
         if not indices:
-            return ChoiceOutput(
-                labels=[self.NEGATIVE_LABEL],
+            return ChoicesPrediction(
+                values=[self.NEGATIVE_LABEL],
                 confidences=[round(1.0 - probs.max().item(), 4)],
             )
         indices.sort(key=lambda i: probs[i].item(), reverse=True)
-        return ChoiceOutput(
-            labels=[self.classes[i] for i in indices],
+        return ChoicesPrediction(
+            values=[self.classes[i] for i in indices],
             confidences=[round(probs[i].item(), 4) for i in indices],
         )

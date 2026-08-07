@@ -12,7 +12,7 @@ import torch  # noqa: E402
 import torch.nn as nn  # noqa: E402
 from PIL import Image  # noqa: E402
 
-from strata.labeller.models.classifier import (  # noqa: E402
+from strata.modelling.baselines.classifier import (  # noqa: E402
     MulticlassClassifier,
     MultiLabelClassifier,
     PresenceClassifier,
@@ -91,26 +91,26 @@ def test_multiclass_counts_the_argmax():
 
 def test_multilabel_returns_everything_over_the_threshold_most_confident_first():
     output = classifier(MultiLabelClassifier)._to_output(torch.tensor([0.7, 0.2, 0.9]))
-    assert output.labels == ["bird", "cat"]
+    assert output.values == ["bird", "cat"]
     assert output.confidences == [0.9, 0.7]
 
 
 def test_multilabel_falls_back_to_the_argmax_when_nothing_clears():
     output = classifier(MultiLabelClassifier)._to_output(torch.tensor([0.3, 0.2, 0.1]))
-    assert output.labels == ["cat"]
+    assert output.values == ["cat"]
     assert output.confidences == [0.3]
 
 
 def test_multiclass_returns_exactly_one_label():
     output = classifier(MulticlassClassifier)._to_output(torch.tensor([0.2, 0.5, 0.3]))
-    assert output.labels == ["dog"]
+    assert output.values == ["dog"]
     assert output.confidences == [0.5]
 
 
 def test_presence_reports_the_negative_class_when_nothing_clears():
     model = classifier(PresenceClassifier, ["cat", "dog"])
     output = model._to_output(torch.tensor([0.3, 0.1]))
-    assert output.labels == [PresenceClassifier.NEGATIVE_LABEL]
+    assert output.values == [PresenceClassifier.NEGATIVE_LABEL]
     # Confidence in "nothing here" is how far the best guess fell short
     assert output.confidences == [pytest.approx(0.7)]
 
@@ -118,8 +118,8 @@ def test_presence_reports_the_negative_class_when_nothing_clears():
 def test_presence_never_reports_the_negative_class_beside_a_positive():
     model = classifier(PresenceClassifier, ["cat", "dog"])
     output = model._to_output(torch.tensor([0.9, 0.6]))
-    assert output.labels == ["cat", "dog"]
-    assert PresenceClassifier.NEGATIVE_LABEL not in output.labels
+    assert output.values == ["cat", "dog"]
+    assert PresenceClassifier.NEGATIVE_LABEL not in output.values
 
 
 def test_presence_drops_the_negative_class_from_the_head():

@@ -98,7 +98,7 @@ root = "data/raw"                # may be an absolute path for a shared corpus
 kind = "images"                  # "frames" for video frames, one folder per video
 
 [model]
-ref = "strata.labeller.models.classifier:PresenceClassifier"
+ref = "presence"
 
 [model.params]
 num_epochs = 4
@@ -163,24 +163,22 @@ Adding a task type means adding a schema and a template. Nothing in `ls_client`,
 
 ## Repository layout
 
-A `uv` workspace. `labels`, `catalog` and `modelling` are declared but empty —
-the restructuring they belong to is planned in `docs/roadmap.md` and has not
-started. Everything that runs today lives in `packages/labeller`.
+A `uv` workspace, mid-restructuring — see `docs/roadmap.md`. `labels`,
+`catalog` and `modelling` are built; `labeller` still owns the Label Studio
+integration and the round loop, and moves onto the catalog at the cutover.
 
 ```
 auto-labeller/
 ├── packages/
-│   ├── labels/    strata/labels/     # what an annotation is — empty until Phase 1
-│   ├── catalog/   strata/catalog/    # samples, storage, datasets — empty until Phase 2
-│   ├── modelling/ strata/modelling/  # train/predict, runs — empty until Phase 4
+│   ├── labels/    strata/labels/     # what an annotation is: values and schemas
+│   ├── catalog/   strata/catalog/    # samples, storage, annotations, datasets
+│   ├── modelling/ strata/modelling/  # train/predict, runs, and the baselines
 │   └── labeller/
 │       ├── strata/labeller/
 │       │   ├── project.py          # the Project construct: paths, schema, model loading
 │       │   ├── schemas/            # one module per task type + the template registry
 │       │   ├── label_configs/      # packaged Label Studio config templates
 │       │   ├── config.py           # host settings (Label Studio URL + API key)
-│       │   ├── model.py            # BaseModel ABC + Prediction dataclass
-│       │   ├── models/             # shipped baselines (optional extras): ConvNeXt, transformer
 │       │   ├── dataset.py          # JSON dataset load / save / split utilities
 │       │   ├── train.py            # Training orchestration and round bookkeeping
 │       │   ├── predict.py          # Batch inference
@@ -276,50 +274,55 @@ CI runs lint, then the suite twice — once on the base install and once with `-
 A project's model is declared by `[model] ref`, in one of two forms:
 
 ```toml
-ref = "strata.labeller.models.classifier:PresenceClassifier"  # a shipped baseline
-ref = "model.py:MyModel"                                    # this project's own model
+ref = "presence"             # a registered name
+ref = "model.py:MyModel"     # this project's own model
+ref = "mypkg.models:Custom"  # anything importable
 ```
 
-The `*.py:Class` form loads the file from inside the project directory, so a project with a bespoke architecture stays self-contained. `[model.params]` is passed to the constructor, which is where epochs, batch size and learning rate live.
+A name without a `:` is looked up in the `strata.models` entry point group, so it need not be an import path — which is what lets a training request name a model over a wire. Anything with a `:` is a direct reference. The `*.py:Class` form loads the file from inside the project directory, so a project with a bespoke architecture stays self-contained. `[model.params]` is passed to the constructor.
 
-The ref is also the extension point: any importable `pkg.module:Class` works, so a model maintained in its own package needs no change here — `pip install` it and point at it. That is why the frameworks are [optional extras](#setup) and the baselines import on demand; the tool itself has no opinion about what trains your data.
+Registering is the extension point: a distribution advertising `strata.models` entry points adds models without a change here, and `pkg.module:Class` works for anything already importable. That is why the frameworks are [optional extras](#setup) and the baselines import on demand.
 
-Baselines ship for both media. The image models (`models/classifier.py`) are ConvNeXt V2 Base fine-tunes sharing one training loop and differing only in their task hooks; the text models (`models/text_classifier.py`) fine-tune a Hugging Face encoder, DistilBERT by default:
+Baselines live in `strata.modelling.baselines`. The image models are ConvNeXt V2 Base fine-tunes sharing one training loop and differing only in their task hooks; the text models fine-tune a Hugging Face encoder, DistilBERT by default:
 
-| Class | Schema | Regime |
-|---|---|---|
-| `MultiLabelClassifier` | `image_classification` | Independent sigmoids, BCE loss — an image can carry several classes |
-| `MulticlassClassifier` | `image_classification` | Softmax + cross-entropy — classes are mutually exclusive |
-| `PresenceClassifier` | `image_classification` | "Is X present?" detectors with an implicit `none` class for reviewed-but-empty images |
-| `TextClassifier` | `text_classification` | Sequence classification with a sigmoid head, multi-label |
-| `TextSpanTagger` | `text_span` | Token classification in BIO tagging, decoded back to character offsets |
+| Name | Class | Task | Regime |
+|---|---|---|---|
+| `multilabel` | `MultiLabelClassifier` | classification | Independent sigmoids, BCE loss — an image can carry several classes |
+| `multiclass` | `MulticlassClassifier` | classification | Softmax + cross-entropy — classes are mutually exclusive |
+| `presence` | `PresenceClassifier` | classification | "Is X present?" detectors with an implicit `none` class for reviewed-but-empty images |
+| `text` | `TextClassifier` | classification | Sequence classification with a sigmoid head, multi-label |
+| `text-span` | `TextSpanTagger` | span | Token classification in BIO tagging, decoded back to character offsets |
 
-Pick the encoder with `[model.params] encoder = "roberta-base"` or any Hugging Face id. A model declares the schema it is written for, so training a text model on an image project fails before it starts rather than midway.
+Pick the encoder with `[model.params] encoder = "roberta-base"` or any Hugging Face id. A model declares the task it is written for, so pointing a span model at a classification label set fails before training starts rather than midway.
 
-To write your own, subclass `BaseModel` in a `model.py` inside the project:
+To write your own, subclass `Model` in a `model.py` inside the project:
 
 ```python
 from pathlib import Path
 import torch
-from strata.labeller.model import BaseModel, Prediction
+from strata.labels import ChoicesPrediction
+from strata.modelling import Example, Model
 
-class MyModel(BaseModel):
+class MyModel(Model):
+    task = "classification"
+    version = "1"          # bump when old checkpoints stop loading
+
     def __init__(self, num_epochs: int = 4):   # filled from [model.params]
         self.model = ...                       # your nn.Module
         self.classes: list[str] = []
 
-    def finetune(self, samples: list[dict], classes: list[str], val_samples: list[dict] | None = None) -> dict:
-        # samples is a list of {"path": "/abs/path.jpg", "labels": ["cat"]} dicts
-        # classes is the full class list; val_samples is held-out data
+    def finetune(self, train: list[Example], classes: list[str],
+                 val: list[Example] | None = None) -> dict:
+        # each Example has .path and .target, a strata.labels value
         self.classes = classes
         # ... your training loop here ...
         return {"loss": avg_loss, "accuracy": acc, "val_loss": vl, "val_accuracy": va}
 
-    def predict(self, image_paths: list[Path]) -> list[Prediction]:
-        # one Prediction per image path, in order
+    def predict(self, paths: list[Path]) -> list[ChoicesPrediction]:
+        # one prediction per path, in order
         return [
-            Prediction(path=str(p), labels=["cat"], confidences=[0.92])
-            for p in image_paths
+            ChoicesPrediction(values=["cat"], confidences=[0.92])
+            for p in paths
         ]
 
     def save(self, path: Path) -> None:

@@ -11,17 +11,17 @@ import importlib
 
 #: Baseline class -> the module implementing it
 _MODULES: dict[str, str] = {
-    "MulticlassClassifier": "strata.labeller.models.classifier",
-    "MultiLabelClassifier": "strata.labeller.models.classifier",
-    "PresenceClassifier": "strata.labeller.models.classifier",
-    "TextClassifier": "strata.labeller.models.text_classifier",
-    "TextSpanTagger": "strata.labeller.models.text_classifier",
+    "MulticlassClassifier": "strata.modelling.baselines.classifier",
+    "MultiLabelClassifier": "strata.modelling.baselines.classifier",
+    "PresenceClassifier": "strata.modelling.baselines.classifier",
+    "TextClassifier": "strata.modelling.baselines.text_classifier",
+    "TextSpanTagger": "strata.modelling.baselines.text_classifier",
 }
 
 #: Baseline module -> the install extra carrying its framework
 EXTRAS: dict[str, str] = {
-    "strata.labeller.models.classifier": "image",
-    "strata.labeller.models.text_classifier": "text",
+    "strata.modelling.baselines.classifier": "image",
+    "strata.modelling.baselines.text_classifier": "text",
 }
 
 # Spelled out so static checkers can read it without executing the module

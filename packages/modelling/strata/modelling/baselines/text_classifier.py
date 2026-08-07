@@ -30,8 +30,9 @@ from transformers import (
     AutoTokenizer,
 )
 
-from ..model import BaseModel
-from ..schemas import ChoiceOutput, Span, SpanOutput
+from strata.labels import ChoicesPrediction, Span, SpansPrediction
+
+from ..model import Example, Model
 
 console = Console()
 
@@ -47,7 +48,7 @@ def _read_text(path: str | Path) -> str:
 
 
 class _TextDataset(Dataset):
-    def __init__(self, samples: list[dict], encode):
+    def __init__(self, samples: list[Example], encode):
         self.samples = samples
         self.encode = encode
 
@@ -56,10 +57,10 @@ class _TextDataset(Dataset):
 
     def __getitem__(self, idx: int):
         sample = self.samples[idx]
-        return self.encode(_read_text(sample["path"]), sample.get("target"))
+        return self.encode(_read_text(sample.path), sample.target)
 
 
-class _TransformerBase(BaseModel):
+class _TransformerBase(Model):
     """Shared training loop for the two text heads."""
 
     MAX_LENGTH = 512
@@ -137,10 +138,11 @@ class _TransformerBase(BaseModel):
 
     def finetune(
         self,
-        samples: list[dict],
+        train: list[Example],
         classes: list[str],
-        val_samples: list[dict] | None = None,
+        val: list[Example] | None = None,
     ) -> dict:
+        samples, val_samples = train, val
         self._prepare(classes)
         loader = DataLoader(
             _TextDataset(samples, self._encode),
@@ -263,7 +265,8 @@ class _TransformerBase(BaseModel):
 class TextClassifier(_TransformerBase):
     """Multi-label document classification with a sigmoid head."""
 
-    schema_type = "text_classification"
+    task = "classification"
+    version = "1"
 
     def _build_model(self, num_labels: int):
         return AutoModelForSequenceClassification.from_pretrained(
@@ -282,20 +285,20 @@ class TextClassifier(_TransformerBase):
         )
         item = {k: v[0] for k, v in encoded.items()}
         labels = torch.zeros(len(self.classes))
-        for name in target or []:
+        for name in (target.values if target is not None else []):
             if name in self.classes:
                 labels[self.classes.index(name)] = 1.0
         item["labels"] = labels
         return item
 
-    def _decode(self, text: str, logits: torch.Tensor, offsets) -> ChoiceOutput:
+    def _decode(self, text: str, logits: torch.Tensor, offsets) -> ChoicesPrediction:
         probs = torch.sigmoid(logits.float())
         indices = (probs > 0.5).nonzero(as_tuple=True)[0].tolist()
         if not indices:
             indices = [int(probs.argmax().item())]
         indices.sort(key=lambda i: probs[i].item(), reverse=True)
-        return ChoiceOutput(
-            labels=[self.classes[i] for i in indices],
+        return ChoicesPrediction(
+            values=[self.classes[i] for i in indices],
             confidences=[round(probs[i].item(), 4) for i in indices],
         )
 
@@ -309,7 +312,8 @@ class TextSpanTagger(_TransformerBase):
     exact.
     """
 
-    schema_type = "text_span"
+    task = "span"
+    version = "1"
 
     def _label_count(self) -> int:
         # O, plus B- and I- for each class
@@ -335,7 +339,7 @@ class TextSpanTagger(_TransformerBase):
         labels = torch.zeros(len(offsets), dtype=torch.long)
         # Padding and special tokens carry no supervision
         labels[(offsets[:, 0] == 0) & (offsets[:, 1] == 0)] = -100
-        for span in target or []:
+        for span in (target.values if target is not None else []):
             if span.label not in self.classes:
                 continue
             begin, inside = self._tag_ids(span.label)
@@ -349,7 +353,7 @@ class TextSpanTagger(_TransformerBase):
         item["labels"] = labels
         return item
 
-    def _decode(self, text: str, logits: torch.Tensor, offsets) -> SpanOutput:
+    def _decode(self, text: str, logits: torch.Tensor, offsets) -> SpansPrediction:
         probs = torch.softmax(logits.float(), dim=-1)
         tags = probs.argmax(dim=-1).tolist()
         confidences = probs.max(dim=-1).values.tolist()
@@ -371,15 +375,20 @@ class TextSpanTagger(_TransformerBase):
                 current = {"label": class_name, "start": start, "end": end, "scores": [conf]}
                 spans.append(current)
 
-        return SpanOutput(
-            spans=[
+        # Sorted by Spans on the way in, so confidences are ordered to match
+        # rather than left to line up by luck
+        found = sorted(spans, key=lambda s: (s["start"], s["end"]))
+        return SpansPrediction(
+            values=[
                 Span(
                     label=s["label"],
                     start=s["start"],
                     end=s["end"],
                     text=text[s["start"] : s["end"]],
-                    score=round(sum(s["scores"]) / len(s["scores"]), 4),
                 )
-                for s in spans
-            ]
+                for s in found
+            ],
+            confidences=[
+                round(sum(s["scores"]) / len(s["scores"]), 4) for s in found
+            ],
         )
