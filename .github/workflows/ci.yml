@@ -25,7 +25,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-      - run: uv sync --no-default-groups --group dev
+      - run: uv sync --all-packages --no-default-groups --group dev
       - run: uv run --no-sync pytest -q
 
   # Split out because the extras pull several GB of wheels.
@@ -37,7 +37,53 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-      - run: uv sync --extra all --group dev
+      - run: uv sync --all-packages --extra all --group dev
       - run: uv run --no-sync python -c "import auto_labeller.models.classifier"
       - run: uv run --no-sync python -c "import auto_labeller.models.text_classifier"
       - run: uv run --no-sync pytest -q
+
+  # What keeps the dependency graph honest. Each package is installed alone,
+  # so importing something it does not declare fails here rather than passing
+  # review — in a dev checkout everything is present and nothing would catch it.
+  isolation:
+    name: isolation (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: labels
+            module: labels
+            forbidden: catalog, modelling, auto_labeller
+          - package: catalog
+            module: catalog
+            forbidden: modelling, auto_labeller
+          - package: modelling
+            module: modelling
+            forbidden: catalog, auto_labeller
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --package ${{ matrix.package }} --no-default-groups
+      - name: import it
+        run: uv run --no-sync python -c "import ${{ matrix.module }}"
+      - name: and nothing it should not reach
+        run: |
+          uv run --no-sync python - <<'PY'
+          import importlib
+          forbidden = "${{ matrix.forbidden }}".replace(" ", "").split(",")
+          reachable = []
+          for name in forbidden:
+              try:
+                  importlib.import_module(name)
+              except ImportError:
+                  continue
+              reachable.append(name)
+          if reachable:
+              raise SystemExit(
+                  f"${{ matrix.package }} can reach {', '.join(reachable)}, "
+                  f"which it does not declare"
+              )
+          PY
