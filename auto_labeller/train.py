@@ -32,11 +32,7 @@ def run_training(
     if not labeled:
         raise ValueError("No labeled samples found in dataset")
 
-    # Group by parent folder (e.g. one video's frames) so near-duplicates
-    # can't straddle the split
-    train_samples, val_samples = train_val_split(
-        labeled, group_key=lambda s: str(Path(s.path).parent)
-    )
+    train_samples, val_samples = train_val_split(labeled, group_key=project.group_key)
 
     if round_num is None:
         round_num = _next_round_num(project.rounds_dir)

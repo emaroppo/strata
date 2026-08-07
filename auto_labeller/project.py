@@ -25,10 +25,12 @@ import os
 import re
 import sys
 import tomllib
+from collections.abc import Callable
 from dataclasses import dataclass, field, fields
 from pathlib import Path, PurePosixPath
 
 from . import models, schemas
+from .dataset import Sample
 from .model import BaseModel
 from .schemas import LabelSchema
 
@@ -66,6 +68,13 @@ class ModelSpec:
 @dataclass
 class DataSpec:
     root: str = "data/raw"
+    # How the samples relate to each other. "images": independent samples.
+    # "frames": video frames, one folder per video — near-duplicate frames
+    # must not straddle the train/val split, so whole videos move together.
+    kind: str = "images"
+
+
+DATA_KINDS = ("images", "frames")
 
 
 @dataclass
@@ -129,6 +138,11 @@ class Project:
             raise ProjectError(
                 f"[label_config] choice must be 'single' or 'multiple', "
                 f"got '{self.label_config.choice}'"
+            )
+        if self.data.kind not in DATA_KINDS:
+            raise ProjectError(
+                f"[data] kind must be one of {', '.join(DATA_KINDS)}, "
+                f"got '{self.data.kind}'"
             )
         if self.label_config.template == schemas.CUSTOM_TEMPLATE:
             if self.label_config.classes:
@@ -208,6 +222,19 @@ class Project:
     def relative_sample_path(self, path: Path) -> str:
         """Inverse of :meth:`sample_file` — an absolute path to a sample path."""
         return str(path.resolve().relative_to(self.data_dir.resolve()))
+
+    @property
+    def group_key(self) -> Callable[[Sample], str] | None:
+        """What keeps related samples on one side of the train/val split.
+
+        ``None`` for independent samples. For ``kind = "frames"`` it is the
+        containing folder, one per video: frames a fraction of a second apart
+        are near-duplicates, and letting them straddle the split would score
+        the model on images it effectively trained on.
+        """
+        if self.data.kind == "frames":
+            return lambda s: str(PurePosixPath(s.path).parent)
+        return None
 
     # -- Label Studio local-files URL mapping --------------------------
 
@@ -426,6 +453,7 @@ class Project:
             "\n"
             "[data]\n"
             'root = "data/raw"  # images live here; may be an absolute path\n'
+            'kind = "images"  # "frames" for video frames, one folder per video\n'
             "\n"
             "[model]\n"
             '# "model.py:MyModel" to use a model carried by this project\n'
