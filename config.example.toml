@@ -14,3 +14,6 @@ local_storage_path = "/label-studio/data/images"
 # project annotates against is that project's business, in its project.toml.
 [catalog]
 root = "catalog"
+# What the blobs mount is called inside the Label Studio container; must
+# match the bind mount in docker-compose.yml.
+blobs_prefix = "blobs"

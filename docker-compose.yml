@@ -5,11 +5,15 @@ services:
       - "8080:8080"
     volumes:
       - ls-data:/label-studio/data
-      # The active project's data directory. Set AUTO_LABELLER_PROJECT to the
-      # project root (e.g. projects/my-project); it must match
-      # [label_studio] local_files_root in project.toml (default: <project>/data).
+      # The catalog's blobs, shared by every project. Must match
+      # [catalog] root and blobs_prefix in config.toml.
       # Long syntax so a relative path stays a bind mount: in the short form,
       # a source without a leading ./ is read as a named volume.
+      - type: bind
+        source: ${STRATA_CATALOG:-./catalog}/blobs
+        target: /label-studio/data/blobs
+      # The pre-catalog per-project data root, still mounted so tasks created
+      # before the cutover keep resolving. Remove once nothing points at it.
       - type: bind
         source: ${AUTO_LABELLER_PROJECT:-.}/data
         target: /label-studio/data/images
