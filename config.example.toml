@@ -19,6 +19,13 @@ root = "catalog"
 #   url = "postgresql+psycopg://strata:strata@localhost:5432/strata"
 # $STRATA_CATALOG_URL overrides this, so credentials need not live in a file.
 url = ""
+
+# Where the blobs are. Empty means files under root, which needs nothing
+# installed. An endpoint means tar shards in an S3-compatible bucket:
+#   s3_endpoint = "http://localhost:9000"
+# Credentials come from $STRATA_S3_ACCESS_KEY and $STRATA_S3_SECRET_KEY.
+s3_endpoint = ""
+s3_bucket = "strata"
 # What the blobs mount is called inside the Label Studio container; must
 # match the bind mount in docker-compose.yml.
 blobs_prefix = "blobs"

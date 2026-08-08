@@ -45,6 +45,27 @@ services:
       timeout: 3s
       retries: 10
 
+  # S3 for development and tests. Production is Garage on the home server;
+  # both speak the same API, and what matters here is having a real server
+  # to catch what a stub cannot — path-style addressing above all.
+  blobs:
+    image: minio/minio:latest
+    command: server /data --address ":9000" --console-address ":9001"
+    ports:
+      - "${STRATA_S3_PORT:-9000}:9000"
+      - "${STRATA_S3_CONSOLE_PORT:-9001}:9001"
+    environment:
+      - MINIO_ROOT_USER=${STRATA_S3_ACCESS_KEY:-strata}
+      - MINIO_ROOT_PASSWORD=${STRATA_S3_SECRET_KEY:-strataminio}
+    volumes:
+      - blobs:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   ls-data:
   catalog-db:
+  blobs:
