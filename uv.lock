@@ -1900,26 +1900,22 @@ name = "strata-labeller"
 version = "0.1.0"
 source = { editable = "packages/labeller" }
 dependencies = [
-    { name = "fastapi" },
     { name = "label-studio-sdk" },
     { name = "rich" },
     { name = "strata-catalog" },
     { name = "strata-labels" },
     { name = "strata-modelling" },
     { name = "typer" },
-    { name = "uvicorn" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "fastapi", specifier = ">=0.100" },
     { name = "label-studio-sdk", specifier = ">=1.0" },
     { name = "rich", specifier = ">=13.0" },
     { name = "strata-catalog", editable = "packages/catalog" },
     { name = "strata-labels", editable = "packages/labels" },
     { name = "strata-modelling", editable = "packages/modelling" },
     { name = "typer", specifier = ">=0.9" },
-    { name = "uvicorn", specifier = ">=0.20" },
 ]
 
 [[package]]
