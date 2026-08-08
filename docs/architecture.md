@@ -1,10 +1,11 @@
 # Architecture — planned direction
 
-Status: **plan, not built.** A decision record for a restructuring that has
-not started. The shipped tool today is one package doing all of this
-in-process, against files on local disk.
+Status: **largely built.** The four packages exist, the labelling loop runs
+end to end on the catalog, and the pre-catalog path has been deleted. What
+remains unbuilt is object storage, Postgres, the sample-serving API and the
+HTTP split — the sections below say which is which.
 
-Sequencing lives in `roadmap.md`.
+Sequencing and what is still owed live in `roadmap.md`.
 
 ---
 
@@ -227,6 +228,39 @@ between rounds silently invalidates the mapping.
 So: record model name and version on the run, and refuse a checkpoint whose
 recorded version does not match what the backend now serves.
 
+## The deployment this is for
+
+Three machines, not one host running containers:
+
+```
+minipc + external drive   Garage (S3-compatible) and the catalog index
+desktop, Turing GPU       modelling
+desktop or laptop         labelling
+```
+
+Two consequences that a single-host picture hides.
+
+**"Shared storage" is object storage over a network, not a bind mount.** The
+modelling host reads blobs across a link rather than off a disk, so reading
+them one at a time in a training loop is the slow path and staging them
+locally first is a real optimisation — which is what materialising becomes
+in this topology, rather than a workaround for a missing mount. When Garage
+or the index is unreachable, staging cannot help either, and that is an
+error to report rather than something to work around.
+
+**Sample ids are catalog-local, so a request that crosses machines
+addresses samples by checksum.** The integer primary key is right inside one
+catalog and meaningless outside it: if the labelling host and the modelling
+host ever resolve against different instances, one id silently names two
+different images. A checksum is globally meaningful by construction, which
+is why the dataset manifest already carries one beside every id.
+
+**Labelling from more than one machine reconciles at the catalog**, because
+annotations are keyed ``(sample_id, label_set_id)`` and written as upserts.
+Two machines labelling different samples merge cleanly. Two labelling the
+same sample is last-write-wins with no conflict detection — adequate for one
+person, and a real gap the day it is two.
+
 ## Deployment: two containers, not four
 
 One of these boundaries is a data plane and does not want a network in it.
@@ -282,6 +316,11 @@ change lands.
 
 **The name.** `auto-labeller` will describe the smallest of the four
 packages.
+
+**Ordering.** Object storage and Postgres come before the HTTP split, not
+after. Modelling on one machine reading a catalog on another *is* remote
+storage, and there is nothing to be gained from putting modelling behind
+HTTP while its catalog can only be a local directory.
 
 **Infrastructure must not become mandatory.** If the catalog only speaks
 Postgres and S3, nobody can run this repo without standing up a database and
