@@ -12,11 +12,14 @@ services:
       - type: bind
         source: ${STRATA_CATALOG:-./catalog}/blobs
         target: /label-studio/data/blobs
-      # The pre-catalog per-project data root, still mounted so tasks created
-      # before the cutover keep resolving. Remove once nothing points at it.
-      - type: bind
-        source: ${AUTO_LABELLER_PROJECT:-.}/data
-        target: /label-studio/data/images
+      # Tasks created before the cutover point at a per-project data root
+      # rather than at the catalog. Nothing in the current loop needs it, and
+      # a mount whose source may not exist stops the whole stack coming up —
+      # so it is off by default. Uncomment and set AUTO_LABELLER_PROJECT in
+      # .env to make an older Label Studio project show its images again.
+      # - type: bind
+      #   source: ${AUTO_LABELLER_PROJECT:-.}/data
+      #   target: /label-studio/data/images
     environment:
       - LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
       - LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/label-studio/data
