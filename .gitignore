@@ -18,6 +18,10 @@ datasets/
 
 config*.toml
 !config.example.toml
+# Names entries in one operator's password manager, so it describes a person
+# rather than the project. The variables it sets are the contract; how any
+# given host fills them is that host's business.
+/scripts/secrets.sh
 # Which project and catalog docker compose mounts. Holds a real project
 # path, so it stays local like config.toml does.
 .env
