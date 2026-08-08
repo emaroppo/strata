@@ -18,6 +18,10 @@ datasets/
 
 config*.toml
 !config.example.toml
+# Which project and catalog docker compose mounts. Holds a real project
+# path, so it stays local like config.toml does.
+.env
+!.env.example
 __pycache__/
 *.pyc
 .venv/
