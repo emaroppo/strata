@@ -24,5 +24,27 @@ services:
       - LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true
       - LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/label-studio/data
 
+  # The catalog index. Postgres rather than SQLite because the corpus runs
+  # to millions of rows read from three machines at once, which is the point
+  # SQLite stops being the right answer.
+  catalog-db:
+    image: postgres:17-alpine
+    ports:
+      - "${STRATA_DB_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_USER=${STRATA_DB_USER:-strata}
+      - POSTGRES_PASSWORD=${STRATA_DB_PASSWORD:-strata}
+      - POSTGRES_DB=${STRATA_DB_NAME:-strata}
+    volumes:
+      - catalog-db:/var/lib/postgresql/data
+    healthcheck:
+      # So a machine that starts the stack and immediately ingests waits for
+      # the database rather than failing on a connection refused
+      test: ["CMD-SHELL", "pg_isready -U ${STRATA_DB_USER:-strata}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   ls-data:
+  catalog-db:

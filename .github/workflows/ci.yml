@@ -28,6 +28,33 @@ jobs:
       - run: uv sync --all-packages --no-default-groups --group dev
       - run: uv run --no-sync pytest -q
 
+  # The claim "one schema, two dialects" is either tested on both or
+  # untested. The local suite covers SQLite; this covers the other half.
+  postgres:
+    name: tests (postgres index)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: strata
+          POSTGRES_PASSWORD: strata
+          POSTGRES_DB: strata
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-packages --extra postgres --group dev
+      - run: uv run --no-sync pytest packages/catalog/tests/test_postgres.py -q
+        env:
+          STRATA_TEST_DB: postgresql+psycopg://strata:strata@localhost:5432/strata
+
   # Split out because the extras pull several GB of wheels.
   tests-extras:
     name: tests (--extra all)

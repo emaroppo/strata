@@ -14,6 +14,11 @@ local_storage_path = "/label-studio/data/images"
 # project annotates against is that project's business, in its project.toml.
 [catalog]
 root = "catalog"
+# The index. Leave empty for SQLite under root, which needs nothing
+# installed. Point it at Postgres to share one index across machines:
+#   url = "postgresql+psycopg://strata:strata@localhost:5432/strata"
+# $STRATA_CATALOG_URL overrides this, so credentials need not live in a file.
+url = ""
 # What the blobs mount is called inside the Label Studio container; must
 # match the bind mount in docker-compose.yml.
 blobs_prefix = "blobs"
