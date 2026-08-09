@@ -3,7 +3,15 @@
 import pytest
 from pydantic import ValidationError
 
-from strata.labels import Box, Boxes, Choices, ChoicesPrediction
+from strata.labels import (
+    Box,
+    Boxes,
+    BoxesPrediction,
+    Choices,
+    ChoicesPrediction,
+    Span,
+    SpansPrediction,
+)
 
 
 def test_choices_round_trips_through_json():
@@ -67,3 +75,49 @@ def test_a_misnamed_field_is_refused():
 
 def test_the_right_field_still_works():
     assert Choices(values=["cat"]).values == ["cat"]
+
+
+# ----------------------------------------------------------------------
+# Confidences are positional, for every prediction type
+# ----------------------------------------------------------------------
+
+
+def test_every_prediction_type_refuses_a_mismatch():
+    """The guard lived on ChoicesPrediction alone.
+
+    So a detector returning three boxes and one confidence was accepted,
+    and the confidences quietly belonged to the wrong boxes. The bbox
+    schema ranks the review queue off these numbers, so the queue came out
+    ordered by another box's score with nothing raised anywhere.
+    """
+    box = Box(label="cat", x=0.1, y=0.1, width=0.2, height=0.2)
+    with pytest.raises(ValidationError, match="positional"):
+        BoxesPrediction(values=[box, box, box], confidences=[0.9])
+    with pytest.raises(ValidationError, match="positional"):
+        SpansPrediction(
+            values=[Span(label="name", start=0, end=4)], confidences=[0.1, 0.2]
+        )
+    with pytest.raises(ValidationError, match="positional"):
+        ChoicesPrediction(values=["cat", "dog"], confidences=[0.9])
+
+
+def test_confidences_may_be_omitted_by_any_type():
+    # A model that reports no confidence at all is not a mismatch
+    box = Box(label="cat", x=0.1, y=0.1, width=0.2, height=0.2)
+    assert BoxesPrediction(values=[box]).confidences == []
+
+
+def test_a_confidence_follows_its_span_through_the_sort():
+    """Spans sort themselves; confidences have to travel with them.
+
+    Sorting the values alone reassigned every confidence to whichever span
+    landed in its place — lengths still matched, so no guard could see it.
+    """
+    prediction = SpansPrediction(
+        values=[Span(label="last", start=10, end=12), Span(label="first", start=0, end=2)],
+        confidences=[0.1, 0.9],
+    )
+    assert [(s.label, c) for s, c in zip(prediction.values, prediction.confidences)] == [
+        ("first", 0.9),
+        ("last", 0.1),
+    ]

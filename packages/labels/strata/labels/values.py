@@ -40,6 +40,24 @@ class Prediction(Value):
 
     confidences: list[float] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _confidences_line_up(self) -> "Prediction":
+        """Positional means positional, for every kind of prediction.
+
+        This lived on :class:`ChoicesPrediction` alone, so a detector
+        returning three boxes and one confidence was accepted and the
+        confidences quietly belonged to the wrong boxes. Nothing raised —
+        and the bbox schema ranks the review queue off exactly these
+        numbers, so the effect was a queue ordered by another box's score.
+        """
+        values = getattr(self, "values", None)
+        if self.confidences and values is not None and len(self.confidences) != len(values):
+            raise ValueError(
+                f"{len(values)} value(s) but {len(self.confidences)} "
+                f"confidence(s); they are positional"
+            )
+        return self
+
 
 class Choices(Value):
     """One or more classes asserted about a whole sample."""
@@ -50,15 +68,6 @@ class Choices(Value):
 
 class ChoicesPrediction(Choices, Prediction):
     """:class:`Choices` a model produced, with its confidence per class."""
-
-    @model_validator(mode="after")
-    def _confidences_line_up(self) -> "ChoicesPrediction":
-        if self.confidences and len(self.confidences) != len(self.values):
-            raise ValueError(
-                f"{len(self.values)} value(s) but {len(self.confidences)} "
-                f"confidence(s); they are positional"
-            )
-        return self
 
 
 class Span(BaseModel):
@@ -92,10 +101,20 @@ class Spans(Value):
     @model_validator(mode="after")
     def _in_reading_order(self) -> "Spans":
         # Sorted on the way in so a stored annotation and a model's output
-        # compare equal when they say the same thing
-        object.__setattr__(
-            self, "values", sorted(self.values, key=lambda s: (s.start, s.end))
+        # compare equal when they say the same thing.
+        #
+        # Carried out as a permutation rather than a sort so that
+        # confidences, which are positional against these values, move with
+        # them. Sorting the values alone reassigned every confidence to
+        # whichever span happened to land in its place.
+        order = sorted(
+            range(len(self.values)),
+            key=lambda i: (self.values[i].start, self.values[i].end),
         )
+        object.__setattr__(self, "values", [self.values[i] for i in order])
+        confidences = getattr(self, "confidences", None)
+        if confidences and len(confidences) == len(order):
+            object.__setattr__(self, "confidences", [confidences[i] for i in order])
         return self
 
 
