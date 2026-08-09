@@ -56,6 +56,15 @@ silently stop returning it.
 
 **A label set is a schema plus the annotations against it.** Unlabelled is the absence of a row rather than a flag, so there is no combination of states that means nothing. A reviewer who looked and found none of the classes present has *answered* — that is a real annotation, and distinct from a sample nobody has seen.
 
+**Nothing carries a sample id without saying which catalog issued it.** A
+run records its catalog, a materialised dataset records it in the manifest,
+a round is refused by a host serving a different one, and the Label Studio
+task map — a `{sample_id: task_id}` cache — records it and refuses to be
+read against another. That last one is the sharp edge: every id in a map
+exists in both catalogs and names a different sample, so `push` would
+attach predictions to the wrong images and `unskip` would delete answers on
+unrelated tasks, with nothing raised anywhere.
+
 **A host can hold several catalogs.** `config.toml` names them —
 `[catalog.images]`, `[catalog.text]` — with the host's own settings stated
 once above them and each table layering on top. A project says which it
