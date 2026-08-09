@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from strata.labels import Choices, ChoicesPrediction
+from strata.labels import Box, Boxes, Choices, ChoicesPrediction
 
 
 def test_choices_round_trips_through_json():
@@ -48,3 +48,22 @@ def test_a_prediction_round_trips_as_itself():
     prediction = ChoicesPrediction(values=["cat", "dog"], confidences=[0.9, 0.4])
     restored = ChoicesPrediction.model_validate_json(prediction.model_dump_json())
     assert restored == prediction
+
+
+def test_a_misnamed_field_is_refused():
+    """Because the default is to ignore it, and the result would be an answer.
+
+    Every value type calls its payload ``values``. Reaching for ``boxes``
+    on a :class:`Boxes` is the obvious mistake, and with pydantic's default
+    it builds successfully — empty. Empty is not nothing here: it is a
+    reviewer saying none of the classes are present. The typo would be
+    stored as that, and read back as that, with nothing to notice it.
+    """
+    with pytest.raises(ValidationError):
+        Boxes(boxes=[Box(label="cat", x=0.1, y=0.1, width=0.2, height=0.2)])
+    with pytest.raises(ValidationError):
+        Choices(labels=["cat"])
+
+
+def test_the_right_field_still_works():
+    assert Choices(values=["cat"]).values == ["cat"]

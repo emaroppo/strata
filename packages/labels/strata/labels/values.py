@@ -19,7 +19,14 @@ class Value(BaseModel):
 
     kind: str
 
-    model_config = {"frozen": True}
+    #: Frozen because an annotation is a record of what someone said.
+    #:
+    #: ``extra="forbid"`` because the default is to ignore: ``Boxes(boxes=[...])``
+    #: — the field is ``values`` — would otherwise build an empty ``Boxes``
+    #: without complaint, and an empty value is not nothing here. It means a
+    #: reviewer looked and found none of the classes present. A typo would
+    #: land in the catalog as that answer, and read back as one.
+    model_config = {"frozen": True, "extra": "forbid"}
 
 
 class Prediction(Value):
@@ -67,7 +74,7 @@ class Span(BaseModel):
     end: int
     text: str = ""
 
-    model_config = {"frozen": True}
+    model_config = {"frozen": True, "extra": "forbid"}
 
     @model_validator(mode="after")
     def _range_is_forwards(self) -> "Span":
@@ -112,7 +119,7 @@ class Box(BaseModel):
     height: float
     rotation: float = 0.0
 
-    model_config = {"frozen": True}
+    model_config = {"frozen": True, "extra": "forbid"}
 
     @model_validator(mode="after")
     def _fits_the_image(self) -> "Box":
