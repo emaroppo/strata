@@ -22,12 +22,14 @@ annotations it does not otherwise understand.
 
 from .schema import AnySchema, BBoxSchema, ClassificationSchema, SchemaError, SpanSchema
 from .values import (
+    AnyPrediction,
     AnyValue,
     Box,
     Boxes,
     BoxesPrediction,
     Choices,
     ChoicesPrediction,
+    Prediction,
     Span,
     Spans,
     SpansPrediction,
@@ -36,6 +38,7 @@ from .values import (
 
 __all__ = [
     "AnySchema",
+    "AnyPrediction",
     "AnyValue",
     "BBoxSchema",
     "Box",
@@ -43,6 +46,7 @@ __all__ = [
     "BoxesPrediction",
     "Choices",
     "ChoicesPrediction",
+    "Prediction",
     "ClassificationSchema",
     "SchemaError",
     "Span",

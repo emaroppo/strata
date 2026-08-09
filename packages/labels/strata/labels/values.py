@@ -22,6 +22,18 @@ class Value(BaseModel):
     model_config = {"frozen": True}
 
 
+class Prediction(Value):
+    """A value a model produced, with how sure it was.
+
+    A base rather than a field repeated on each type, so "this is model
+    output" is something code can ask rather than infer. Confidences are
+    positional against ``values``: the nth confidence belongs to the nth
+    thing asserted, whether that is a class, a span or a box.
+    """
+
+    confidences: list[float] = Field(default_factory=list)
+
+
 class Choices(Value):
     """One or more classes asserted about a whole sample."""
 
@@ -29,10 +41,8 @@ class Choices(Value):
     values: list[str] = Field(default_factory=list)
 
 
-class ChoicesPrediction(Choices):
+class ChoicesPrediction(Choices, Prediction):
     """:class:`Choices` a model produced, with its confidence per class."""
-
-    confidences: list[float] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _confidences_line_up(self) -> "ChoicesPrediction":
@@ -82,10 +92,8 @@ class Spans(Value):
         return self
 
 
-class SpansPrediction(Spans):
+class SpansPrediction(Spans, Prediction):
     """:class:`Spans` a model produced, with its confidence per span."""
-
-    confidences: list[float] = Field(default_factory=list)
 
 
 class Box(BaseModel):
@@ -125,11 +133,19 @@ class Boxes(Value):
     values: list[Box] = Field(default_factory=list)
 
 
-class BoxesPrediction(Boxes):
+class BoxesPrediction(Boxes, Prediction):
     """:class:`Boxes` a model produced, with its confidence per box."""
-
-    confidences: list[float] = Field(default_factory=list)
 
 
 #: Every annotation payload, discriminated on ``kind``.
 AnyValue = Annotated[Choices | Spans | Boxes, Field(discriminator="kind")]
+
+#: Every payload a *model* produced. Separate from :data:`AnyValue` because
+#: parsing a prediction as a plain value silently drops its confidences —
+#: the extra field is simply not on the class, and pydantic discards what it
+#: does not recognise. Anything holding model output has to say so, or it
+#: keeps the answer and loses how sure the model was of it.
+AnyPrediction = Annotated[
+    ChoicesPrediction | SpansPrediction | BoxesPrediction,
+    Field(discriminator="kind"),
+]
