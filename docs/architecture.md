@@ -304,6 +304,68 @@ split above — bytes for training go straight from object storage at full
 speed, bytes for humans go through a Python hop at human speed, where it
 costs nothing.
 
+## Sample types: a plugin surface in `catalog`
+
+*Decided after two days of running the loop; not yet built.*
+
+What a sample **is** — a photograph, a video frame, a satellite scene, a
+document — belongs to the catalog. Today it is scattered, and mostly in the
+wrong package: an extension list in `labeller.schemas.media`, a grouping
+rule in `to_catalog.group_id_for`, and a hardcoded `metadata_for` lambda in
+`ingest`. So the labelling tool defines what a sample is, and the catalog
+that stores it does not.
+
+A sample type is a plugin owning the three things that differ per kind of
+data at ingest:
+
+```python
+class Satellite(Image):
+    media = "image"
+    subtype = "satellite"
+    extensions = frozenset({"tif", "tiff"})
+
+    def metadata_for(self, path) -> dict: ...   # bounds, CRS, capture time
+    def group_id_for(self, path) -> str | None: ...  # by scene, or None
+```
+
+**Inheritance is safe here**, unlike for label sets. Classes map to a
+checkpoint's output neurons by position, so a parent label set gaining a
+class would silently reindex its children — which is why label sets are
+copied rather than inherited. A sample type is code, not stored data, and
+`Satellite(Image)` overriding one method has nothing at a distance.
+
+**Nothing in the schema changes.** `sample.media` and `sample.subtype` are
+free strings, `metadata` is arbitrary JSON, `group_id` is per sample. That a
+new type needs no migration is the sign the concept was factored right
+before it was finished.
+
+Three decisions, settled:
+
+**Extensions are an allow list, not a discovery filter.** Ingest walks what
+it is pointed at; the user is responsible for a sensibly arranged folder.
+Extensions are then a check — files outside the list are skipped *and
+reported*, with the count and the extensions named, and a walk that matches
+nothing is an error rather than an empty success. Filtering silently is how
+a corpus ends up quietly smaller than the directory it came from, which is
+the failure this whole design keeps running into.
+
+**`labeller` keeps only Label Studio.** `Media` dissolves: `data_key` and
+the template name are Label Studio's wire format and config selection, and
+both derive from the type's `media` string. What a file *is* stops being the
+labelling tool's business.
+
+**Built-in types are entry points too**, declared in `catalog`'s own
+distribution exactly as the baselines are in `modelling`'s. One lookup path,
+and `available()` answers truthfully for everything — which matters more
+here than for models, because a type that fails to resolve is a data
+problem: samples ingested with the wrong subtype, or not at all. The cost is
+that distribution metadata has to survive deployment; `available()` coming
+back empty is at least loud.
+
+`[data] kind` retires into `[data] type`, which also separates *what a
+sample is* from *how it groups* — currently the same word, and the reason
+frames ingested as plain images silently ruin a train/val split.
+
 ## Costs, recorded deliberately
 
 **Portability.** `project.py` promises a project directory is "a
