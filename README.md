@@ -2,7 +2,7 @@
 
 A semi-automatic labelling pipeline that closes the loop between model training and human review, on top of a durable catalog of samples and annotations. Instead of labelling thousands of samples by hand, you label a small seed set, train a model, let it pre-label the rest, then only correct what it got wrong. Each round the model improves and there is less to fix.
 
-Images and text documents are both supported, for whole-sample classification, bounding boxes, or character spans — a project declares which, and everything else follows from that.
+Images and text documents are both supported, for whole-sample classification, bounding boxes, or character spans — a project declares which, and everything else follows from that. One limit worth stating up front: boxes can be labelled, stored, exported and merged, but no detection baseline ships yet, so a bbox project cannot be trained without bringing its own model.
 
 It runs on one machine with nothing installed but Python, and scales out to a catalog on one host, object storage on another and a GPU on a third, without a consumer noticing the difference.
 
