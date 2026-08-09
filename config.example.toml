@@ -1,31 +1,55 @@
-# Host settings: how this machine reaches Label Studio.
-# Copy to config.toml (gitignored) and fill in your token, or set
-# LABEL_STUDIO_API_KEY in the environment instead.
+# Where things are, for this machine. Copy to config.toml (gitignored).
+#
+# This file names locations, not secrets. Every credential comes from the
+# environment instead — a host, a user and a database say what data this
+# project reads, and a password says nothing about it. How the environment
+# gets filled is yours to choose: a password manager, a systemd
+# EnvironmentFile, a sourced script.
 #
 # Everything about a labelling job lives in that project's project.toml.
 
 [label_studio]
 url = "http://localhost:8080"
-api_key = ""
-# Where the images mount appears inside the Label Studio container
+# $LABEL_STUDIO_API_KEY. Also accepted here as api_key = "..." if you would
+# rather, though then it is a secret in a file that gets copied around.
+# Where the images mount appears inside the Label Studio container. Only
+# used while Label Studio reads files off a mount; see serve_url below.
 local_storage_path = "/label-studio/data/images"
 
-# Where the catalog lives on this machine. Which label set inside it a
-# project annotates against is that project's business, in its project.toml.
+# Where the catalog lives. Which label set inside it a project annotates
+# against is that project's business, in its project.toml.
 [catalog]
 root = "catalog"
+
 # The index. Leave empty for SQLite under root, which needs nothing
 # installed. Point it at Postgres to share one index across machines:
-#   url = "postgresql+psycopg://strata:strata@localhost:5432/strata"
-# $STRATA_CATALOG_URL overrides this, so credentials need not live in a file.
+#   url = "postgresql+psycopg://strata@catalog-host:5432/strata"
+# Written without a password: $PGPASSWORD supplies that, so the file still
+# says which data is in use. $STRATA_CATALOG_URL overrides the whole thing.
 url = ""
 
 # Where the blobs are. Empty means files under root, which needs nothing
 # installed. An endpoint means tar shards in an S3-compatible bucket:
-#   s3_endpoint = "http://localhost:9000"
+#   s3_endpoint = "http://catalog-host:3900"
 # Credentials come from $STRATA_S3_ACCESS_KEY and $STRATA_S3_SECRET_KEY.
 s3_endpoint = ""
 s3_bucket = "strata"
+
 # What the blobs mount is called inside the Label Studio container; must
-# match the bind mount in docker-compose.yml.
+# match the bind mount in docker-compose.yml. Only used until serve_url is
+# set, after which Label Studio fetches images over HTTP instead.
 blobs_prefix = "blobs"
+
+# The sample-serving API, if one is running:
+#   serve_url = "http://catalog-host:8081"
+# URLs it hands to Label Studio are signed with $STRATA_BLOB_SECRET, which
+# must match what that server was started with.
+serve_url = ""
+
+# Where training happens. Empty means in this process, which is what a
+# single machine wants. A URL sends rounds to the host with the GPU — it
+# materialises the dataset itself, so only a dataset id travels.
+#   url = "http://gpu-host:8082"
+# Authorised with $STRATA_MODELLING_TOKEN, matching that host's own.
+[modelling]
+url = ""
