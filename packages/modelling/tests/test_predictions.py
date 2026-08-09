@@ -2,13 +2,15 @@
 
 Ranking a queue needs a score for every unlabelled sample, so a push over a
 pool of tens of thousands is minutes of GPU whether it shows 200 tasks or
-20. Pushing again from the same checkpoint should not repeat it.
+20. Asking again from the same checkpoint should not repeat it — for any
+caller, which is why this lives beside the runs rather than beside whoever
+asked first.
 """
 
 import pytest
 
-from strata.labeller.predictions import PredictionCache
 from strata.labels import ChoicesPrediction
+from strata.modelling.predictions import PredictionCache
 
 
 @pytest.fixture
@@ -77,3 +79,34 @@ def test_a_cache_survives_being_reopened(tmp_path):
     PredictionCache.local(root).put(7, {"a" * 64: guess("cat")})
     # The whole point is the next push, which is a different process
     assert PredictionCache.local(root).get(7, ["a" * 64])["a" * 64].values == ["cat"]
+
+
+def test_what_comes_back_is_what_went_in(cache):
+    """A round trip, because a near-miss here is silent.
+
+    Storing a wrapper around a prediction and reading it back as a bare one
+    parses without complaint and yields empty values — so a cache holding
+    nothing looks exactly like a cache holding answers, until a ranking
+    sorts on them.
+    """
+    original = guess("cat", "dog", confidences=[0.7, 0.2])
+    cache.put(9, {"a" * 64: original})
+    assert cache.get(9, ["a" * 64])["a" * 64] == original
+
+
+def test_a_wrapped_prediction_is_refused(cache):
+    """The bug this guard exists for.
+
+    A Prediction wraps a ChoicesPrediction with the path it came from. Stored
+    as-is it serialises without complaint and reads back with empty values,
+    because pydantic drops the keys it does not recognise — so the cache
+    holds nothing while looking exactly like a cache holding answers, and
+    the failure surfaces as a ranking sorted on empty confidences.
+    """
+    from pathlib import Path
+
+    from strata.modelling.requests import Prediction
+
+    wrapped = Prediction(path=Path("/x.jpg"), value=guess("cat"))
+    with pytest.raises(TypeError, match="ChoicesPrediction"):
+        cache.put(1, {"a" * 64: wrapped})
