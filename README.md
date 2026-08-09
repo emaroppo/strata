@@ -56,6 +56,14 @@ silently stop returning it.
 
 **A label set is a schema plus the annotations against it.** Unlabelled is the absence of a row rather than a flag, so there is no combination of states that means nothing. A reviewer who looked and found none of the classes present has *answered* — that is a real annotation, and distinct from a sample nobody has seen.
 
+**A host can hold several catalogs.** `config.toml` names them —
+`[catalog.images]`, `[catalog.text]` — with the host's own settings stated
+once above them and each table layering on top. A project says which it
+draws from; commands with no project take `--catalog`. A name that matches
+nothing is refused rather than falling back, because a sample id means
+nothing outside the catalog that issued it: opening the wrong one reports
+real numbers about the wrong data.
+
 **A catalog has an identity**, minted once and carried by any copy of it.
 A sample id, a dataset name and a collection all mean something only within
 one catalog, and nothing said which until this existed. It is what lets a
@@ -113,6 +121,9 @@ classes = ["cat", "dog"]
 type = "image"
 
 [catalog]
+# Which catalog on this host. Empty means the host's default, which is the
+# only one on a host with one.
+name = "images"
 # Which collections this job draws from. Defaults to one named after the
 # label set.
 collections = ["my_images"]
@@ -171,6 +182,12 @@ url = "http://localhost:8080"
 [catalog]
 root = "catalog"            # SQLite index and blobs, if nothing else is set
 ```
+
+A host with more than one corpus names them instead — `[catalog.images]`,
+`[catalog.text]` — and the keys above them stay the host's, so a shared
+bucket is stated once. `auto-labeller catalogs` lists what is configured
+and asks each one for its identity, which is how two names accidentally
+pointing at one database become visible.
 
 Credentials come from the environment rather than this file: `LABEL_STUDIO_API_KEY`, and for a distributed setup `PGPASSWORD`, `STRATA_S3_ACCESS_KEY`, `STRATA_S3_SECRET_KEY`, `STRATA_BLOB_SECRET`, `STRATA_MODELLING_TOKEN`. How they get there is your business — a password manager, a systemd `EnvironmentFile`, a sourced script. The tool only ever reads exported variables.
 
@@ -276,6 +293,7 @@ auto-labeller/
 | `catalog-repack` | Pack local blobs into a bucket |
 | `runs-merge` | Fold another run store into this project's |
 | `types` | List the installed sample types |
+| `catalogs` | List this host's catalogs and their identities |
 | `import-rounds` | One-way migration from the pre-catalog format |
 
 Most take `-p/--project`; all take `--config`. `train --job <id>` reattaches to a round already running elsewhere.

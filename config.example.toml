@@ -46,6 +46,27 @@ blobs_prefix = "blobs"
 # must match what that server was started with.
 serve_url = ""
 
+# More than one catalog on this host, if you need it. Keys above are the
+# host's — the bucket, the endpoint, the secret — and each named table
+# layers on top of them, so shared storage is stated once:
+#
+#   [catalog]
+#   s3_endpoint = "http://catalog-host:3900"
+#   default = "images"
+#
+#   [catalog.images]
+#   root = "catalog"
+#
+#   [catalog.text]
+#   root = "text-catalog"
+#   s3_bucket = "text"
+#
+# A project says which it draws from in its own [catalog] name; commands
+# with no project take --catalog. 'auto-labeller catalogs' lists them.
+# With several and no default, asking for "the default" is refused rather
+# than guessed: a sample id means nothing outside the catalog that issued
+# it, so opening the wrong one is silent.
+
 # Where training happens. Empty means in this process, which is what a
 # single machine wants. A URL sends rounds to the host with the GPU — it
 # materialises the dataset itself, so only a dataset id travels.
