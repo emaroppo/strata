@@ -362,6 +362,42 @@ problem: samples ingested with the wrong subtype, or not at all. The cost is
 that distribution metadata has to survive deployment; `available()` coming
 back empty is at least loud.
 
+**Built-in names are reserved.** A plugin registering `image` would change
+how everything ingests and nothing would say so, so it is refused at load.
+One lookup path does not mean one namespace to fight over.
+
+### Substitutability, in code and in queries
+
+Where an image is expected, a satellite scene should do. That has to hold in
+two places that work differently.
+
+**In code** `issubclass(Satellite, Image)` answers it, and it composes: a
+later `Multispectral(Satellite)` substitutes for both.
+
+**In queries** it cannot — the database holds strings. So `subtype` is a
+**path**, and selecting one matches its descendants, exactly as collections
+already work: `satellite` matches `satellite/multispectral` and never
+`satellite_old`. The class chain generates the path, so the prefix matching
+`_within` already does is reused rather than reinvented.
+
+```
+plain                       Image
+frames                      Frames(Image)
+satellite                   Satellite(Image)
+satellite/multispectral     Multispectral(Satellite)
+```
+
+Two invariants, checked at registration because both fail silently:
+
+- **A subclass may not change `media`.** `Satellite(Image)` declaring
+  `media = "raster"` would break substitution with nothing to show for it —
+  a query for images would quietly stop returning satellite scenes.
+- **The stored path must be the class chain.** Otherwise the string and the
+  hierarchy drift, and the two answers to "is this an image" disagree.
+
+The stored pair is a denormalisation of the hierarchy, not an independent
+fact.
+
 `[data] kind` retires into `[data] type`, which also separates *what a
 sample is* from *how it groups* — currently the same word, and the reason
 frames ingested as plain images silently ruin a train/val split.
