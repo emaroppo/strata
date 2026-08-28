@@ -19,6 +19,8 @@ members = [
     "strata-labeller",
     "strata-labels",
     "strata-modelling",
+    "strata-prepare-email",
+    "strata-prepare-video",
 ]
 
 [manifest.dependency-groups]
@@ -1891,17 +1893,21 @@ serve = [
     { name = "fastapi" },
     { name = "uvicorn" },
 ]
+test = [
+    { name = "pytest" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "boto3", marker = "extra == 's3'", specifier = ">=1.34" },
     { name = "fastapi", marker = "extra == 'serve'", specifier = ">=0.110" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'postgres'", specifier = ">=3.2" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
     { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "strata-labels", editable = "packages/labels" },
     { name = "uvicorn", marker = "extra == 'serve'", specifier = ">=0.29" },
 ]
-provides-extras = ["s3", "serve", "postgres"]
+provides-extras = ["s3", "serve", "postgres", "test"]
 
 [[package]]
 name = "strata-labeller"
@@ -1990,6 +1996,58 @@ requires-dist = [
     { name = "uvicorn", marker = "extra == 'service'", specifier = ">=0.20" },
 ]
 provides-extras = ["image", "text", "all", "test", "service"]
+
+[[package]]
+name = "strata-prepare-email"
+version = "0.1.0"
+source = { editable = "packages/prepare-email" }
+dependencies = [
+    { name = "strata-catalog" },
+    { name = "strata-labels" },
+]
+
+[package.optional-dependencies]
+seed = [
+    { name = "strata-labeller" },
+]
+test = [
+    { name = "pytest" },
+    { name = "strata-catalog", extra = ["test"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
+    { name = "strata-catalog", editable = "packages/catalog" },
+    { name = "strata-catalog", extras = ["test"], marker = "extra == 'test'", editable = "packages/catalog" },
+    { name = "strata-labeller", marker = "extra == 'seed'", editable = "packages/labeller" },
+    { name = "strata-labels", editable = "packages/labels" },
+]
+provides-extras = ["seed", "test"]
+
+[[package]]
+name = "strata-prepare-video"
+version = "0.1.0"
+source = { editable = "packages/prepare-video" }
+dependencies = [
+    { name = "opencv-python-headless" },
+    { name = "strata-catalog" },
+]
+
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+    { name = "strata-catalog", extra = ["test"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "opencv-python-headless", specifier = ">=4.10" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
+    { name = "strata-catalog", editable = "packages/catalog" },
+    { name = "strata-catalog", extras = ["test"], marker = "extra == 'test'", editable = "packages/catalog" },
+]
+provides-extras = ["test"]
 
 [[package]]
 name = "sympy"
