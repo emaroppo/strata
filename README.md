@@ -388,7 +388,22 @@ class MyModel(Model):
 
 `on_epoch` is optional to call but not to accept: a caller watching a round from another machine cannot otherwise tell minute one from minute nine.
 
-A model may also refuse a label set it cannot represent, through `requires_schema`. `task` already catches a classifier pointed at spans; this catches the finer case of the right task and the wrong *shape* — the span tagger declines a label set allowing overlapping or multi-label regions, because BIO tagging gives each token one tag. Refused before the round rather than during it, since the alternative is training on a projection of the data and reporting a number for the projection.
+A model may also refuse a label set it cannot represent, through `requires_schema`. `task` already catches a classifier pointed at spans; this catches the finer case of the right task and the wrong *shape*. The span tagger declines a label set allowing overlapping or multi-label regions, because BIO tagging gives each token one tag; the two text classifiers decline each other's, because a sigmoid head cannot promise to name only one class and a softmax head cannot name two. Refused before the round rather than during it, since the alternative is training on a projection of the data and reporting a number for the projection.
+
+### The baselines that ship
+
+| `[model] ref` | Task | Media | Notes |
+|---|---|---|---|
+| `multilabel` | classification | image | several classes at once |
+| `multiclass` | classification | image | mutually exclusive |
+| `presence` | classification | image | carries an implicit negative class |
+| `text` | classification | text | several classes at once, sigmoid |
+| `text-multiclass` | classification | text | mutually exclusive, softmax |
+| `text-span` | span | text | BIO tagging over tokens |
+
+The pairs differ by four hooks — the loss, the target encoding, the decoding and, for text, how several windows of one document become one answer. Everything else is shared, which is the point of the split: a variant is a handful of overrides rather than a second model.
+
+Nothing ships for boxes. A bbox project can be labelled, stored and exported, but needs its own model to train.
 
 Models are found two ways. A short name resolves through the `strata.models` entry point group, so a request can carry `multilabel` rather than an import path — which matters once the request crosses a wire and the backend, not the caller, decides what it can serve. Anything containing `:` is a direct reference, which keeps the quick-experiment path: drop a `model.py` beside your work and point at it. Direct references are refused over HTTP, and the refusal says so.
 
