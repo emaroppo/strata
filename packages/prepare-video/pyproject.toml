@@ -1,0 +1,28 @@
+[project]
+name = "strata-prepare-video"
+version = "0.1.0"
+description = "Video into frames a catalog can hold, grouped so one video cannot straddle a split"
+requires-python = ">=3.13"
+# The decoder is the whole reason this is its own distribution: a checkout
+# with no video to convert should not carry one.
+dependencies = [
+    "strata-catalog",
+    "opencv-python-headless>=4.10",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0", "strata-catalog[test]"]
+
+[project.entry-points."strata.preparers"]
+video-frames = "strata.prepare_video.frames:VideoFramesPreparer"
+
+[tool.uv.sources]
+strata-catalog = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# PEP 420 namespace: no strata/__init__.py in any package, or they stop merging
+packages = ["strata"]
