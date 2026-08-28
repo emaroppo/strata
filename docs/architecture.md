@@ -1,11 +1,20 @@
 # Architecture — planned direction
 
-Status: **largely built.** The four packages exist, the labelling loop runs
-end to end on the catalog, and the pre-catalog path has been deleted. What
-remains unbuilt is object storage, Postgres, the sample-serving API and the
-HTTP split — the sections below say which is which.
+Status: **built.** The four packages exist, the labelling loop runs end to
+end on the catalog, and the pre-catalog path has been deleted. Object
+storage, Postgres, the sample-serving API and the HTTP split — listed here
+as unbuilt while this was being written — are all in place; `roadmap.md`
+records how that went.
 
-Sequencing and what is still owed live in `roadmap.md`.
+Two things arrived after the restructuring and are marked where they appear:
+a sample type's **canonical form**, and **preparers**, the surface that
+converts a corpus into what a type stores.
+
+This is still a design document rather than a description, so read a section
+marked *not yet built* as a plan that may since have been decided
+differently — the text-storage section is one such, and now says what
+happened instead. Sequencing lives in `roadmap.md`; anything still owed
+lives in `TODO.md`, which is the only list of it.
 
 ---
 
@@ -74,6 +83,21 @@ answer one question: *which classes does this annotation assert?* That is
 `classes_in_use`, which already exists. A new task type implements the
 contract and becomes queryable without the catalog changing.
 
+**A schema also declares what shape its values may take.** Spans were the
+case that forced it: Label Studio's model is a region with a *list* of
+labels, and it will let a reviewer draw two regions across one phrase. A
+label set now says whether either is meaningful for the job —
+`multi_label` for a region carrying several labels, `overlapping` for two
+regions intersecting, both false by default and deliberately separate
+questions.
+
+The declaration is what lets a model refuse. BIO tagging gives each token
+one tag, so it can represent neither; without somewhere to say so, the
+tagger trains on a projection of the label set and is scored as though it
+had learned the whole thing. An annotation tool being able to express more
+than the layer storing it is the wrong way round, and this is where the two
+are reconciled.
+
 **The rule that keeps it from becoming a monolith with extra steps:** no
 I/O, no storage, no SDK, no framework. Pure types and pure functions. Shared
 kernels are where coupling hides, so this belongs in the package docstring.
@@ -112,6 +136,15 @@ columns, and thread id is the group id.
 The line is content type, not size: binary to object storage, text to the
 database, with an escape hatch for genuinely large documents. The storage
 layer differs; the query layer must not.
+
+**Not what was built, and worth saying so.** Documents go through blobs like
+everything else — content-addressed, served by the same blob server, fetched
+by Label Studio over the same signed URL. The index holds no content. What
+made the plan above unnecessary was that the blob path turned out to cost
+text nothing, and one storage path is a great deal simpler than two; what it
+gives up is the free full-text search, and the headers-as-columns idea that
+went with it. Headers are sample metadata instead. If either is wanted
+later, this section is the argument for it.
 
 ### Schema
 
@@ -306,7 +339,9 @@ costs nothing.
 
 ## Sample types: a plugin surface in `catalog`
 
-*Decided after two days of running the loop; not yet built.*
+*Decided after two days of running the loop. Built, and since extended by a
+fourth responsibility and a companion surface — both at the end of this
+section.*
 
 What a sample **is** — a photograph, a video frame, a satellite scene, a
 document — belongs to the catalog. Today it is scattered, and mostly in the
@@ -401,6 +436,64 @@ fact.
 `[data] kind` retires into `[data] type`, which also separates *what a
 sample is* from *how it groups* — currently the same word, and the reason
 frames ingested as plain images silently ruin a train/val split.
+
+### A fourth responsibility: canonical form
+
+*Added later, on contact with text.*
+
+A type also says what form its bytes are stored in. For images that is
+nothing — the default returns them untouched, and ingest reads no file at
+all for such a type, so a corpus is still hardlinked rather than copied. For
+text it is UTF-8, LF, NFC and no BOM.
+
+It sits here rather than anywhere else because it is a fact about the data,
+and it earns its place for a reason images never surfaced: a span annotation
+is a pair of character offsets, so the document a reviewer's browser
+rendered and the document a tokenizer reads have to be the same characters.
+A browser normalises line endings on its own. Measured on one prepared
+corpus, 3.2% of documents carried CRLF, and a 144-document slice put 19
+spans on the wrong characters when their offsets were carried across
+unmapped.
+
+**Canonicalisation, and deliberately not normalisation.** The test is
+whether two independent implementations would produce identical bytes.
+Consistent column names or key ordering would not pass it, and a checksum
+that depends on our own release breaks the property `merge` is built on:
+content identifies a sample, so two hosts on slightly different releases
+must still agree about what a sample is. Encoding is refused rather than
+guessed for the same reason a merge refuses rather than resolves — a
+mojibake document ingests, renders as something plausible, and is annotated
+against characters that were never there.
+
+### The companion surface: preparers
+
+*Added later, for the same reason.* A type says what the catalog holds;
+almost no corpus arrives that way. Mail arrives as `.eml` or as message
+JSON, frames arrive as video — and the scripts that once made frames were
+deleted with the pre-catalog tooling, so nothing in the tree made them.
+
+A **preparer** converts a corpus into what a type stores, writes the files
+and an index of what it knew, and stops. `ingest` still catalogues. Keeping
+the two apart is what stops a converter becoming a second implementation of
+content addressing, grouping and collections.
+
+Two consequences worth stating.
+
+**Grouping becomes declared rather than inferred.** `Frames.group_id_for`
+read the directory a frame sat in, which is a convention two pieces of code
+have to agree about. What extracted the frames *knows* they are one video,
+and now says so in the index; the directory rule stays as the fallback for a
+corpus nobody prepared.
+
+**Determinism is the contract that matters.** A conversion that produces
+different bytes on a second run re-checksums the corpus, and re-checksumming
+an annotated corpus does not lose the annotations — it detaches them, which
+is the quieter and worse failure. `PreparerContract` checks that, along with
+the output being admitted and already canonical for the type it claims to
+produce.
+
+They ship as their own distributions: a converter carries a mail parser or a
+video decoder, and a catalog should not.
 
 ## Costs, recorded deliberately
 

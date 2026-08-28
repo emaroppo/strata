@@ -2,7 +2,9 @@
 
 A semi-automatic labelling pipeline that closes the loop between model training and human review, on top of a durable catalog of samples and annotations. Instead of labelling thousands of samples by hand, you label a small seed set, train a model, let it pre-label the rest, then only correct what it got wrong. Each round the model improves and there is less to fix.
 
-Images and text documents are both supported, for whole-sample classification, bounding boxes, or character spans — a project declares which, and everything else follows from that. One limit worth stating up front: boxes can be labelled, stored, exported and merged, but no detection baseline ships yet, so a bbox project cannot be trained without bringing its own model.
+Images and text documents are both supported, for whole-sample classification, bounding boxes, or character spans — a project declares which, and everything else follows from that. A corpus that is not already the shape a catalog holds — mail, video — is converted first by a `prepare` step, which is a plugin surface of its own.
+
+Two limits worth stating up front. Boxes can be labelled, stored, exported and merged, but no detection baseline ships yet, so a bbox project cannot be trained without bringing its own model. And spans may overlap or carry several labels each where the label set declares it — that reaches the catalog, the review queue and an export, but the shipped tagger refuses to train on it, because BIO tagging gives each token exactly one tag.
 
 It runs on one machine with nothing installed but Python, and scales out to a catalog on one host, object storage on another and a GPU on a third, without a consumer noticing the difference.
 
@@ -26,6 +28,7 @@ It runs on one machine with nothing installed but Python, and scales out to a ca
 
 **Each round:**
 
+0. `prepare` converts a corpus into what the catalog holds, when it did not arrive that way — mail into documents, video into frames. Skipped entirely for a directory of images
 1. `ingest` registers files in the catalog — content-addressed, so re-running over a growing directory is safe
 2. `push` runs inference over everything unreviewed and sends the least confident to Label Studio, with the model's guess attached
 3. You review in Label Studio: confirm what is right, fix what is not
@@ -44,13 +47,30 @@ Samples, what is known about them, and the datasets built from them.
 **Samples are addressed by content.** A sample's identity is the sha256 of its bytes, so ingesting the same file twice under two names is one sample, and a reference written today still resolves after the bytes have moved from a directory into a tar in a bucket.
 
 **A sample has a type, and types inherit.** `image`, `text`, `frames` are
-built in; a plugin adds `satellite` by subclassing `Image`, and everything
-that accepts an image accepts it. A type declares the extensions it admits
-(checked, not used to discover), what metadata to read off a file, and how
-samples group. Subtypes are a path — `satellite/multispectral` — so asking
-for `satellite` matches what it grew into without knowing the name. A
+built in; a plugin adds `satellite` by subclassing `Image`, or `email` by
+subclassing `Text`, and everything that accepts the parent accepts it. A
+type declares the extensions it admits (checked, not used to discover), what
+metadata to read off a file, how samples group, and what canonical form its
+bytes are stored in. Subtypes are a path — `satellite/multispectral` — so
+asking for `satellite` matches what it grew into without knowing the name. A
 subtype cannot change its media, because a query for images would then
 silently stop returning it.
+
+**Text is stored one way.** UTF-8, LF endings, NFC, no BOM — applied at
+ingest, so two documents that read identically are one sample rather than
+two. For anything annotated by character offset that is not tidiness: a
+browser normalises line endings on its own, so a document ingested with
+CRLF hands a reviewer different offsets from the ones a tokenizer will see,
+and nothing raises. Encoding is refused rather than guessed, because a
+mojibake document ingests, renders as something plausible, and is annotated
+against characters that were never there.
+
+The line this does not cross is normalisation — consistent column names,
+key ordering, whitespace someone prefers. The test is whether two
+independent implementations would produce identical bytes. Anything that
+encodes a preference would make a checksum depend on our own release, and
+`catalog-merge` matches samples on checksum precisely so that two hosts on
+different releases still agree about what a sample is.
 
 **Collections say where data came from** — `sat_images`, or `sat_images/2024` for one batch. A project names which collections it draws from, so one catalog serves several jobs without their review queues bleeding into each other. Dropping a collection from a project declares that data out of scope, training included.
 
@@ -105,6 +125,31 @@ Blobs are packed into tars rather than stored one object each: at a few hundred 
 
 ---
 
+## Getting a corpus in
+
+Almost no corpus arrives as the thing a catalog holds. Mail arrives as `.eml` or as a blob of message JSON; frames arrive as video. A **preparer** converts one into the other, and `ingest` catalogues the result:
+
+```bash
+uv run auto-labeller prepare -p my-project    # data/source → data/raw
+uv run auto-labeller ingest  -p my-project
+```
+
+Two steps rather than one, because ingest is where content addressing, grouping and collections are decided, and a converter reaching around it would be a second implementation of the thing most worth having only one of. The source directory is kept: one holds the corpus as it arrived, the other as the catalog stores it, and a conversion that overwrote the first would be a one-way door.
+
+Alongside the files, a conversion writes `prepared.json` — what it knew that a filename cannot hold. Two things come out of it. **Metadata**: a sender, a subject, a frame's index in its video. And **grouping**: what extracted a video's frames knows they are one video, where a sample type could only infer it from a directory layout both sides have to agree about. A corpus that arrived already labelled carries its candidate annotations there too — a regex's guesses or another model's — and nothing lands them in the catalog on its own.
+
+| Preparer | Reads | Produces | Ships in |
+|---|---|---|---|
+| `eml` | `.eml` | `email` documents | `strata-prepare-email` |
+| `email-json` | `.json` | `email` documents | `strata-prepare-email` |
+| `video-frames` | `.mp4`, `.mov`, `.mkv`, … | `frames` | `strata-prepare-video` |
+
+`preparers` lists what is installed. Which one runs is resolved from the pair — what the files are, and what the project ingests — since `.json` is a mailbox to one converter and something else entirely to another; an ambiguity is refused with both names rather than settled by install order.
+
+A conversion promises four things, checked by `PreparerContract`: its output is admitted by the type it claims to produce, that output is already in that type's canonical form, it reports what it did not carry across, and the same input twice gives the same bytes. The last is the load-bearing one. A corpus that comes out different on a second run re-checksums, and re-checksumming a corpus somebody has already annotated does not lose the annotations — it silently detaches them.
+
+---
+
 ## Projects
 
 A **project** is a directory holding everything belonging to one labelling job — label schema, which collections it draws from, its model, and its runs. The tool is the machine; the catalog is the asset; the project is the work.
@@ -116,18 +161,28 @@ projects/
     ├── model.py            # optional: a model this project carries
     ├── datasets/           # materialised dataset versions
     ├── runs/               # runs, metrics and checkpoints
+    ├── data/source/        # a corpus waiting to be converted, if it needs it
     └── data/raw/           # files waiting to be ingested
 ```
 
 ```toml
 [label_config]
 classes = ["cat", "dog"]
+# Span projects only, and both default to off. They say what the job is
+# rather than what is preferred: a model that cannot represent either
+# refuses the label set instead of training on a projection of it.
+# multi_label = true     # one region may carry several labels
+# overlapping = true     # two regions may intersect
 
 [data]
-# A registered sample type. Decides which files ingest admits and how they
-# group — 'frames' groups by the folder they sit in. `types` lists what is
-# installed.
+# A registered sample type. Decides which files ingest admits, what canonical
+# form they are stored in, and how they group — 'frames' groups by the folder
+# they sit in. `types` lists what is installed.
 type = "image"
+# Only for a corpus that needs converting first. `preparers` lists what is
+# installed; naming one is optional, and settles an ambiguity.
+# source_root = "data/source"
+# preparer = "eml"
 
 [catalog]
 # Which catalog on this host. Empty means the host's default, which is the
@@ -171,6 +226,8 @@ The base install carries no ML framework — only the pipeline, which needs noth
 | `service` | fastapi, uvicorn, catalog | training over HTTP |
 
 Asking for a baseline whose extra is not installed fails at `train` time with a message naming the extra, not a stray `ModuleNotFoundError`.
+
+Converters are separate distributions rather than extras, because each carries a parser or a decoder that most installs have no use for: `strata-prepare-email` needs nothing beyond the standard library's mail parser, `strata-prepare-video` carries OpenCV. A checkout of this workspace installs every member including those two; what the separation buys is that nothing in the catalog imports them, and that a deployment or a downstream install of the labeller carries neither.
 
 **2. Start Label Studio**
 
@@ -232,7 +289,7 @@ Nothing below changes how the tool is used. The same commands run against a cata
 
 **Blobs** go into any S3-compatible store (Garage, MinIO, S3). `catalog-repack` packs local files into tar shards and repoints the index, uploading each shard before committing the rows that name it. Nothing local is deleted: those files become a read-through cache, so materialising a dataset version links what the host already has and fetches only the rest.
 
-**Images reach Label Studio over HTTP.** The blob server (`strata-blobs`) turns a checksum into one range read. URLs are signed — an `<img>` tag cannot carry an Authorization header, so the URL *is* the credential, and the signature covers the checksum so a leaked link opens one image rather than the corpus. `relink` moves existing tasks onto it, and re-signs when a queue outlives a signature.
+**Samples reach Label Studio over HTTP.** The blob server (`strata-blobs`) turns a checksum into one range read — an image to display, a document to fetch. URLs are signed: a browser loading a sample cannot carry an Authorization header, so the URL *is* the credential, and the signature covers the checksum so a leaked link opens one sample rather than the corpus. Text is served with its encoding stated, which after the canonical form is a fact rather than a guess. `relink` moves existing tasks onto the server, and re-signs when a queue outlives a signature.
 
 **Training runs where the GPU is.** `strata-modelling` accepts a dataset id, materialises it, trains and records the run. A round is submitted rather than awaited: the call returns a job id, and losing the network, closing the laptop or walking out reaches none of it. `train --job <id>` reattaches.
 
@@ -248,7 +305,7 @@ Deployment files live in `deploy/`, with `bootstrap-env.sh` scripts that generat
 
 ## Repository layout
 
-A `uv` workspace of four packages under a `strata` PEP 420 namespace. The dependency graph is enforced by the build rather than by discipline: `catalog` may not import `labeller`, `modelling` or Label Studio, and `modelling` may import `catalog` only from its service layer.
+A `uv` workspace of four packages under a `strata` PEP 420 namespace, plus two optional converter plugins. The dependency graph is enforced by the build rather than by discipline: `catalog` may not import `labeller`, `modelling` or Label Studio, and `modelling` may import `catalog` only from its service layer.
 
 ```
 auto-labeller/
@@ -257,6 +314,8 @@ auto-labeller/
 │   ├── catalog/    strata/catalog/     # samples, storage, annotations, datasets
 │   │                 sample_types.py   #   what a sample is, and what admits it
 │   │                 builtin_types.py  #   image, text, frames
+│   │                 preparers.py      #   turning a corpus into one of those
+│   │                 prepared.py       #   what a conversion knew, per sample
 │   │                 merge.py          #   folding a copy's answers back
 │   │                 blobs.py          #   local files, addressed by content
 │   │                 s3.py             #   tar shards in a bucket
@@ -267,10 +326,12 @@ auto-labeller/
 │   │                 service.py        #   training asked for from elsewhere
 │   │                 merge.py          #   joining two histories
 │   │                 conformance.py    #   the contract a plugin must pass
-│   └── labeller/   strata/labeller/    # the round loop and Label Studio
-│                     adapter.py        #   the Label Studio boundary
-│                     remote.py         #   asking another host to train
-│                     predictions.py    #   not predicting the same thing twice
+│   ├── labeller/   strata/labeller/    # the round loop and Label Studio
+│   │                 adapter.py        #   the Label Studio boundary
+│   │                 remote.py         #   asking another host to train
+│   │                 predictions.py    #   not predicting the same thing twice
+│   ├── prepare-email/                  # plugin: the email type, .eml and JSON
+│   └── prepare-video/                  # plugin: video into frames (OpenCV)
 ├── deploy/                             # per-host deployment
 ├── docs/                               # architecture and roadmap
 ├── projects/                           # your labelling projects (payload gitignored)
@@ -287,6 +348,7 @@ auto-labeller/
 | `templates` | List label config templates |
 | `projects` | List projects and their counts |
 | `class add` / `class list` | Extend or inspect a project's classes |
+| `prepare` | Convert a corpus into what this project ingests |
 | `ingest` | Register files from the project's data root |
 | `init` | Create the Label Studio project and fill it |
 | `push` | Send unreviewed samples, least confident first |
@@ -302,6 +364,7 @@ auto-labeller/
 | `catalog-repack` | Pack local blobs into a bucket |
 | `runs-merge` | Fold another run store into this project's |
 | `types` | List the installed sample types |
+| `preparers` | List the installed conversions |
 | `catalogs` | List this host's catalogs and their identities |
 | `import-rounds` | One-way migration from the pre-catalog format |
 
@@ -325,19 +388,25 @@ class MyModel(Model):
 
 `on_epoch` is optional to call but not to accept: a caller watching a round from another machine cannot otherwise tell minute one from minute nine.
 
+A model may also refuse a label set it cannot represent, through `requires_schema`. `task` already catches a classifier pointed at spans; this catches the finer case of the right task and the wrong *shape* — the span tagger declines a label set allowing overlapping or multi-label regions, because BIO tagging gives each token one tag. Refused before the round rather than during it, since the alternative is training on a projection of the data and reporting a number for the projection.
+
 Models are found two ways. A short name resolves through the `strata.models` entry point group, so a request can carry `multilabel` rather than an import path — which matters once the request crosses a wire and the backend, not the caller, decides what it can serve. Anything containing `:` is a direct reference, which keeps the quick-experiment path: drop a `model.py` beside your work and point at it. Direct references are refused over HTTP, and the refusal says so.
 
 ---
 
 ## Extending it
 
-Three things are plugins, all through entry points, and built-in names are
-reserved so a plugin cannot quietly redefine one.
+Four things are plugins, all through entry points, and built-in names are
+reserved so a plugin cannot quietly redefine one. Each surface looks the
+same on purpose — a registry, a `resolve()` that refuses an ambiguity rather
+than picking a winner, and a conformance suite — because consistency across
+four is worth more than any local improvement to one of them.
 
 | Group | Adds | Extends |
 |---|---|---|
 | `strata.models` | a model | `Model` |
 | `strata.sample_types` | a kind of sample | an existing `SampleType` |
+| `strata.preparers` | a way to convert a corpus | `Preparer` |
 | — | a kind of annotation | `Value` and `Schema`, in `strata.labels` |
 
 Sample types extend by **inheritance** rather than by replacement: a
@@ -345,8 +414,8 @@ Sample types extend by **inheritance** rather than by replacement: a
 change its media. That is what stops a plugin from making a query for
 images stop returning some of them.
 
-Models and label types each have a conformance suite — a base class of
-tests a plugin runs against itself:
+Models, label types and preparers each have a conformance suite — a base
+class of tests a plugin runs against itself:
 
 ```python
 from strata.modelling.conformance import ModelContract
@@ -364,6 +433,10 @@ Label Studio and the ranking. Being flexible about label format is a core
 objective of this project, and every place that pinned itself to
 classification was found by writing that suite rather than by anything
 failing.
+
+`PreparerContract`, in `strata.catalog.preparer_conformance`, guards the one
+thing here that invents bytes rather than carrying them, which makes it the
+one thing whose mistakes cannot be recovered from what is stored.
 
 ---
 
