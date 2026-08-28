@@ -92,6 +92,122 @@ def test_an_unknown_span_class_is_refused():
         )
 
 
+# ----------------------------------------------------------------------
+# What a region may carry, and what two regions may do
+# ----------------------------------------------------------------------
+
+
+def test_a_span_written_before_this_still_reads():
+    # Every annotation in a catalog, value in a manifest and prediction in
+    # a cache was written with a single `label`. None of them are rewritten.
+    span = Span.model_validate({"label": "name", "start": 0, "end": 4})
+    assert span.labels == ["name"]
+    assert span.label == "name"
+
+
+def test_a_region_with_no_label_has_no_labels():
+    # How a region Label Studio sent without one was represented; an empty
+    # string is not a class name
+    assert Span.model_validate({"label": "", "start": 0, "end": 4}).labels == []
+
+
+def test_a_region_can_carry_two_labels():
+    schema = SpanSchema(classes=["name", "place"], multi_label=True)
+    value = Spans(values=[Span(labels=["name", "place"], start=0, end=4)])
+    schema.validate_value(value)
+    assert schema.classes_asserted(value) == {"name", "place"}
+
+
+def test_a_second_label_is_refused_where_it_was_not_declared():
+    schema = SpanSchema(classes=["name", "place"])
+    with pytest.raises(SchemaError, match="single-label"):
+        schema.validate_value(
+            Spans(values=[Span(labels=["name", "place"], start=0, end=4)])
+        )
+
+
+def test_an_unknown_class_is_found_on_any_label():
+    schema = SpanSchema(classes=["name"], multi_label=True)
+    with pytest.raises(SchemaError, match="place"):
+        schema.validate_value(
+            Spans(values=[Span(labels=["name", "place"], start=0, end=4)])
+        )
+
+
+def test_overlapping_regions_are_refused_where_they_were_not_declared():
+    schema = SpanSchema(classes=["name", "place"])
+    with pytest.raises(SchemaError, match="overlap"):
+        schema.validate_value(
+            Spans(
+                values=[
+                    Span(labels=["name"], start=0, end=10),
+                    Span(labels=["place"], start=5, end=15),
+                ]
+            )
+        )
+
+
+def test_a_nested_region_is_an_overlap_too():
+    schema = SpanSchema(classes=["name", "place"])
+    with pytest.raises(SchemaError, match="overlap"):
+        schema.validate_value(
+            Spans(
+                values=[
+                    Span(labels=["name"], start=0, end=20),
+                    Span(labels=["place"], start=5, end=10),
+                ]
+            )
+        )
+
+
+def test_two_regions_at_one_offset_are_told_what_they_should_be():
+    # The mistake this catches is building a multi-label region as two
+    # spans, and the message has to say so or the fix looks like a flag
+    schema = SpanSchema(classes=["name", "place"], multi_label=True)
+    with pytest.raises(SchemaError, match="one span with both"):
+        schema.validate_value(
+            Spans(
+                values=[
+                    Span(labels=["name"], start=0, end=4),
+                    Span(labels=["place"], start=0, end=4),
+                ]
+            )
+        )
+
+
+def test_overlaps_are_allowed_where_they_were_declared():
+    schema = SpanSchema(classes=["name", "place"], overlapping=True)
+    schema.validate_value(
+        Spans(
+            values=[
+                Span(labels=["name"], start=0, end=10),
+                Span(labels=["place"], start=5, end=15),
+            ]
+        )
+    )
+
+
+def test_touching_regions_do_not_overlap():
+    # End-exclusive offsets: 0..4 and 4..8 share no character
+    SpanSchema(classes=["name", "place"]).validate_value(
+        Spans(
+            values=[
+                Span(labels=["name"], start=0, end=4),
+                Span(labels=["place"], start=4, end=8),
+            ]
+        )
+    )
+
+
+def test_the_two_declarations_are_separate_questions():
+    # A job can want shared regions without partial overlap, or the other
+    # way round, and one flag could not say either
+    both_off = SpanSchema(classes=["a"])
+    assert (both_off.multi_label, both_off.overlapping) == (False, False)
+    assert SpanSchema(classes=["a"], multi_label=True).overlapping is False
+    assert SpanSchema(classes=["a"], overlapping=True).multi_label is False
+
+
 def test_spans_answer_the_indexing_contract():
     schema = SpanSchema(classes=["PER", "ORG"])
     value = Spans(

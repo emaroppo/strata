@@ -76,14 +76,50 @@ class Span(BaseModel):
     Offsets are what matter and are end-exclusive. ``text`` is carried
     because it makes a stored annotation readable without fetching the
     document, but it is a convenience: the offsets are authoritative.
+
+    **Labels, plural.** Label Studio's model is a region with a list of
+    labels on it, and this was a single string — so a reviewer marking one
+    phrase as two things had the second one dropped on the way in, without
+    anything raising. The annotation tool must not be able to express more
+    than the layer storing it.
+
+    A region carrying two labels is *one* span with two labels, not two
+    spans at the same offsets. Whether a label set permits either is
+    :class:`~strata.labels.SpanSchema`'s to declare.
     """
 
-    label: str
+    labels: list[str] = Field(default_factory=list)
     start: int
     end: int
     text: str = ""
 
     model_config = {"frozen": True, "extra": "forbid"}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_a_lone_label(cls, data):
+        """``label`` is how every span stored before this was written.
+
+        Annotations in a catalog, values in a manifest, predictions in a
+        cache — none of them are rewritten by this change, and all of them
+        parse because of these four lines. An empty one becomes no labels
+        rather than one empty label: it was how a region Label Studio sent
+        without any was represented, and that is not a class name.
+        """
+        if isinstance(data, dict) and "label" in data:
+            data = dict(data)
+            lone = data.pop("label")
+            data.setdefault("labels", [lone] if lone else [])
+        return data
+
+    @property
+    def label(self) -> str:
+        """The first label, or empty.
+
+        Most spans carry exactly one, and this keeps that reading. Anything
+        that has to be right about a multi-label region reads ``labels``.
+        """
+        return self.labels[0] if self.labels else ""
 
     @model_validator(mode="after")
     def _range_is_forwards(self) -> "Span":
@@ -109,7 +145,15 @@ class Spans(Value):
         # whichever span happened to land in its place.
         order = sorted(
             range(len(self.values)),
-            key=lambda i: (self.values[i].start, self.values[i].end),
+            # Labels break the tie, so two regions at one offset order the
+            # same way wherever they were built. Without it a stored
+            # annotation and a model's output can say exactly the same
+            # thing and compare unequal.
+            key=lambda i: (
+                self.values[i].start,
+                self.values[i].end,
+                tuple(self.values[i].labels),
+            ),
         )
         object.__setattr__(self, "values", [self.values[i] for i in order])
         confidences = getattr(self, "confidences", None)

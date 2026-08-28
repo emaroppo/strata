@@ -99,17 +99,35 @@ class ClassificationSchema(BaseModel):
 
 
 class SpanSchema(BaseModel):
-    """Labelled character ranges inside a document."""
+    """Labelled character ranges inside a document.
+
+    Two declarations about shape, both false by default and both meaning
+    "this label set asserts its spans are simple". They are separate
+    questions: one is about a region's labels, the other about two regions'
+    offsets, and a project can want either without the other.
+
+    Declared rather than inferred, because both are things an annotation
+    tool will happily produce and a model may be unable to learn. Saying so
+    here is what lets a model refuse a label set before a round instead of
+    quietly training on a projection of it — and what stops a reviewer's
+    stray overlap being stored as an answer nobody can use.
+    """
 
     task: Literal["span"] = "span"
     classes: list[str] = Field(default_factory=list)
+    #: May one region carry more than one label?
+    multi_label: bool = False
+    #: May two regions intersect — nested, crossing or coincident?
+    overlapping: bool = False
 
     model_config = {"frozen": True}
 
     _classes_are_usable = _shared_class_validator()
 
     def validate_value(self, value: Spans) -> None:
-        _refuse_unknown_classes(self.classes, (s.label for s in value.values))
+        _refuse_unknown_classes(
+            self.classes, (label for s in value.values for label in s.labels)
+        )
         for span in value.values:
             if span.text and len(span.text) != span.end - span.start:
                 raise SchemaError(
@@ -117,9 +135,44 @@ class SpanSchema(BaseModel):
                     f"{span.start}..{span.end} covers {span.end - span.start}; "
                     f"the offsets are authoritative, so one of them is wrong"
                 )
+            if not self.multi_label and len(span.labels) > 1:
+                raise SchemaError(
+                    f"The region {span.start}..{span.end} carries "
+                    f"{len(span.labels)} labels ({', '.join(span.labels)}) and "
+                    f"this label set is single-label. Set multi_label if that "
+                    f"is what the job is."
+                )
+        if not self.overlapping:
+            self._refuse_overlaps(value)
+
+    def _refuse_overlaps(self, value: Spans) -> None:
+        """No two regions may intersect.
+
+        A sweep, since values arrive in reading order — but sorted again
+        rather than assumed, because being wrong here means letting through
+        exactly what this refuses.
+        """
+        spans = sorted(value.values, key=lambda s: (s.start, s.end))
+        for earlier, later in zip(spans, spans[1:]):
+            if later.start >= earlier.end:
+                continue
+            if (later.start, later.end) == (earlier.start, earlier.end):
+                # Worth its own message: this is what a multi-label region
+                # looks like when it has been built as two spans, and the
+                # fix is one span with two labels rather than a flag.
+                raise SchemaError(
+                    f"Two regions share the offsets {earlier.start}..{earlier.end} "
+                    f"({earlier.label} and {later.label}). A region carrying two "
+                    f"labels is one span with both, not two spans."
+                )
+            raise SchemaError(
+                f"The regions {earlier.start}..{earlier.end} and "
+                f"{later.start}..{later.end} overlap, and this label set is "
+                f"non-overlapping. Set overlapping if that is what the job is."
+            )
 
     def classes_asserted(self, value: Spans) -> set[str]:
-        return {s.label for s in value.values if s.label}
+        return {label for s in value.values for label in s.labels if label}
 
 
 class BBoxSchema(BaseModel):
