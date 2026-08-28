@@ -1,5 +1,24 @@
 """Turn a corpus of pre-parsed email JSON into a labelling project.
 
+**Superseded.** What this does now lives in ``strata-prepare-email``:
+
+    uv run auto-labeller prepare --project projects/my-emails
+    uv run auto-labeller ingest --project projects/my-emails
+    uv run strata-seed-email --project projects/my-emails --apply
+
+Two differences worth knowing before running either. The plugin writes
+documents in canonical form — UTF-8, LF endings — and *remaps* the span
+offsets that come with them, which this does not: on a message containing
+CRLF, every span here lands a character earlier than it should for each
+line ending before it. And the plugin records what it knew in the corpus's
+``prepared.json`` rather than in a ``spans.json`` beside the project.
+
+Kept only because a corpus already prepared by this script has a
+``spans.json`` that the new path does not read. Re-preparing a corpus that
+has been annotated re-checksums it, which detaches the annotations, so a
+project already under way stays on this one. Delete it once no such corpus
+is live.
+
     uv run python scripts/import_email_spans.py prepare \
         corpus.json --project projects/my-emails
     uv run auto-labeller ingest -p my-emails
