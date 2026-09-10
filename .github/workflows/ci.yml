@@ -65,8 +65,8 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --all-packages --extra all --group dev
-      - run: uv run --no-sync python -c "import strata.labeller.models.classifier"
-      - run: uv run --no-sync python -c "import strata.labeller.models.text_classifier"
+      - run: uv run --no-sync python -c "import strata.modelling.baselines.classifier"
+      - run: uv run --no-sync python -c "import strata.modelling.baselines.text_classifier"
       - run: uv run --no-sync pytest -q
 
   # What keeps the dependency graph honest. Each package is installed alone,
