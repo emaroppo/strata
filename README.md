@@ -478,8 +478,8 @@ Sample types extend by **inheritance** rather than by replacement: a
 change its media. That is what stops a plugin from making a query for
 images stop returning some of them.
 
-Models, label types and preparers each have a conformance suite — a base
-class of tests a plugin runs against itself:
+Models and preparers each have a conformance suite — a base class of tests
+a plugin runs against itself:
 
 ```python
 from strata.modelling.conformance import ModelContract
@@ -490,13 +490,17 @@ class TestMyModel(ModelContract):
         return MyModel()
 ```
 
-`LabelTypeConformance`, in `strata.labeller.conformance`, is the strictest, because a label type has the
-furthest to travel: it drives a value through the discriminated unions, the
-catalog, a manifest, a materialised dataset, the prediction cache, the wire,
-Label Studio and the ranking. Being flexible about label format is a core
-objective of this project, and every place that pinned itself to
-classification was found by writing that suite rather than by anything
-failing.
+Label types are checked differently, because they are not a plugin surface
+— the unions in `strata.labels` are closed — and because a type has the
+furthest to travel. `strata.labels.examples` holds a sample of every type,
+and each package tests its own layer against all of them: the unions and
+the manifest in `labels`; storage and a materialised dataset in the
+catalog; what a model is handed, the cache and the wire in modelling; Label
+Studio and the ranking in the labeller. A type added to `labels` fails in
+each package until that package handles it. Being flexible about label
+format is a core objective of this project, and every place that pinned
+itself to classification was found by writing those tests rather than by
+anything failing.
 
 `PreparerContract`, in `strata.catalog.preparer_conformance`, guards the one
 thing here that invents bytes rather than carrying them, which makes it the
