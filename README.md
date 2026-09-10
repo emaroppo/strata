@@ -251,15 +251,16 @@ migrations is at the baseline rather than at head, and stamping it head
 would have it claim columns it does not have.
 
 ```bash
-uv run alembic --name catalog   upgrade head
-uv run alembic --name modelling upgrade head
+uv run strata-catalog-migrate upgrade head
+STRATA_RUNS_ROOT=projects/<name>/runs uv run strata-modelling-migrate upgrade head
 ```
 
 Two histories, because there are two stores with different lifetimes: a
 catalog is a host's and may be Postgres, a run store is one project's and is
-always SQLite. Neither URL is in `alembic.ini`: the catalog's comes from
-`config.toml`, like everything else that reads a catalog (its default, or
-`-x catalog=<name>`), and the run store's from `$STRATA_RUNS_URL` or
+always SQLite. Each package ships its migrations and the command that runs
+them, so the same works from an installed wheel. The catalog's database
+comes from `config.toml`, like everything else that reads a catalog (its
+default, or `-x catalog=<name>`); the run store's from `$STRATA_RUNS_URL` or
 `$STRATA_RUNS_ROOT`.
 
 Asking for a baseline whose extra is not installed fails at `train` time with a message naming the extra, not a stray `ModuleNotFoundError`.

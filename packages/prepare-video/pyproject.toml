@@ -6,12 +6,12 @@ requires-python = ">=3.13"
 # The decoder is the whole reason this is its own distribution: a checkout
 # with no video to convert should not carry one.
 dependencies = [
-    "strata-catalog",
+    "strata-catalog>=0.1,<0.2",
     "opencv-python-headless>=4.10",
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=8.0", "strata-catalog[test]"]
+test = ["pytest>=8.0", "strata-catalog[test]>=0.1,<0.2"]
 
 [project.entry-points."strata.preparers"]
 video-frames = "strata.prepare_video.frames:VideoFramesPreparer"

@@ -64,6 +64,11 @@ not. Wherever one package writes what another reads, an old release of one
 will meet a new release of the other, so each such contract says how it may
 change:
 
+- **Versions are per package.** Each is released on its own, at 0.x, where a
+  minor release may break things. A package depending on another requires
+  the minor it was tested with — `strata-labels>=0.1,<0.2` — so moving to a
+  new one is a deliberate change in the dependent, not something an install
+  does on its own.
 - **The manifest** (`strata.labels`) states its format, and a reader refuses
   one it does not know. The number goes up only when an older reader would
   misread a newer file; a field added with a default does not need it.
