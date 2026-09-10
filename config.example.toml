@@ -15,6 +15,11 @@ url = "http://localhost:8080"
 # Where the images mount appears inside the Label Studio container. Only
 # used while Label Studio reads files off a mount; see serve_url below.
 local_storage_path = "/label-studio/data/images"
+# What the catalog's blobs mount is called inside the Label Studio
+# container; must match the bind mount in docker-compose.yml. Only used
+# until [catalog] serve_url is set, after which Label Studio fetches
+# samples over HTTP instead.
+blobs_prefix = "blobs"
 
 # Where the catalog lives. Which label set inside it a project annotates
 # against is that project's business, in its project.toml.
@@ -25,7 +30,8 @@ root = "catalog"
 # installed. Point it at Postgres to share one index across machines:
 #   url = "postgresql+psycopg://strata@catalog-host:5432/strata"
 # Written without a password: $PGPASSWORD supplies that, so the file still
-# says which data is in use. $STRATA_CATALOG_URL overrides the whole thing.
+# says which data is in use. Nothing in the environment overrides where the
+# catalog is, so pointing this machine at another one is an edit here.
 url = ""
 
 # Where the blobs are. Empty means files under root, which needs nothing
@@ -35,20 +41,16 @@ url = ""
 s3_endpoint = ""
 s3_bucket = "strata"
 
-# What the blobs mount is called inside the Label Studio container; must
-# match the bind mount in docker-compose.yml. Only used until serve_url is
-# set, after which Label Studio fetches images over HTTP instead.
-blobs_prefix = "blobs"
-
 # The sample-serving API, if one is running:
 #   serve_url = "http://catalog-host:8081"
 # URLs it hands to Label Studio are signed with $STRATA_BLOB_SECRET, which
 # must match what that server was started with.
 serve_url = ""
 
-# More than one catalog on this host, if you need it. Keys above are the
-# host's — the bucket, the endpoint, the secret — and each named table
-# layers on top of them, so shared storage is stated once:
+# More than one catalog described here, if you need it. Keys above are
+# shared — the endpoint, the bucket — and each named table layers on top of
+# them, so shared storage is stated once. The default is the one used when
+# nothing names another, so switching this machine is changing it:
 #
 #   [catalog]
 #   s3_endpoint = "http://catalog-host:3900"
