@@ -28,6 +28,9 @@ config*.toml
 # rather than the project. The variables it sets are the contract; how any
 # given host fills them is that host's business.
 /scripts/secrets.sh
+# Design that has not been decided. Kept local, and nothing tracked points at
+# it: what gets decided there moves into TODO.md.
+/docs/proposals.md
 # Which project and catalog docker compose mounts. Holds a real project
 # path, so it stays local like config.toml does.
 .env
