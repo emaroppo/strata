@@ -39,7 +39,7 @@ Short names are used below for readability.
 
 | Package | Owns | Depends on |
 | --- | --- | --- |
-| `labels` | what an annotation *is*: value types, schema descriptors, the indexing contract | — |
+| `labels` | what an annotation *is*: value types, schema descriptors, the indexing contract; and the manifest a trainer is handed | — |
 | `catalog` | samples, storage, grouping, annotations, datasets | `labels` |
 | `modelling` | train and predict; model plugins; runs and checkpoints | `catalog`, `labels` |
 | `labeller` | active learning, and the Label Studio adapter that feeds it | `catalog`, `modelling`, `labels` |
@@ -69,6 +69,14 @@ LS adapter wearing a schema layer's clothes: `Result` is an LS result dict,
 
 So `labels` holds value types, schema descriptors, encode/decode/validate —
 and LS's XML and result handling stay in `labeller` as a boundary adapter.
+
+**It also holds the manifest**, and the digest the prediction cache keys
+features on. Neither is an annotation, but both are files two packages must
+read identically and neither may import the other: the catalog writes a
+manifest and modelling trains from it; the laptop and the modelling host
+both compute the digest. The manifest used to live in the catalog, and
+modelling read it back by key name — so a renamed field arrived as nothing
+rather than as an error.
 
 **This reverses a decision that was right at the time.** The README says
 `dataset.json` deliberately stores canonicalized Label Studio results, so

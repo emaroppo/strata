@@ -5,16 +5,25 @@ to train from it. That is what makes a dataset version the portable unit —
 the property ``project.py`` used to claim for a whole project directory, at
 a granularity that survives the move to a catalog.
 
+**The one file two packages have to agree on.** The catalog writes it and
+modelling reads it, and neither may import the other. So the definition
+lives here, where both can, rather than in the writer with the reader
+reconstructing it from key names — which it did, and which meant a renamed
+field read back as nothing instead of failing.
+
 Sample ids are catalog-local, so ``checksum`` travels with them: files and
 labels alone are enough to train anywhere, and the checksum is what lets a
 different catalog match these samples to its own.
 """
 
+import hashlib
+import json
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-from strata.labels import AnySchema, AnyValue
+from .schema import AnySchema
+from .values import AnyValue
 
 MANIFEST_NAME = "manifest.json"
 FILES_DIR = "files"
@@ -78,3 +87,28 @@ class Manifest(BaseModel):
     @property
     def val(self) -> list[ManifestSample]:
         return [s for s in self.samples if s.val]
+
+
+def feature_digest(features: dict[str, Any] | None) -> str:
+    """A stable digest of one sample's features.
+
+    What makes a cached prediction honest. A prediction is a function of a
+    checkpoint, some bytes *and these values*; keyed on the first two alone
+    it survives a correction to the third and is served for inputs that no
+    longer exist. Widening the key is what lets the cache keep its stated
+    property — nothing is ever invalidated — while ceasing to be wrong.
+
+    Here rather than beside the feature declarations because two hosts
+    compute it and a third stores it: the laptop keys its lookups with it,
+    the modelling host its answers, and the prediction cache holds both. A
+    digest that differed between them would not be wrong, only a cache that
+    never hits — which is why the test pins its output rather than its
+    properties.
+
+    The empty digest is empty rather than a hash of nothing, so a project
+    with no features reads exactly as it did before there were any.
+    """
+    if not features:
+        return ""
+    canonical = json.dumps(features, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(canonical.encode()).hexdigest()

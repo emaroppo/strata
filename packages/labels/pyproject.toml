@@ -1,7 +1,7 @@
 [project]
 name = "strata-labels"
 version = "0.1.0"
-description = "What an annotation is: value types, schemas, and the indexing contract"
+description = "What an annotation is, and what a trainer is handed: value types, schemas, the indexing contract, the manifest"
 requires-python = ">=3.13"
 dependencies = [
     "pydantic>=2.0",

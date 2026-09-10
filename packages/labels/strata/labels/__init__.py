@@ -18,8 +18,13 @@ wire is one annotation tool's format; it converts at the boundary, inside
 The indexing contract lives here too: every schema answers *which classes
 does this annotation assert*, which is what lets the catalog index
 annotations it does not otherwise understand.
+
+So does the manifest — what a trainer is handed — for the same reason the
+values do: the catalog writes it and modelling reads it, and this is the one
+package both may import.
 """
 
+from .manifest import FILES_DIR, MANIFEST_NAME, Manifest, ManifestSample, feature_digest
 from .schema import AnySchema, BBoxSchema, ClassificationSchema, SchemaError, SpanSchema
 from .values import (
     AnyPrediction,
@@ -37,6 +42,8 @@ from .values import (
 )
 
 __all__ = [
+    "FILES_DIR",
+    "MANIFEST_NAME",
     "AnySchema",
     "AnyPrediction",
     "AnyValue",
@@ -46,6 +53,8 @@ __all__ = [
     "BoxesPrediction",
     "Choices",
     "ChoicesPrediction",
+    "Manifest",
+    "ManifestSample",
     "Prediction",
     "ClassificationSchema",
     "SchemaError",
@@ -54,4 +63,5 @@ __all__ = [
     "Spans",
     "SpansPrediction",
     "Value",
+    "feature_digest",
 ]

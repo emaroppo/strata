@@ -346,7 +346,7 @@ A `uv` workspace of four packages under a `strata` PEP 420 namespace, plus two o
 ```
 auto-labeller/
 ├── packages/
-│   ├── labels/     strata/labels/      # what an annotation is: values and schemas
+│   ├── labels/     strata/labels/      # what an annotation is: values, schemas, the manifest
 │   ├── catalog/    strata/catalog/     # samples, storage, annotations, datasets
 │   │                 sample_types.py   #   what a sample is, and what admits it
 │   │                 builtin_types.py  #   image, text, frames
