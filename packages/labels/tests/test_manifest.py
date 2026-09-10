@@ -81,3 +81,21 @@ def test_the_empty_digest_is_empty():
 
 def test_the_digest_does_not_depend_on_key_order():
     assert feature_digest({"a": 1, "b": 2}) == feature_digest({"b": 2, "a": 1})
+
+
+def test_the_digest_is_pinned():
+    """Its output, not just its properties.
+
+    The laptop computes it to look predictions up and the modelling host to
+    store them, possibly on different releases. A digest that changed would
+    not be wrong — every lookup would simply miss, and the only symptom is a
+    review queue that takes as long as it did before there was a cache. So a
+    change to it has to be deliberate: update these, and say so.
+    """
+    features = {"species": "oak", "coordinates": [51.5, -0.12], "count": 3}
+    assert feature_digest(features) == (
+        "9420963ea8db9a15f03ceb804531ead49b674b965ffa2ce9e027d0ec6ff82fd8"
+    )
+    assert feature_digest({"species": "oak"}) == (
+        "ec13fe6c664ccaf9075245c1ee0a2cd5bf77eda0494ddc8b359adadacbe78c00"
+    )
