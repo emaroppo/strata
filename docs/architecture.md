@@ -57,6 +57,33 @@ extras, and independent publishability — without a version-pinning dance on
 every change touching two packages, which during a restructuring is most of
 them. `git subtree split` peels a package out later with history intact.
 
+### Releasing the packages separately
+
+The workspace keeps the packages in step; published separately, they are
+not. Wherever one package writes what another reads, an old release of one
+will meet a new release of the other, so each such contract says how it may
+change:
+
+- **The manifest** (`strata.labels`) states its format, and a reader refuses
+  one it does not know. The number goes up only when an older reader would
+  misread a newer file; a field added with a default does not need it.
+- **The wire** between the laptop and the modelling host states a protocol,
+  checked on `/healthz` before anything is sent, on the same rule.
+- **A label type** is a member of the unions in `strata.labels`, and an
+  older reader fails loudly on one it does not know. Adding one is a minor
+  release of `labels`, with a sample in `strata.labels.examples`. A consumer
+  supports it once it has released requiring that version and its own
+  label-type tests pass for it. Renaming or removing a field of an existing
+  type is a breaking release.
+- **Label-type tests live with each layer.** `labels` checks what it alone
+  can; the catalog, modelling and the labeller each run their own layer
+  against every sample `labels` ships. None reaches across a package
+  boundary, so each runs in its own repository, and a new type fails in
+  each consumer until that consumer handles it.
+- **The model contract** lets a caller ask a model to stop early: `on_epoch`
+  may return `True`. Honouring it is optional, so a caller can start asking
+  without breaking any model that does not listen.
+
 ## `labels`
 
 The neutral representation, shared by everything.
