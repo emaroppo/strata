@@ -19,11 +19,6 @@ url = "http://localhost:8080"
 # Where the images mount appears inside the Label Studio container. Only
 # used while Label Studio reads files off a mount; see serve_url below.
 local_storage_path = "/label-studio/data/images"
-# What the catalog's blobs mount is called inside the Label Studio
-# container; must match the bind mount in docker-compose.yml. Only used
-# until [catalog] serve_url is set, after which Label Studio fetches
-# samples over HTTP instead.
-blobs_prefix = "blobs"
 
 # Where the catalog lives. Which label set inside it a project annotates
 # against is that project's business, in its project.toml.
@@ -44,6 +39,12 @@ url = ""
 # Credentials come from $STRATA_S3_ACCESS_KEY and $STRATA_S3_SECRET_KEY.
 s3_endpoint = ""
 s3_bucket = "strata"
+
+# What this catalog's blobs mount is called inside the Label Studio
+# container; must match its bind mount in docker-compose.yml. Used until
+# serve_url is set, and to read back tasks made before it. Per catalog,
+# since two catalogs read off mounts are two mounts.
+blobs_prefix = "blobs"
 
 # The sample-serving API, if one is running:
 #   serve_url = "http://catalog-host:8081"
