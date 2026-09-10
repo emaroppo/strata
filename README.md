@@ -257,9 +257,10 @@ uv run alembic --name modelling upgrade head
 
 Two histories, because there are two stores with different lifetimes: a
 catalog is a host's and may be Postgres, a run store is one project's and is
-always SQLite. Neither URL is in `alembic.ini` — `$STRATA_CATALOG_URL` and
-`$STRATA_RUNS_URL` name them, or `$STRATA_CATALOG_ROOT` / `$STRATA_RUNS_ROOT`
-for a local directory.
+always SQLite. Neither URL is in `alembic.ini`: the catalog's comes from
+`config.toml`, like everything else that reads a catalog (its default, or
+`-x catalog=<name>`), and the run store's from `$STRATA_RUNS_URL` or
+`$STRATA_RUNS_ROOT`.
 
 Asking for a baseline whose extra is not installed fails at `train` time with a message naming the extra, not a stray `ModuleNotFoundError`.
 
@@ -291,7 +292,7 @@ bucket is stated once. `auto-labeller catalogs` lists what is configured
 and asks each one for its identity, which is how two names accidentally
 pointing at one database become visible.
 
-Credentials come from the environment rather than this file: `LABEL_STUDIO_API_KEY`, and for a distributed setup `PGPASSWORD`, `STRATA_S3_ACCESS_KEY`, `STRATA_S3_SECRET_KEY`, `STRATA_BLOB_SECRET`, `STRATA_MODELLING_TOKEN`. How they get there is your business — a password manager, a systemd `EnvironmentFile`, a sourced script. The tool only ever reads exported variables.
+Credentials come from the environment rather than this file: `LABEL_STUDIO_API_KEY`, and for a distributed setup `PGPASSWORD`, `STRATA_S3_ACCESS_KEY`, `STRATA_S3_SECRET_KEY`, `STRATA_BLOB_SECRET`, `STRATA_MODELLING_TOKEN`. How they get there is your business — a password manager, a systemd `EnvironmentFile`, a sourced script. The tool only ever reads exported variables, and none of them says *where* a catalog is: that is this file's alone. The blob server and the modelling host read the same `[catalog]` tables, from the file `$STRATA_CONFIG` names, and use its default.
 
 **4. Make a project and start**
 
@@ -335,7 +336,9 @@ lacks, staying silent where both agree, and recording a conflict where they
 disagree. `runs-merge` does the same for a training history split across two
 machines. Both report what they would do and write nothing until `--apply`.
 
-Deployment files live in `deploy/`, with `bootstrap-env.sh` scripts that generate each host's secrets and refuse to overwrite an existing one.
+Deployment files live in `deploy/`, with `bootstrap-env.sh` scripts that generate each host's secrets and refuse to overwrite an existing one. They hold credentials only: every machine reads where the catalog is from a `config.toml` of its own, and uses its default.
+
+**Switching to another catalog** is one edit per machine: make it the default in each `config.toml`, restart the blob server and the modelling host, and run `auto-labeller catalog-check`, which asks both which catalog they are on. `deploy/minipc/new-catalog.sh <name>` makes a new one — its database, its bucket, the key grants — and prints the tables to add.
 
 ---
 

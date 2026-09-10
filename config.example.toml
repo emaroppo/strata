@@ -7,6 +7,10 @@
 # EnvironmentFile, a sourced script.
 #
 # Everything about a labelling job lives in that project's project.toml.
+#
+# The blob server and the modelling host read this same format, from the
+# file $STRATA_CONFIG names, and use its default catalog — so on a machine
+# that runs one of them as well as the CLI, this one file decides for both.
 
 [label_studio]
 url = "http://localhost:8080"
