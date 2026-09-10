@@ -105,6 +105,12 @@ by someone looking at the sample — so `push` sends disputed samples to the
 front of the review queue and a person settles it. Answering again clears
 it, whichever way they go.
 
+**A dataset version is its samples *and its answers*.** Identity is the
+selection plus a digest over those samples' annotations, so correcting a
+label mints a new version rather than handing back the old one — which it
+did, and the round then trained from a manifest holding the values the
+correction had replaced.
+
 **A dataset version is frozen and materialised.** `train` selects the labelled samples, assigns a train/val split, and writes a self-contained directory: files named by checksum, plus a manifest carrying annotations, split and grouping. The model gets a directory and nothing else — no database, no catalog, no network. That is what makes a run resolve back to the exact samples behind it.
 
 Two properties of the split are load-bearing:
@@ -184,6 +190,19 @@ type = "image"
 # source_root = "data/source"
 # preparer = "eml"
 
+# What the model is told about a sample besides its bytes. A feature names
+# where to read a value, and the same place is a target somewhere else: one
+# annotation is a species project's answer and a disease project's input, at
+# the same time, over one catalog. Only these lines differ between the two.
+#
+# source = "label_set" reads another label set's answer; source = "metadata"
+# reads a key off the sample, for values with no label shape — coordinates,
+# a capture time. Named explicitly, because a bare name would have to guess.
+# [[data.features]]
+# name = "species"
+# source = "label_set"
+# ref = "plant-species"
+
 [catalog]
 # Which catalog on this host. Empty means the host's default, which is the
 # only one on a host with one.
@@ -224,6 +243,23 @@ The base install carries no ML framework — only the pipeline, which needs noth
 | `s3` | boto3 | blobs in a bucket |
 | `serve` | fastapi, uvicorn | the blob server |
 | `service` | fastapi, uvicorn, catalog | training over HTTP |
+
+**Schema changes are migrations.** A database this creates is built in one
+step and stamped current; an existing one is brought forward with alembic,
+and is refused on open until it has been — a catalog that predates
+migrations is at the baseline rather than at head, and stamping it head
+would have it claim columns it does not have.
+
+```bash
+uv run alembic --name catalog   upgrade head
+uv run alembic --name modelling upgrade head
+```
+
+Two histories, because there are two stores with different lifetimes: a
+catalog is a host's and may be Postgres, a run store is one project's and is
+always SQLite. Neither URL is in `alembic.ini` — `$STRATA_CATALOG_URL` and
+`$STRATA_RUNS_URL` name them, or `$STRATA_CATALOG_ROOT` / `$STRATA_RUNS_ROOT`
+for a local directory.
 
 Asking for a baseline whose extra is not installed fails at `train` time with a message naming the extra, not a stray `ModuleNotFoundError`.
 
@@ -354,7 +390,7 @@ auto-labeller/
 | `push` | Send unreviewed samples, least confident first |
 | `export` | Pull corrections back into the catalog |
 | `train` | Freeze a version, materialise it, train |
-| `report` | Training history, or one run in detail |
+| `report` | Training history, or one run in detail; `--json` for a chart or a script |
 | `unskip` | Return skipped samples to the queue |
 | `relink` | Repoint tasks at their current image URLs |
 | `catalog-stats` | What is in the catalog |
@@ -381,10 +417,20 @@ class MyModel(Model):
     task = "classification"
 
     def finetune(self, train, classes, val=None, on_epoch=None): ...
-    def predict(self, paths): ...
+    def predict(self, paths, on_batch=None, *, features=None): ...
     def save(self, path): ...
     def load(self, path): ...
 ```
+
+An `Example` carries a path, a target, and whatever the project declared as
+a **feature** — something already known that the model may be told. At
+inference the same values arrive positionally against `paths`. A model
+declares what it cannot predict without through `requires_features`, which
+is checked before the round the way `requires_classes` is.
+
+"Cannot predict without" rather than "cannot train without", and the
+distinction matters: a model that learns to infer a feature as an auxiliary
+task wants it while training and never at inference.
 
 `on_epoch` is optional to call but not to accept: a caller watching a round from another machine cannot otherwise tell minute one from minute nine.
 

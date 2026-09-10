@@ -186,6 +186,29 @@ previously described, and retires `Sample.val` in the working tree.
 `val` is per-dataset, which is what it always actually was — two projects
 over one catalog should be free to hold out different samples.
 
+**A version is its samples *and its answers*.** Identity was the selection
+alone, which meant correcting a label returned the previous version and a
+round trained on the materialised copy of the values it had just corrected.
+It carries a digest over its members' annotations — state, source and value
+— and a digest rather than a timestamp because `updated_at` is
+second-resolution: one bulk annotate writes thousands of rows sharing a
+second, so a correction inside that second moves no watermark.
+
+### Schema changes are migrations
+
+`create_all` builds a schema and cannot evolve one: it adds tables and
+never columns, so the first change to an existing table broke every
+database in the wild. Alembic, with a history per store — a catalog is a
+host's and may be Postgres, a run store is one project's and is always
+SQLite, and they change at different times for different reasons.
+
+A database `create_all` just built is stamped at head, because it is at
+head by construction and replaying the chain in every test would cost more
+than the tests do. A database with tables and no revision predates
+migrations and is **refused on open**: it is at the baseline, and stamping
+it head would have it claim columns it does not have. A test diffs the
+chain against `tables.py`, because a chain nothing exercises rots.
+
 ## `modelling`
 
 Model plugins, training runs, checkpoints and metrics, with each run
@@ -260,6 +283,33 @@ between rounds silently invalidates the mapping.
 
 So: record model name and version on the run, and refuse a checkpoint whose
 recorded version does not match what the backend now serves.
+
+### A model can be told what is already known
+
+A target is what a model is asked for; a feature is something already known
+that it may be told. Until there was a channel, a model received a path and
+a target and everything else about the sample stopped at the catalog.
+
+**Role is per job, not per annotation.** One annotation is the target of the
+project that owns it and a feature of another, at the same time, over one
+catalog — only the declaration differs. So a feature names *where to read a
+value*: another label set, or a metadata key for values with no label shape.
+That is also what makes a catalog's annotations compound rather than
+accumulate: what one round acquires is what a later project is told.
+
+Two consequences worth stating, because both were nearly got wrong:
+
+**A feature must cover the project's collections**, and that is a
+precondition to count rather than infer. `push` scores the whole unreviewed
+pool, so a sample without a value cannot be scored — and a queue that only
+surfaces covered samples never gets the rest labelled, which is a bias
+nobody chose.
+
+**A prediction became a function of three things.** The cache was keyed on a
+checkpoint and some bytes, on the stated grounds that both are immutable. A
+feature is neither. The digest went into the *key* rather than becoming a
+policy to invalidate on, which keeps the original property literally true:
+nothing is ever invalidated, and a corrected feature simply misses.
 
 ## The deployment this is for
 
