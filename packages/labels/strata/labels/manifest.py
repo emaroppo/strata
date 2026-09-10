@@ -11,6 +11,14 @@ lives here, where both can, rather than in the writer with the reader
 reconstructing it from key names — which it did, and which meant a renamed
 field read back as nothing instead of failing.
 
+**It says which format it is.** The writer states ``format`` and every read
+checks it, because once the packages ship separately the release that wrote
+a manifest need not be the one reading it. The number goes up only when an
+older reader would *misread* a newer file — a field whose meaning changed, a
+value it would take for something else. A field added with a default does
+not bump it: pydantic ignores fields it does not know, which is exactly why
+that case is safe and the other one is not.
+
 Sample ids are catalog-local, so ``checksum`` travels with them: files and
 labels alone are enough to train anywhere, and the checksum is what lets a
 different catalog match these samples to its own.
@@ -20,13 +28,25 @@ import hashlib
 import json
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .schema import AnySchema
 from .values import AnyValue
 
 MANIFEST_NAME = "manifest.json"
 FILES_DIR = "files"
+#: The layout this release writes, and the only one it reads.
+MANIFEST_FORMAT = 1
+
+
+class ManifestFormatError(Exception):
+    """A manifest in a layout this release does not read.
+
+    Deliberately not a ``ValueError``: pydantic would fold that into a
+    validation error beside every field it could not parse, and a caller
+    holding a directory needs to tell *stale* from *broken* — the first is
+    rebuilt, the second is a bug.
+    """
 
 
 class ManifestSample(BaseModel):
@@ -61,6 +81,10 @@ class ManifestSample(BaseModel):
 class Manifest(BaseModel):
     """A dataset version, in full."""
 
+    #: Required rather than defaulted: a default would read a manifest that
+    #: predates the field as the current layout, which is the one guess
+    #: this field exists to stop.
+    format: int
     dataset: str
     version: int
     #: Which catalog this was built from. A dataset name and a sample id
@@ -79,6 +103,25 @@ class Manifest(BaseModel):
     #: says where its features came from once it is somewhere else.
     features: list[dict] = Field(default_factory=list)
     samples: list[ManifestSample] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _readable_by_this_release(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if "format" not in data:
+            raise ManifestFormatError(
+                "This manifest does not say which format it is, so it was written "
+                "before manifests did. Its layout is not this release's to guess at: "
+                "materialise the dataset version again."
+            )
+        if data["format"] != MANIFEST_FORMAT:
+            raise ManifestFormatError(
+                f"This manifest is format {data['format']!r}, and this release reads "
+                f"format {MANIFEST_FORMAT}. Install a release that reads it, or "
+                f"materialise the dataset version again with this one."
+            )
+        return data
 
     @property
     def train(self) -> list[ManifestSample]:

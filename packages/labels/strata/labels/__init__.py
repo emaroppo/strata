@@ -24,7 +24,15 @@ values do: the catalog writes it and modelling reads it, and this is the one
 package both may import.
 """
 
-from .manifest import FILES_DIR, MANIFEST_NAME, Manifest, ManifestSample, feature_digest
+from .manifest import (
+    FILES_DIR,
+    MANIFEST_FORMAT,
+    MANIFEST_NAME,
+    Manifest,
+    ManifestFormatError,
+    ManifestSample,
+    feature_digest,
+)
 from .schema import AnySchema, BBoxSchema, ClassificationSchema, SchemaError, SpanSchema
 from .values import (
     AnyPrediction,
@@ -43,6 +51,7 @@ from .values import (
 
 __all__ = [
     "FILES_DIR",
+    "MANIFEST_FORMAT",
     "MANIFEST_NAME",
     "AnySchema",
     "AnyPrediction",
@@ -54,6 +63,7 @@ __all__ = [
     "Choices",
     "ChoicesPrediction",
     "Manifest",
+    "ManifestFormatError",
     "ManifestSample",
     "Prediction",
     "ClassificationSchema",
