@@ -1,6 +1,6 @@
 """Rewrite a project written before sample types.
 
-    uv run python scripts/migrate_project_type.py projects/my-project
+    uv run python packages/labeller/scripts/migrate_project_type.py projects/my-project
 
 ``[data] kind`` said two things at once: what a sample was, and how samples
 grouped. Only one of them had a name — ``images`` or ``frames`` — so a
