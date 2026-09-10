@@ -46,16 +46,31 @@ Short names are used below for readability.
 
 Acyclic, with `labels` as the leaf.
 
+Two converter plugins sit outside the table. `strata-prepare-email` and
+`strata-prepare-video` turn a corpus into a sample type the catalog admits;
+each depends on `catalog`, and nothing depends on them.
+
 `labeller` is deliberately thin — active learning plus a UI adapter. The
 centre of gravity is the catalog.
 
-### One repo, not four
+### One repo, for now
 
 A `uv` workspace, which the build already uses everywhere. That gives a
 `pyproject.toml` per package, independently declared dependencies, separate
 extras, and independent publishability — without a version-pinning dance on
 every change touching two packages, which during a restructuring is most of
-them. `git subtree split` peels a package out later with history intact.
+them.
+
+The split is decided and not yet done. Each package moves to a repository of
+its own, with its history; `deploy/minipc` goes with `catalog`, `deploy/gpu`
+with `modelling`, and the labeller's one-off scripts with the labeller. This
+repository stays, holding these documents.
+
+What keeps the split possible in the meantime is a CI job that builds every
+wheel and installs each package alone — the others coming from those wheels,
+as they would from an index — before running its tests. In a checkout
+everything is installed together, so a package quietly relying on one it
+does not declare passes every other job; this is the one it fails.
 
 ### Releasing the packages separately
 
@@ -88,6 +103,9 @@ change:
 - **The model contract** lets a caller ask a model to stop early: `on_epoch`
   may return `True`. Honouring it is optional, so a caller can start asking
   without breaking any model that does not listen.
+- **Migrations ship in the package.** `strata-catalog-migrate` and
+  `strata-modelling-migrate` run the chain inside the installed wheel, so
+  upgrading a package and then its database needs nothing from a checkout.
 
 ## `labels`
 
@@ -248,6 +266,10 @@ than the tests do. A database with tables and no revision predates
 migrations and is **refused on open**: it is at the baseline, and stamping
 it head would have it claim columns it does not have. A test diffs the
 chain against `tables.py`, because a chain nothing exercises rots.
+
+Each package ships its chain and the command that runs it,
+`strata-catalog-migrate` and `strata-modelling-migrate`, so there is no
+`alembic.ini` and an installed wheel migrates its own store.
 
 ## `modelling`
 

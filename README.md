@@ -263,7 +263,7 @@ comes from `config.toml`, like everything else that reads a catalog (its
 default, or `-x catalog=<name>`); the run store's from `$STRATA_RUNS_URL` or
 `$STRATA_RUNS_ROOT`.
 
-Asking for a baseline whose extra is not installed fails at `train` time with a message naming the extra, not a stray `ModuleNotFoundError`.
+Asking for a baseline whose extra is not installed — at `train` time, or by name from the modelling host — fails with a message naming the extra, not a stray `ModuleNotFoundError`.
 
 Converters are separate distributions rather than extras, because each carries a parser or a decoder that most installs have no use for: `strata-prepare-email` needs nothing beyond the standard library's mail parser, `strata-prepare-video` carries OpenCV. A checkout of this workspace installs every member including those two; what the separation buys is that nothing in the catalog imports them, and that a deployment or a downstream install of the labeller carries neither.
 
@@ -370,9 +370,10 @@ auto-labeller/
 │   │                 adapter.py        #   the Label Studio boundary
 │   │                 remote.py         #   asking another host to train
 │   │                 predictions.py    #   not predicting the same thing twice
+│   │   scripts/                        #   one-off rewrites of old project files
 │   ├── prepare-email/                  # plugin: the email type, .eml and JSON
 │   └── prepare-video/                  # plugin: video into frames (OpenCV)
-├── deploy/                             # per-host deployment
+├── deploy/                             # per host: minipc (catalog), gpu (modelling)
 ├── docs/                               # architecture and roadmap
 ├── projects/                           # your labelling projects (payload gitignored)
 └── docker-compose.yml                  # the development stack
@@ -513,9 +514,18 @@ one thing whose mistakes cannot be recovered from what is stored.
 
 ```bash
 uv run pytest
-uv run ruff check packages/
+uv run ruff check .
 ```
 
 Most of the suite runs on the base install with no framework. The Postgres tests skip unless a database is reachable, and say why — a skip that blames a missing container when the password changed sends you to look in the wrong place.
+
+Each package's tests also pass with only that package installed, which is what keeps it publishable on its own. CI checks it for all six; one by hand looks like this — every wheel built, the package installed alone, the other strata packages coming from those wheels as they would from an index:
+
+```bash
+uv build --all-packages --wheel --out-dir dist
+uv venv /tmp/alone
+uv pip install --python /tmp/alone/bin/python --find-links dist "strata-catalog[test,serve,s3]" httpx pytest
+/tmp/alone/bin/python -m pytest packages/catalog/tests
+```
 
 ---
