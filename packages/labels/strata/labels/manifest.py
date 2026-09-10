@@ -26,7 +26,7 @@ different catalog match these samples to its own.
 
 import hashlib
 import json
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -59,7 +59,15 @@ class ManifestSample(BaseModel):
     #: Shared by samples that must not straddle the split; null means the
     #: sample is its own group.
     group_id: str | None = None
-    val: bool = False
+    #: Which side of the split. Three names rather than a flag, because a
+    #: flag has no room for a third: a held-out sample that a reader took
+    #: for "not validation" would be trained on — silently, and on exactly
+    #: the samples kept back to be measured on honestly.
+    #:
+    #: ``holdout`` never reaches a model, in training or in validation.
+    #: Nothing assigns it yet; the layout has room for it so that the first
+    #: holdout does not have to be a new format.
+    split: Literal["train", "val", "holdout"]
     #: Null when the sample was skipped. An empty value is different: a
     #: human looked and found nothing, which is an answer.
     #:
@@ -125,11 +133,15 @@ class Manifest(BaseModel):
 
     @property
     def train(self) -> list[ManifestSample]:
-        return [s for s in self.samples if not s.val]
+        return [s for s in self.samples if s.split == "train"]
 
     @property
     def val(self) -> list[ManifestSample]:
-        return [s for s in self.samples if s.val]
+        return [s for s in self.samples if s.split == "val"]
+
+    @property
+    def holdout(self) -> list[ManifestSample]:
+        return [s for s in self.samples if s.split == "holdout"]
 
 
 def feature_digest(features: dict[str, Any] | None) -> str:

@@ -49,6 +49,24 @@ def test_a_format_this_release_does_not_read_is_refused():
         Manifest.model_validate_json(json.dumps(_fields(format=2)))
 
 
+def test_the_samples_divide_three_ways():
+    samples = [
+        {"id": i, "checksum": f"{i:064d}", "path": f"files/{i}", "split": split}
+        for i, split in enumerate(["train", "train", "val", "holdout"])
+    ]
+    manifest = Manifest.model_validate(_fields(samples=samples))
+    assert [s.id for s in manifest.train] == [0, 1]
+    assert [s.id for s in manifest.val] == [2]
+    assert [s.id for s in manifest.holdout] == [3]
+
+
+def test_a_sample_must_say_which_side_it_is_on():
+    """No default: a missing split read as "train" is how a holdout gets trained on."""
+    sample = {"id": 0, "checksum": "0" * 64, "path": "files/0"}
+    with pytest.raises(ValueError, match="split"):
+        Manifest.model_validate(_fields(samples=[sample]))
+
+
 def test_a_refusal_is_not_a_validation_error():
     """Stale and broken need telling apart: the first is rebuilt, the second is a bug."""
     assert not issubclass(ManifestFormatError, ValueError)
