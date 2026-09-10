@@ -67,6 +67,20 @@ def test_a_sample_must_say_which_side_it_is_on():
         Manifest.model_validate(_fields(samples=[sample]))
 
 
+def test_the_least_a_producer_outside_strata_must_say():
+    """Everything required here is something any producer actually knows."""
+    manifest = Manifest.model_validate(
+        _fields(
+            version=None,
+            samples=[{"checksum": "0" * 64, "path": "files/0", "split": "train"}],
+        )
+    )
+    [sample] = manifest.samples
+    assert (manifest.version, manifest.catalog_id) == (None, None)
+    assert (manifest.val_ratio, manifest.val_ratio_achieved) == (None, None)
+    assert (sample.id, sample.source, sample.reviewed) == (None, None, None)
+
+
 def test_a_refusal_is_not_a_validation_error():
     """Stale and broken need telling apart: the first is rebuilt, the second is a bug."""
     assert not issubclass(ManifestFormatError, ValueError)
