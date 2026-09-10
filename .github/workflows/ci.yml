@@ -69,48 +69,41 @@ jobs:
       - run: uv run --no-sync python -c "import strata.modelling.baselines.text_classifier"
       - run: uv run --no-sync pytest -q
 
-  # What keeps the dependency graph honest. Each package is installed alone,
-  # so importing something it does not declare fails here rather than passing
-  # review — in a dev checkout everything is present and nothing would catch it.
-  isolation:
-    name: isolation (${{ matrix.package }})
+  # What keeps each package publishable on its own. Every wheel is built,
+  # then each package is installed alone — with only what it declares, the
+  # other strata packages coming from those wheels as they would from an
+  # index — and its own tests run there. In a checkout everything is
+  # installed together, so a package quietly relying on one it does not
+  # declare passes every other job; this is the job it fails.
+  standalone:
+    name: standalone (${{ matrix.package }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - package: strata-labels
-            module: strata.labels
-            forbidden: strata.catalog, strata.modelling, strata.labeller
-          - package: strata-catalog
-            module: strata.catalog
-            forbidden: strata.modelling, strata.labeller
-          - package: strata-modelling
-            module: strata.modelling
-            forbidden: strata.catalog, strata.labeller
+          - package: labels
+            install: strata-labels
+          - package: catalog
+            install: strata-catalog[test,serve,s3] httpx
+          - package: modelling
+            install: strata-modelling[test,service] httpx
+          - package: labeller
+            install: strata-labeller httpx fastapi
+          - package: prepare-email
+            install: strata-prepare-email[test]
+          - package: prepare-video
+            install: strata-prepare-video[test]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-      - run: uv sync --package ${{ matrix.package }} --no-default-groups
-      - name: import it
-        run: uv run --no-sync python -c "import ${{ matrix.module }}"
-      - name: and nothing it should not reach
+      - run: uv build --all-packages --wheel --out-dir dist
+      - run: uv venv --python 3.13 standalone
+      - name: install the package alone
+        # set -f: the extras' brackets are not a glob
         run: |
-          uv run --no-sync python - <<'PY'
-          import importlib
-          forbidden = "${{ matrix.forbidden }}".replace(" ", "").split(",")
-          reachable = []
-          for name in forbidden:
-              try:
-                  importlib.import_module(name)
-              except ImportError:
-                  continue
-              reachable.append(name)
-          if reachable:
-              raise SystemExit(
-                  f"${{ matrix.package }} can reach {', '.join(reachable)}, "
-                  f"which it does not declare"
-              )
-          PY
+          set -f
+          uv pip install --python standalone/bin/python --find-links dist ${{ matrix.install }} pytest
+      - run: standalone/bin/python -m pytest -q packages/${{ matrix.package }}/tests
