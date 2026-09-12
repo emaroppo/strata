@@ -46,3 +46,7 @@ __pycache__/
 *.pyc
 .venv/
 projects/*
+
+# Sister repositories kept beside this one until the split; each has its own history.
+/feature-store/
+/post-process/
