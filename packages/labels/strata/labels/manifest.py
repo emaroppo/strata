@@ -67,13 +67,8 @@ class ManifestSample(BaseModel):
     #: Null where the producer does not say, which is not the same as False.
     reviewed: bool | None = None
     #: What the model is told about this sample beyond its bytes, by the
-    #: name the project gave each one.
-    #:
-    #: Deliberately plain JSON rather than ``AnyValue``. That union is
-    #: choices, spans and boxes — a coordinate pair is none of them, and a
-    #: feature read from a metadata key has no label shape at all. Typing
-    #: it as a label value would make the label-set source the only one
-    #: expressible, which is the corner worth not painting into.
+    #: name the project gave each one. Plain JSON, not ``AnyValue``: a
+    #: feature need not have a label shape. See ``docs/adr/0011``.
     features: dict[str, Any] = Field(default_factory=dict)
 
 
