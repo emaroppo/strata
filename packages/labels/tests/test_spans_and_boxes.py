@@ -29,7 +29,7 @@ from strata.labels import (
 
 
 def test_a_span_round_trips():
-    span = Span(label="PER", start=4, end=9, text="Alice")
+    span = Span(labels=["PER"], start=4, end=9, text="Alice")
     assert Span.model_validate_json(span.model_dump_json()) == span
 
 
@@ -37,35 +37,35 @@ def test_spans_are_sorted_into_reading_order():
     # So a stored annotation and a model's output compare equal when they
     # say the same thing
     spans = Spans(
-        values=[Span(label="B", start=10, end=12), Span(label="A", start=0, end=3)]
+        values=[Span(labels=["B"], start=10, end=12), Span(labels=["A"], start=0, end=3)]
     )
     assert [s.label for s in spans.values] == ["A", "B"]
 
 
 def test_two_span_sets_in_different_orders_are_equal():
-    first = Spans(values=[Span(label="A", start=0, end=3), Span(label="B", start=5, end=7)])
-    second = Spans(values=[Span(label="B", start=5, end=7), Span(label="A", start=0, end=3)])
+    first = Spans(values=[Span(labels=["A"], start=0, end=3), Span(labels=["B"], start=5, end=7)])
+    second = Spans(values=[Span(labels=["B"], start=5, end=7), Span(labels=["A"], start=0, end=3)])
     assert first == second
 
 
 def test_a_backwards_range_is_refused():
     with pytest.raises(ValidationError, match="Not a range"):
-        Span(label="PER", start=9, end=4)
+        Span(labels=["PER"], start=9, end=4)
 
 
 def test_a_negative_offset_is_refused():
     with pytest.raises(ValidationError, match="Not a range"):
-        Span(label="PER", start=-1, end=4)
+        Span(labels=["PER"], start=-1, end=4)
 
 
 def test_an_empty_span_is_allowed():
     # A zero-width range is a real thing to annotate: an insertion point
-    assert Span(label="PER", start=4, end=4).end == 4
+    assert Span(labels=["PER"], start=4, end=4).end == 4
 
 
 def test_a_span_prediction_carries_confidences():
     prediction = SpansPrediction(
-        values=[Span(label="PER", start=0, end=3)], confidences=[0.7]
+        values=[Span(labels=["PER"], start=0, end=3)], confidences=[0.7]
     )
     assert isinstance(prediction, Spans)
     assert prediction.confidences == [0.7]
@@ -76,19 +76,19 @@ def test_span_text_must_match_its_offsets():
     # somewhere upstream rather than something to store quietly
     schema = SpanSchema(classes=["PER"])
     with pytest.raises(SchemaError, match="offsets are authoritative"):
-        schema.validate_value(Spans(values=[Span(label="PER", start=0, end=3, text="Alice")]))
+        schema.validate_value(Spans(values=[Span(labels=["PER"], start=0, end=3, text="Alice")]))
 
 
 def test_span_text_may_be_omitted():
     SpanSchema(classes=["PER"]).validate_value(
-        Spans(values=[Span(label="PER", start=0, end=5)])
+        Spans(values=[Span(labels=["PER"], start=0, end=5)])
     )
 
 
 def test_an_unknown_span_class_is_refused():
     with pytest.raises(SchemaError, match="ORG"):
         SpanSchema(classes=["PER"]).validate_value(
-            Spans(values=[Span(label="ORG", start=0, end=3)])
+            Spans(values=[Span(labels=["ORG"], start=0, end=3)])
         )
 
 
@@ -97,18 +97,17 @@ def test_an_unknown_span_class_is_refused():
 # ----------------------------------------------------------------------
 
 
-def test_a_span_written_before_this_still_reads():
-    # Every annotation in a catalog, value in a manifest and prediction in
-    # a cache was written with a single `label`. None of them are rewritten.
-    span = Span.model_validate({"label": "name", "start": 0, "end": 4})
-    assert span.labels == ["name"]
-    assert span.label == "name"
+def test_a_span_written_with_one_label_no_longer_reads():
+    # The single-label form was migrated in place (catalog and prediction
+    # cache each have a migration for it); the reader does not accept it.
+    with pytest.raises(ValidationError):
+        Span.model_validate({"label": "name", "start": 0, "end": 4})
 
 
-def test_a_region_with_no_label_has_no_labels():
-    # How a region Label Studio sent without one was represented; an empty
-    # string is not a class name
-    assert Span.model_validate({"label": "", "start": 0, "end": 4}).labels == []
+def test_a_region_with_no_labels_is_allowed():
+    # A region sent without one is not an error; an empty string is not a
+    # class name, so it carries none.
+    assert Span.model_validate({"labels": [], "start": 0, "end": 4}).labels == []
 
 
 def test_a_region_can_carry_two_labels():
@@ -211,7 +210,7 @@ def test_the_two_declarations_are_separate_questions():
 def test_spans_answer_the_indexing_contract():
     schema = SpanSchema(classes=["PER", "ORG"])
     value = Spans(
-        values=[Span(label="PER", start=0, end=3), Span(label="ORG", start=5, end=8)]
+        values=[Span(labels=["PER"], start=0, end=3), Span(labels=["ORG"], start=5, end=8)]
     )
     assert schema.classes_asserted(value) == {"PER", "ORG"}
 
@@ -297,7 +296,7 @@ def test_an_image_with_no_boxes_asserts_nothing():
     "payload,expected",
     [
         ({"kind": "choices", "values": ["cat"]}, Choices),
-        ({"kind": "spans", "values": [{"label": "PER", "start": 0, "end": 3}]}, Spans),
+        ({"kind": "spans", "values": [{"labels": ["PER"], "start": 0, "end": 3}]}, Spans),
         (
             {
                 "kind": "boxes",

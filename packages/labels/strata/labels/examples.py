@@ -55,8 +55,10 @@ EXAMPLES: tuple[LabelTypeExample, ...] = (
     LabelTypeExample(
         name="spans",
         schema=SpanSchema(classes=["name", "place"]),
-        value=Spans(values=[Span(label="name", start=0, end=4)]),
-        prediction=SpansPrediction(values=[Span(label="name", start=0, end=4)], confidences=[0.8]),
+        value=Spans(values=[Span(labels=["name"], start=0, end=4)]),
+        prediction=SpansPrediction(
+            values=[Span(labels=["name"], start=0, end=4)], confidences=[0.8]
+        ),
         media="text",
     ),
     # A region carrying two labels. Label Studio could always express it;

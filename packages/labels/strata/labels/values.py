@@ -95,23 +95,6 @@ class Span(BaseModel):
 
     model_config = {"frozen": True, "extra": "forbid"}
 
-    @model_validator(mode="before")
-    @classmethod
-    def _accept_a_lone_label(cls, data):
-        """``label`` is how every span stored before this was written.
-
-        Annotations in a catalog, values in a manifest, predictions in a
-        cache — none of them are rewritten by this change, and all of them
-        parse because of these four lines. An empty one becomes no labels
-        rather than one empty label: it was how a region Label Studio sent
-        without any was represented, and that is not a class name.
-        """
-        if isinstance(data, dict) and "label" in data:
-            data = dict(data)
-            lone = data.pop("label")
-            data.setdefault("labels", [lone] if lone else [])
-        return data
-
     @property
     def label(self) -> str:
         """The first label, or empty.

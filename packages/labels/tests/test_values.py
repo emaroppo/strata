@@ -95,7 +95,7 @@ def test_every_prediction_type_refuses_a_mismatch():
         BoxesPrediction(values=[box, box, box], confidences=[0.9])
     with pytest.raises(ValidationError, match="positional"):
         SpansPrediction(
-            values=[Span(label="name", start=0, end=4)], confidences=[0.1, 0.2]
+            values=[Span(labels=["name"], start=0, end=4)], confidences=[0.1, 0.2]
         )
     with pytest.raises(ValidationError, match="positional"):
         ChoicesPrediction(values=["cat", "dog"], confidences=[0.9])
@@ -114,7 +114,7 @@ def test_a_confidence_follows_its_span_through_the_sort():
     landed in its place — lengths still matched, so no guard could see it.
     """
     prediction = SpansPrediction(
-        values=[Span(label="last", start=10, end=12), Span(label="first", start=0, end=2)],
+        values=[Span(labels=["last"], start=10, end=12), Span(labels=["first"], start=0, end=2)],
         confidences=[0.1, 0.9],
     )
     assert [(s.label, c) for s, c in zip(prediction.values, prediction.confidences)] == [
