@@ -615,7 +615,37 @@ uv pip install --python /tmp/alone/bin/python --find-links dist "strata-catalog[
 
 ## Results
 
-*The first study is running as this is written; its table goes here.*
+The first study run through the experiment file above, on the plant
+project: the learning rate at three values, ten epochs each from a cold
+start, every trial on one frozen dataset version with a tenth of it held
+out, and scored on that holdout. Three trials in twenty minutes on one
+GPU, with the dataset, its materialisation and the split reused from the
+smoke run that preceded it.
+
+| lr | validation accuracy | holdout accuracy | macro F1 on holdout | worst class F1 |
+|---|---|---|---|---|
+| 0.003 | 0.899 | 0.902 | 0.81 | 0.25 |
+| 0.001 | 0.935 | 0.944 | 0.90 | 0.69 |
+| 0.0003 | 0.894 | 0.904 | 0.80 | 0.05 |
+
+Validation accuracy is the model's own number, on the side it selected
+on. Holdout accuracy is the `evaluate` stage's, on samples no trial
+trained or selected on, and it tracks validation within a point at every
+setting, which is what a holdout drawn before the study should show. The
+macro column is where the reading is: the gap between it and the micro
+number is the small classes, and the worst class collapses at both ends of
+the grid while the middle holds it.
+
+Two things the table does not show, and the records do. The label set
+asserts two classes per sample, and this model is asked for one of them
+and told the other as a feature, so the exact-match metric is zero by
+construction and the micro numbers above are over the classes the model
+predicts. The evaluate stage's per-class table is what made that visible
+on the first run, and it is what the study is read from. And three points
+on one axis is not a finding about learning rates; it is the instrument
+working end to end, with every number above resolving through the ledger
+to the run, the checkpoint, the dataset version and the answer digest it
+came from.
 
 ## Provenance
 

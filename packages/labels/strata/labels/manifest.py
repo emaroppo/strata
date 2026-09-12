@@ -68,9 +68,10 @@ class ManifestSample(BaseModel):
     #: for "not validation" would be trained on — silently, and on exactly
     #: the samples kept back to be measured on honestly.
     #:
-    #: ``holdout`` never reaches a model, in training or in validation.
-    #: Nothing assigns it yet; the layout has room for it so that the first
-    #: holdout does not have to be a new format.
+    #: ``holdout`` never reaches a model, in training or in validation. The
+    #: catalog assigns it when asked to, as a third side of the inherited
+    #: split; the layout had room for it before anything did, so the first
+    #: holdout was not a new format.
     split: Literal["train", "val", "holdout"]
     #: Null when the sample was skipped. An empty value is different: a
     #: human looked and found nothing, which is an answer.
