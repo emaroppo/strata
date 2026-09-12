@@ -11,9 +11,9 @@ import pytest
 cv2 = pytest.importorskip("cv2", reason="needs the video preparer's decoder")
 np = pytest.importorskip("numpy")
 
-from strata.catalog.prepared import PreparedIndex  # noqa: E402
-from strata.catalog.preparer_conformance import PreparerContract  # noqa: E402
-from strata.catalog.preparers import PreparerError, run  # noqa: E402
+from strata.catalog.types.prepared import PreparedIndex  # noqa: E402
+from strata.catalog.types.preparer_conformance import PreparerContract  # noqa: E402
+from strata.catalog.types.preparers import PreparerError, run  # noqa: E402
 from strata.prepare_video.frames import VideoFramesPreparer  # noqa: E402
 
 FPS = 10.0
@@ -61,7 +61,7 @@ def test_two_videos_are_two_groups(tmp_path):
 
 
 def test_the_frames_are_admitted_by_the_frames_type(clip, tmp_path):
-    from strata.catalog.sample_types import resolve
+    from strata.catalog.types.sample_types import resolve
 
     out = tmp_path / "out"
     index = run(VideoFramesPreparer(every=5), [clip], out)
@@ -71,7 +71,7 @@ def test_the_frames_are_admitted_by_the_frames_type(clip, tmp_path):
 
 def test_the_type_reads_the_group_off_the_index(clip, tmp_path):
     """What a directory layout could only imply, declared as a fact."""
-    from strata.catalog.sample_types import resolve
+    from strata.catalog.types.sample_types import resolve
 
     out = tmp_path / "out"
     index = run(VideoFramesPreparer(every=5), [clip], out)

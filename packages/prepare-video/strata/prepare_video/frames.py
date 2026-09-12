@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import ClassVar, Iterable
 
 from strata.catalog import checksum_of
-from strata.catalog.preparers import Prepared, Preparer, PreparerError
+from strata.catalog.types.preparers import Prepared, Preparer, PreparerError
 
 #: Container formats to admit. Not a claim about codecs: what OpenCV can
 #: decode depends on how it was built, and a file it cannot read is
