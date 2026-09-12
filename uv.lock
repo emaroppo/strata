@@ -16,6 +16,7 @@ resolution-markers = [
 [manifest]
 members = [
     "strata-catalog",
+    "strata-common",
     "strata-labeller",
     "strata-labels",
     "strata-modelling",
@@ -1906,6 +1907,7 @@ source = { editable = "packages/catalog" }
 dependencies = [
     { name = "alembic" },
     { name = "sqlalchemy" },
+    { name = "strata-common", extra = ["migrations"] },
     { name = "strata-labels" },
 ]
 
@@ -1918,6 +1920,7 @@ s3 = [
 ]
 serve = [
     { name = "fastapi" },
+    { name = "strata-common", extra = ["service"] },
     { name = "uvicorn" },
 ]
 test = [
@@ -1932,10 +1935,38 @@ requires-dist = [
     { name = "psycopg", extras = ["binary"], marker = "extra == 'postgres'", specifier = ">=3.2" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
     { name = "sqlalchemy", specifier = ">=2.0" },
+    { name = "strata-common", extras = ["migrations"], editable = "packages/common" },
+    { name = "strata-common", extras = ["service"], marker = "extra == 'serve'", editable = "packages/common" },
     { name = "strata-labels", editable = "packages/labels" },
     { name = "uvicorn", marker = "extra == 'serve'", specifier = ">=0.29" },
 ]
 provides-extras = ["s3", "serve", "postgres", "test"]
+
+[[package]]
+name = "strata-common"
+version = "0.1.0"
+source = { editable = "packages/common" }
+
+[package.optional-dependencies]
+migrations = [
+    { name = "alembic" },
+    { name = "sqlalchemy" },
+]
+service = [
+    { name = "uvicorn" },
+]
+test = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alembic", marker = "extra == 'migrations'", specifier = ">=1.13" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
+    { name = "sqlalchemy", marker = "extra == 'migrations'", specifier = ">=2.0" },
+    { name = "uvicorn", marker = "extra == 'service'", specifier = ">=0.20" },
+]
+provides-extras = ["migrations", "service", "test"]
 
 [[package]]
 name = "strata-labeller"
@@ -1978,6 +2009,7 @@ source = { editable = "packages/modelling" }
 dependencies = [
     { name = "alembic" },
     { name = "sqlalchemy" },
+    { name = "strata-common", extra = ["migrations"] },
     { name = "strata-labels" },
 ]
 
@@ -1998,6 +2030,7 @@ image = [
 service = [
     { name = "fastapi" },
     { name = "strata-catalog" },
+    { name = "strata-common", extra = ["service"] },
     { name = "uvicorn" },
 ]
 test = [
@@ -2016,6 +2049,8 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
     { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "strata-catalog", marker = "extra == 'service'", editable = "packages/catalog" },
+    { name = "strata-common", extras = ["migrations"], editable = "packages/common" },
+    { name = "strata-common", extras = ["service"], marker = "extra == 'service'", editable = "packages/common" },
     { name = "strata-labels", editable = "packages/labels" },
     { name = "strata-modelling", extras = ["image", "text"], marker = "extra == 'all'" },
     { name = "timm", marker = "extra == 'image'", specifier = ">=1.0" },

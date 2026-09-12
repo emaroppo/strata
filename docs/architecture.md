@@ -50,6 +50,14 @@ Two converter plugins sit outside the table. `strata-prepare-email` and
 `strata-prepare-video` turn a corpus into a sample type the catalog admits;
 each depends on `catalog`, and nothing depends on them.
 
+One package sits under it. `strata-common` holds what `catalog` and
+`modelling` both need and neither owns — running a migration chain from an
+installed wheel, starting a service from the environment, resolving a name
+through an entry-point group — and nothing else: it declares no dependency
+of its own, its extras name what each module needs, and it never mentions
+a label, a sample or a run. It is not `labels`, which every consumer already
+imports and which stays about what an annotation is.
+
 `labeller` is deliberately thin — active learning plus a UI adapter. The
 centre of gravity is the catalog.
 

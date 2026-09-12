@@ -345,12 +345,13 @@ Deployment files live in `deploy/`, with `bootstrap-env.sh` scripts that generat
 
 ## Repository layout
 
-A `uv` workspace of four packages under a `strata` PEP 420 namespace, plus two optional converter plugins. The dependency graph is enforced by the build rather than by discipline: `catalog` may not import `labeller`, `modelling` or Label Studio, and `modelling` may import `catalog` only from its service layer.
+A `uv` workspace of four packages under a `strata` PEP 420 namespace, plus two optional converter plugins and one thin `common` package holding what `catalog` and `modelling` both need and neither owns. The dependency graph is enforced by the build rather than by discipline: `catalog` may not import `labeller`, `modelling` or Label Studio, `modelling` may import `catalog` only from its service layer, and `common` declares no dependency of its own.
 
 ```
 auto-labeller/
 ├── packages/
 │   ├── labels/     strata/labels/      # what an annotation is: values, schemas, the manifest
+│   ├── common/     strata/common/      # migration plumbing, service bootstrap, entry-point resolver
 │   ├── catalog/    strata/catalog/     # samples, storage, annotations, datasets
 │   │                 sample_types.py   #   what a sample is, and what admits it
 │   │                 builtin_types.py  #   image, text, frames
@@ -519,7 +520,7 @@ uv run ruff check .
 
 Most of the suite runs on the base install with no framework. The Postgres tests skip unless a database is reachable, and say why — a skip that blames a missing container when the password changed sends you to look in the wrong place.
 
-Each package's tests also pass with only that package installed, which is what keeps it publishable on its own. CI checks it for all six; one by hand looks like this — every wheel built, the package installed alone, the other strata packages coming from those wheels as they would from an index:
+Each package's tests also pass with only that package installed, which is what keeps it publishable on its own. CI checks it for all seven; one by hand looks like this — every wheel built, the package installed alone, the other strata packages coming from those wheels as they would from an index:
 
 ```bash
 uv build --all-packages --wheel --out-dir dist

@@ -84,6 +84,8 @@ jobs:
         include:
           - package: labels
             install: strata-labels
+          - package: common
+            install: strata-common[migrations,service]
           - package: catalog
             install: strata-catalog[test,serve,s3] httpx
           - package: modelling

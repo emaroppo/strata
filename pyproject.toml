@@ -20,6 +20,7 @@ line-length = 100
 target-version = "py313"
 src = [
     "packages/labels",
+    "packages/common",
     "packages/catalog",
     "packages/modelling",
     "packages/labeller",

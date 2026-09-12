@@ -1,0 +1,25 @@
+[project]
+name = "strata-common"
+version = "0.1.0"
+description = "What two strata packages need and neither owns: migration plumbing, a service bootstrap, an entry-point resolver"
+requires-python = ">=3.13"
+# Nothing. Installing a component installs what that component needs, and a
+# shared package that pulled in a database driver for a plugin resolver
+# would undo that. Anything heavier is an extra, named for what it serves.
+dependencies = []
+
+[project.optional-dependencies]
+# Running a package's migration chain from inside its installed wheel.
+migrations = ["sqlalchemy>=2.0", "alembic>=1.13"]
+# Serving a FastAPI app from the environment. The app's own framework is
+# the consumer's dependency; this only starts it.
+service = ["uvicorn>=0.20"]
+test = ["pytest>=8.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# PEP 420 namespace: no strata/__init__.py in any package, or they stop merging
+packages = ["strata"]
