@@ -1,27 +1,10 @@
 """The manifest: a materialised dataset's description of itself.
 
-Written beside the files, and complete enough that nothing needs a database
-to train from it. That is what makes a dataset version the portable unit —
-the property ``project.py`` used to claim for a whole project directory, at
-a granularity that survives the move to a catalog.
-
-**The one file two packages have to agree on.** The catalog writes it and
-modelling reads it, and neither may import the other. So the definition
-lives here, where both can, rather than in the writer with the reader
-reconstructing it from key names — which it did, and which meant a renamed
-field read back as nothing instead of failing.
-
-**It says which format it is.** The writer states ``format`` and every read
-checks it, because once the packages ship separately the release that wrote
-a manifest need not be the one reading it. The number goes up only when an
-older reader would *misread* a newer file — a field whose meaning changed, a
-value it would take for something else. A field added with a default does
-not bump it: pydantic ignores fields it does not know, which is exactly why
-that case is safe and the other one is not.
-
-Sample ids are catalog-local, so ``checksum`` travels with them: files and
-labels alone are enough to train anywhere, and the checksum is what lets a
-different catalog match these samples to its own.
+Written beside the files, complete enough that nothing needs a database to
+train from it. The catalog writes it and modelling reads it, through this
+definition. ``format`` goes up only when an older reader would misread a
+newer file; a field added with a default does not bump it. See
+``docs/adr/0004``.
 """
 
 import hashlib
