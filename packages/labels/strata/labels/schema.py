@@ -7,10 +7,9 @@ which classes a value asserts.
 
 An empty class list is allowed, on the grounds that a label set exists
 before anyone has decided what is in it — but it validates nothing, so
-every value is rejected until classes are declared. The labeller currently
-infers a class list from what is in use when a project declares none
-(``schema.classes or get_classes(...)`` in ``train.py``); that inference has
-no equivalent here and goes away when the labeller moves onto label sets.
+every value is rejected until classes are declared. The label set is
+authoritative: a project's file seeds its classes once and nothing infers
+them from what is in use (``docs/adr/0014``).
 
 Deliberately absent: what the sample is made of. ``image_classification``
 and ``text_classification`` were Label Studio template names; classifying a
