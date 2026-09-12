@@ -17,6 +17,7 @@ resolution-markers = [
 members = [
     "strata-catalog",
     "strata-common",
+    "strata-experiment",
     "strata-labeller",
     "strata-labels",
     "strata-modelling",
@@ -1967,6 +1968,36 @@ requires-dist = [
     { name = "uvicorn", marker = "extra == 'service'", specifier = ">=0.20" },
 ]
 provides-extras = ["migrations", "service", "test"]
+
+[[package]]
+name = "strata-experiment"
+version = "0.1.0"
+source = { editable = "packages/experiment" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "strata-catalog" },
+    { name = "strata-common" },
+    { name = "strata-labeller" },
+    { name = "strata-labels" },
+    { name = "strata-modelling" },
+]
+
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.0" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
+    { name = "strata-catalog", editable = "packages/catalog" },
+    { name = "strata-common", editable = "packages/common" },
+    { name = "strata-labeller", editable = "packages/labeller" },
+    { name = "strata-labels", editable = "packages/labels" },
+    { name = "strata-modelling", editable = "packages/modelling" },
+]
+provides-extras = ["test"]
 
 [[package]]
 name = "strata-labeller"

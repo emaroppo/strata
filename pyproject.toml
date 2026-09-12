@@ -24,6 +24,7 @@ src = [
     "packages/catalog",
     "packages/modelling",
     "packages/labeller",
+    "packages/experiment",
     # Preparer plugins. Listed for the same reason as the rest: without
     # it ruff reads their own namespace as third-party and reorders every
     # import block that mixes them with the packages they build on.

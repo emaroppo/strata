@@ -92,6 +92,8 @@ jobs:
             install: strata-modelling[test,service] httpx
           - package: labeller
             install: strata-labeller httpx fastapi
+          - package: experiment
+            install: strata-experiment[test]
           - package: prepare-email
             install: strata-prepare-email[test]
           - package: prepare-video
@@ -104,8 +106,10 @@ jobs:
       - run: uv build --all-packages --wheel --out-dir dist
       - run: uv venv --python 3.13 standalone
       - name: install the package alone
-        # set -f: the extras' brackets are not a glob
+        # set -f: the extras' brackets are not a glob. --no-cache, because
+        # every package is 0.1.0 and uv would otherwise hand back whatever it
+        # built for that version last time rather than the wheel just built.
         run: |
           set -f
-          uv pip install --python standalone/bin/python --find-links dist ${{ matrix.install }} pytest
+          uv pip install --no-cache --python standalone/bin/python --find-links dist ${{ matrix.install }} pytest
       - run: standalone/bin/python -m pytest -q packages/${{ matrix.package }}/tests
