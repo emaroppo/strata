@@ -153,23 +153,11 @@ class Manifest(BaseModel):
 
 
 def feature_digest(features: dict[str, Any] | None) -> str:
-    """A stable digest of one sample's features.
+    """A stable digest of one sample's features: the third input to a prediction.
 
-    What makes a cached prediction honest. A prediction is a function of a
-    checkpoint, some bytes *and these values*; keyed on the first two alone
-    it survives a correction to the third and is served for inputs that no
-    longer exist. Widening the key is what lets the cache keep its stated
-    property — nothing is ever invalidated — while ceasing to be wrong.
-
-    Here rather than beside the feature declarations because two hosts
-    compute it and a third stores it: the laptop keys its lookups with it,
-    the modelling host its answers, and the prediction cache holds both. A
-    digest that differed between them would not be wrong, only a cache that
-    never hits — which is why the test pins its output rather than its
-    properties.
-
-    The empty digest is empty rather than a hash of nothing, so a project
-    with no features reads exactly as it did before there were any.
+    Two hosts compute it and a third stores it, so its output is pinned by
+    a test. Empty, not a hash of nothing, for no features. See
+    ``docs/adr/0006``.
     """
     if not features:
         return ""
