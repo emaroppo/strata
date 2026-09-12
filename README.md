@@ -69,7 +69,7 @@ The line this does not cross is normalisation — consistent column names,
 key ordering, whitespace someone prefers. The test is whether two
 independent implementations would produce identical bytes. Anything that
 encodes a preference would make a checksum depend on our own release, and
-`catalog-merge` matches samples on checksum precisely so that two hosts on
+`strata-catalog merge` matches samples on checksum precisely so that two hosts on
 different releases still agree about what a sample is.
 
 **Collections say where data came from** — `sat_images`, or `sat_images/2024` for one batch. A project names which collections it draws from, so one catalog serves several jobs without their review queues bleeding into each other. Dropping a collection from a project declares that data out of scope, training included.
@@ -289,7 +289,7 @@ root = "catalog"            # SQLite index and blobs, if nothing else is set
 
 A host with more than one corpus names them instead — `[catalog.images]`,
 `[catalog.text]` — and the keys above them stay the host's, so a shared
-bucket is stated once. `auto-labeller catalogs` lists what is configured
+bucket is stated once. `strata-catalog list` lists what is configured
 and asks each one for its identity, which is how two names accidentally
 pointing at one database become visible.
 
@@ -323,18 +323,18 @@ Nothing below changes how the tool is used. The same commands run against a cata
           └──────────────── submit a round ───────────────────────-┘
 ```
 
-**The index** is Postgres. `catalog-copy` moves an existing one into it, preserving primary keys — sample ids are referenced by every annotation, every dataset member and the Label Studio task map, so renumbering would silently repoint every task at a different image.
+**The index** is Postgres. `strata-catalog copy` moves an existing one into it, preserving primary keys — sample ids are referenced by every annotation, every dataset member and the Label Studio task map, so renumbering would silently repoint every task at a different image.
 
-**Blobs** go into any S3-compatible store (Garage, MinIO, S3). `catalog-repack` packs local files into tar shards and repoints the index, uploading each shard before committing the rows that name it. Nothing local is deleted: those files become a read-through cache, so materialising a dataset version links what the host already has and fetches only the rest.
+**Blobs** go into any S3-compatible store (Garage, MinIO, S3). `strata-catalog repack` packs local files into tar shards and repoints the index, uploading each shard before committing the rows that name it. Nothing local is deleted: those files become a read-through cache, so materialising a dataset version links what the host already has and fetches only the rest.
 
 **Samples reach Label Studio over HTTP.** The blob server (`strata-blobs`) turns a checksum into one range read — an image to display, a document to fetch. URLs are signed: a browser loading a sample cannot carry an Authorization header, so the URL *is* the credential, and the signature covers the checksum so a leaked link opens one sample rather than the corpus. Text is served with its encoding stated, which after the canonical form is a fact rather than a guess. `relink` moves existing tasks onto the server, and re-signs when a queue outlives a signature.
 
 **Training runs where the GPU is.** `strata-modelling` accepts a dataset id, materialises it, trains and records the run. A round is submitted rather than awaited: the call returns a job id, and losing the network, closing the laptop or walking out reaches none of it. `train --job <id>` reattaches.
 
-**Work can happen away from the index.** `catalog-copy` takes a copy,
-`catalog-merge` folds its answers back — copying what the main catalog
+**Work can happen away from the index.** `strata-catalog copy` takes a copy,
+`strata-catalog merge` folds its answers back — copying what the main catalog
 lacks, staying silent where both agree, and recording a conflict where they
-disagree. `runs-merge` does the same for a training history split across two
+disagree. `strata-runs merge` does the same for a training history split across two
 machines. Both report what they would do and write nothing until `--apply`.
 
 Deployment files live in `deploy/`, with `bootstrap-env.sh` scripts that generate each host's secrets and refuse to overwrite an existing one. They hold credentials only: every machine reads where the catalog is from a `config.toml` of its own, and uses its default.
@@ -399,16 +399,26 @@ auto-labeller/
 | `report` | Training history, or one run in detail; `--json` for a chart or a script |
 | `unskip` | Return skipped samples to the queue |
 | `relink` | Repoint tasks at their current image URLs |
-| `catalog-stats` | What is in the catalog |
-| `catalog-probe` | Prove this host can reach index and blobs |
-| `catalog-copy` | Move the index into another database |
-| `catalog-merge` | Fold a copy's annotations back in |
-| `catalog-repack` | Pack local blobs into a bucket |
-| `runs-merge` | Fold another run store into this project's |
-| `types` | List the installed sample types |
-| `preparers` | List the installed conversions |
-| `catalogs` | List this host's catalogs and their identities |
 | `import-rounds` | One-way migration from the pre-catalog format |
+
+The catalog and the run store have commands of their own, shipped with
+their packages and needing nothing but the standard library. Each takes
+`--json` to print the record instead of rendering it.
+
+| `strata-catalog` | |
+| --- | --- |
+| `list` | This host's catalogs and their identities |
+| `types` | The installed sample types |
+| `preparers` | The installed conversions |
+| `stats` | What is in the catalog |
+| `probe` | Prove this host can reach index and blobs |
+| `copy --to URL` | Move the index into another database |
+| `merge --from URL` | Fold a copy's annotations back in |
+| `repack` | Pack local blobs into a bucket |
+
+| `strata-runs` | |
+| --- | --- |
+| `merge --from DIR --into DIR` | Fold one run store into another |
 
 Most take `-p/--project`; all take `--config`. `train --job <id>` reattaches to a round already running elsewhere.
 

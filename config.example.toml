@@ -69,7 +69,7 @@ serve_url = ""
 #   s3_bucket = "text"
 #
 # A project says which it draws from in its own [catalog] name; commands
-# with no project take --catalog. 'auto-labeller catalogs' lists them.
+# with no project take --catalog. 'strata-catalog list' lists them.
 # With several and no default, asking for "the default" is refused rather
 # than guessed: a sample id means nothing outside the catalog that issued
 # it, so opening the wrong one is silent.
