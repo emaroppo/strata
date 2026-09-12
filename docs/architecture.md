@@ -138,8 +138,8 @@ durable catalog it is a vendor wire format in a permanent record — and
 **The indexing contract.** The catalog cannot index opaque JSON, but it does
 not need to understand every task type either. It needs each schema to
 answer one question: *which classes does this annotation assert?* That is
-`classes_in_use`, which already exists. A new task type implements the
-contract and becomes queryable without the catalog changing.
+`classes_asserted` on the schema in `strata.labels`. A new task type
+implements the contract and becomes queryable without the catalog changing.
 
 **A schema also declares what shape its values may take.** Spans were the
 case that forced it: Label Studio's model is a region with a *list* of

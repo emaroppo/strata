@@ -31,6 +31,13 @@ config*.toml
 # Design that has not been decided. Kept local, and nothing tracked points at
 # it: what gets decided there moves into TODO.md.
 /docs/proposals.md
+# Working notes at the root: reviews and drafts, not documentation.
+/*-findings.md
+/*-architecture.md
+/multi-catalog-services.md
+/docker-compose.trial.yml
+# Label Studio exports. They hold a real project's tasks and annotations.
+/project-*.json
 # Which project and catalog docker compose mounts. Holds a real project
 # path, so it stays local like config.toml does.
 .env
