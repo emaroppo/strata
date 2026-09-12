@@ -128,6 +128,11 @@ class Manifest(BaseModel):
     #: hand-written manifest claim a 20% split of which none was achieved.
     val_ratio: float | None = None
     val_ratio_achieved: float | None = None
+    #: The holdout the same way: what was asked for and what grouping
+    #: allowed. Null from a producer that does not hold out, and from every
+    #: version written before one could.
+    holdout_ratio: float | None = None
+    holdout_ratio_achieved: float | None = None
     #: The feature declarations this version was built under, as
     #: ``{name, source, ref}``. Recorded so a materialised directory still
     #: says where its features came from once it is somewhere else.
