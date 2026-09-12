@@ -63,15 +63,8 @@ class ManifestSample(BaseModel):
     #: Shared by samples that must not straddle the split; null means the
     #: sample is its own group.
     group_id: str | None = None
-    #: Which side of the split. Three names rather than a flag, because a
-    #: flag has no room for a third: a held-out sample that a reader took
-    #: for "not validation" would be trained on — silently, and on exactly
-    #: the samples kept back to be measured on honestly.
-    #:
-    #: ``holdout`` never reaches a model, in training or in validation. The
-    #: catalog assigns it when asked to, as a third side of the inherited
-    #: split; the layout had room for it before anything did, so the first
-    #: holdout was not a new format.
+    #: Which side of the split. ``holdout`` never reaches a model, in
+    #: training or in validation. See ``docs/adr/0003``.
     split: Literal["train", "val", "holdout"]
     #: Null when the sample was skipped. An empty value is different: a
     #: human looked and found nothing, which is an answer.
