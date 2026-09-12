@@ -12,7 +12,7 @@ import urllib.request
 
 import pytest
 
-from strata.labeller.remote import Refused, Trainer, Unreachable
+from strata.modelling.client import Refused, Trainer, Unreachable
 from strata.modelling.service import PROTOCOL, PredictionRequest, RoundRequest
 
 

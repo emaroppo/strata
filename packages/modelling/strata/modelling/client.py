@@ -1,4 +1,8 @@
-"""Asking another host to run the round.
+"""The modelling service's client: asking another host to run the round.
+
+Beside the service rather than with the labeller, because a client belongs
+with the protocol it speaks, and because the train stage dispatches to a
+host from here without knowing what a labelling project is.
 
 The wire is deliberately narrow: a dataset id and what it names, a model
 name, params. The caller freezes the dataset — collections and val ratio
@@ -32,7 +36,7 @@ import time
 import urllib.error
 import urllib.request
 
-from strata.modelling.service import PROTOCOL, PROTOCOL_HEADER, PredictionRequest, RoundRequest
+from .service import PROTOCOL, PROTOCOL_HEADER, PredictionRequest, RoundRequest
 
 #: Generous, because the request is held open for a whole training run and
 #: a timeout here reads as a failed round rather than as a slow one.
