@@ -5,16 +5,10 @@ model rather than a class hierarchy with behaviour bolted on. The behaviour
 it does carry is pure: validating a value against the class list, and saying
 which classes a value asserts.
 
-An empty class list is allowed, on the grounds that a label set exists
-before anyone has decided what is in it — but it validates nothing, so
-every value is rejected until classes are declared. The label set is
-authoritative: a project's file seeds its classes once and nothing infers
-them from what is in use (``docs/adr/0014``).
-
-Deliberately absent: what the sample is made of. ``image_classification``
-and ``text_classification`` were Label Studio template names; classifying a
-photograph and classifying a document are the same task, and which one a
-sample is belongs to the catalog.
+An empty class list is allowed and validates nothing. The label set is
+authoritative: a project's file seeds its classes once. What the sample is
+made of is deliberately absent; that is the catalog's. See
+``docs/adr/0014``.
 """
 
 from typing import Annotated, Literal
@@ -100,16 +94,9 @@ class ClassificationSchema(BaseModel):
 class SpanSchema(BaseModel):
     """Labelled character ranges inside a document.
 
-    Two declarations about shape, both false by default and both meaning
-    "this label set asserts its spans are simple". They are separate
-    questions: one is about a region's labels, the other about two regions'
-    offsets, and a project can want either without the other.
-
-    Declared rather than inferred, because both are things an annotation
-    tool will happily produce and a model may be unable to learn. Saying so
-    here is what lets a model refuse a label set before a round instead of
-    quietly training on a projection of it — and what stops a reviewer's
-    stray overlap being stored as an answer nobody can use.
+    ``multi_label`` and ``overlapping`` are separate questions about shape,
+    both false by default, declared rather than inferred so a model can
+    refuse before a round. See ``docs/adr/0014``.
     """
 
     task: Literal["span"] = "span"
