@@ -1,6 +1,67 @@
 # auto-labeller
 
-A semi-automatic labelling pipeline that closes the loop between model training and human review, on top of a durable catalog of samples and annotations. Instead of labelling thousands of samples by hand, you label a small seed set, train a model, let it pre-label the rest, then only correct what it got wrong. Each round the model improves and there is less to fix.
+Personal infrastructure for small specialised-model projects. A catalog of
+samples and annotations that outlives any one project; a labelling loop
+with Label Studio that grows it; and an experiment file that runs a study
+over it — the sequence written down once, the variation declared, every
+stage recorded so nothing is run twice.
+
+It exists because every side project re-typed the same steps — ingest,
+freeze a dataset, train, score, review, again — and then re-typed them with
+one parameter changed. Here a processing step is written once, as a stage,
+and a project is a file that names the ones it uses.
+
+## An experiment is a file
+
+```toml
+project = "cats-dogs"          # a project directory: catalog, label set, model
+
+[[stage]]
+use = "dataset"                # freeze what is labelled into a version
+val_ratio = 0.2
+holdout_ratio = 0.1            # kept back; nothing below trains or selects on it
+
+[[stage]]
+use = "materialise"            # the version on disk, files by checksum
+
+[[stage]]
+use = "split"                  # the version's sides, or a drawn split when unlocked
+
+[[stage]]
+use = "train"
+fresh = true                   # every trial cold, so they compare
+
+[[stage]]
+use = "evaluate"
+on = "holdout"                 # one implementation of the score, for every model
+
+[grid]
+"train.params.lr" = [0.003, 0.001, 0.0003]
+```
+
+```bash
+uv run strata-experiment check experiment.toml    # validate, list the trials
+uv run strata-experiment run   experiment.toml    # run them, in order, resumably
+```
+
+Three things make it reproducible rather than merely repeatable. The
+file's canonical JSON is its identity, and each trial's is the file with
+its overrides written in. Every stage is a function taking a request and
+returning a record that names what it made — a dataset version, a run — and
+a ledger under the project keeps each record by the hash of everything
+upstream of it. So a stage already run for that prefix is handed downstream
+rather than run again: the three trials above share one dataset and one
+split, a rerun after an argument changes reruns only what is downstream of
+the change, and a rerun of an unchanged file does nothing. The chain is
+checked before the first stage runs; a stage before what it needs, or a
+grid whose trials would warm-start from each other, is refused at load.
+
+The stages are the same functions the command line calls one at a time.
+Section *Results* below is what the first study produced.
+
+A semi-automatic labelling loop is where the annotations come from: label a
+small seed set, train a model, let it pre-label the rest, then only correct
+what it got wrong. Each round the model improves and there is less to fix.
 
 Images and text documents are both supported, for whole-sample classification, bounding boxes, or character spans — a project declares which, and everything else follows from that. A corpus that is not already the shape a catalog holds — mail, video — is converted first by a `prepare` step, which is a plugin surface of its own.
 
@@ -10,7 +71,7 @@ It runs on one machine with nothing installed but Python, and scales out to a ca
 
 ---
 
-## How it works
+## The labelling loop
 
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌──────────────────────┐
@@ -345,7 +406,7 @@ Deployment files live in `deploy/`, with `bootstrap-env.sh` scripts that generat
 
 ## Repository layout
 
-A `uv` workspace of four packages under a `strata` PEP 420 namespace, plus two optional converter plugins and one thin `common` package holding what `catalog` and `modelling` both need and neither owns. The dependency graph is enforced by the build rather than by discipline: `catalog` may not import `labeller`, `modelling` or Label Studio, `modelling` may import `catalog` only from its service layer, and `common` declares no dependency of its own.
+A `uv` workspace of five packages under a `strata` PEP 420 namespace, plus two optional converter plugins and one thin `common` package holding what `catalog` and `modelling` both need and neither owns. The dependency graph is enforced by the build rather than by discipline: `catalog` may not import `labeller`, `modelling` or Label Studio, `modelling` may import `catalog` only from its service layer, `common` declares no dependency of its own, and `experiment` sits at the top — it imports every package and nothing imports it, and it may not know Label Studio exists.
 
 ```
 auto-labeller/
@@ -368,6 +429,11 @@ auto-labeller/
 │   │                 merge.py          #   joining two histories
 │   │                 conformance.py    #   the contract a plugin must pass
 │   │                 predictions.py    #   not predicting the same thing twice
+│   ├── experiment/ strata/experiment/  # an experiment as a file: stages, grid, ledger
+│   │                 spec.py           #   the file, its hashes, its trials
+│   │                 registry.py       #   the stage table, and the chain check
+│   │                 ledger.py         #   every record by the hash of what preceded it
+│   │                 run.py            #   deciding the calls, recording what came back
 │   ├── labeller/   strata/labeller/    # the round loop and Label Studio
 │   │                 adapter.py        #   the Label Studio boundary
 │   │                 remote.py         #   asking another host to train
@@ -419,6 +485,12 @@ their packages and needing nothing but the standard library. Each takes
 | `strata-runs` | |
 | --- | --- |
 | `merge --from DIR --into DIR` | Fold one run store into another |
+
+| `strata-experiment` | |
+| --- | --- |
+| `check FILE` | Validate the file, check the chain, list the trials |
+| `run FILE` | Run every trial in order, reusing what the ledger holds |
+| `--set KEY=VALUE` | Override a stage argument before hashing; pins that grid key |
 
 Most take `-p/--project`; all take `--config`. `train --job <id>` reattaches to a round already running elsewhere.
 
@@ -530,7 +602,7 @@ uv run ruff check .
 
 Most of the suite runs on the base install with no framework. The Postgres tests skip unless a database is reachable, and say why — a skip that blames a missing container when the password changed sends you to look in the wrong place.
 
-Each package's tests also pass with only that package installed, which is what keeps it publishable on its own. CI checks it for all seven; one by hand looks like this — every wheel built, the package installed alone, the other strata packages coming from those wheels as they would from an index:
+Each package's tests also pass with only that package installed, which is what keeps it publishable on its own. CI checks it for all eight; one by hand looks like this — every wheel built, the package installed alone, the other strata packages coming from those wheels as they would from an index:
 
 ```bash
 uv build --all-packages --wheel --out-dir dist
@@ -540,3 +612,17 @@ uv pip install --python /tmp/alone/bin/python --find-links dist "strata-catalog[
 ```
 
 ---
+
+## Results
+
+*The first study is running as this is written; its table goes here.*
+
+## Provenance
+
+This is infrastructure I run my own projects on, shaped by the projects it
+served; a portfolio piece second. The architecture and every design
+decision in `docs/` are mine. Much of the implementation was written with
+an AI coding assistant working from those decisions, reviewed and run
+against real data on three machines. What a reader should weigh is the
+judgment: the contracts between packages, the migration story, the reasons
+recorded beside each choice.

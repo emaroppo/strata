@@ -1,7 +1,9 @@
 # Architecture — planned direction
 
-Status: **built.** The four packages exist, the labelling loop runs end to
-end on the catalog, and the pre-catalog path has been deleted. Object
+Status: **built.** The packages exist, the labelling loop runs end to end
+on the catalog, and an experiment file runs a study over it (the
+`experiment` section, and `orchestrator.md` for its design in full). The
+pre-catalog path has been deleted. Object
 storage, Postgres, the sample-serving API and the HTTP split — listed here
 as unbuilt while this was being written — are all in place; `roadmap.md`
 records how that went.
@@ -43,8 +45,13 @@ Short names are used below for readability.
 | `catalog` | samples, storage, grouping, annotations, datasets | `labels` |
 | `modelling` | train and predict; model plugins; runs and checkpoints | `catalog`, `labels` |
 | `labeller` | active learning, and the Label Studio adapter that feeds it | `catalog`, `modelling`, `labels` |
+| `common` | what `catalog` and `modelling` both need and neither owns: migration plumbing, an engine factory, a service bootstrap, an entry-point resolver, the canonical form that gets hashed | — |
+| `experiment` | an experiment as a file: stages from a config, a grid over them, a ledger of what ran | all of the above |
 
-Acyclic, with `labels` as the leaf.
+Acyclic, with `labels` and `common` as the leaves and `experiment` at the
+top: it sequences the others' stages and nothing imports it. `common`
+declares no dependency of its own; what a module needs sits behind an
+extra, so a plugin resolver never pulls in a database driver.
 
 Two converter plugins sit outside the table. `strata-prepare-email` and
 `strata-prepare-video` turn a corpus into a sample type the catalog admits;
@@ -380,6 +387,60 @@ checkpoint and some bytes, on the stated grounds that both are immutable. A
 feature is neither. The digest went into the *key* rather than becoming a
 policy to invalidate on, which keeps the original property literally true:
 nothing is ever invalidated, and a corrected feature simply misses.
+
+## `experiment`
+
+The top of the graph. A project is the durable job — catalog, label set,
+collections, model. An experiment is a separate file that references one
+and adds variation: an ordered list of stages, each a registered name with
+literal arguments, and a grid of values to vary. Several experiments per
+project is the normal case, which is why it is not a section of
+`project.toml`.
+
+**A stage is a function taking a request and a context and returning a
+record.** The catalog's stages freeze a version, materialise it, and read
+or draw the split; modelling's train — here from a directory, or on the
+host from a dataset's identity, the same record either way — and score one
+side by one implementation. Records name what they made by identity and
+never embed it. The command line calls the same functions one at a time;
+the orchestrator calls them from the file. Neither has a second
+implementation, and nothing shells out to a command.
+
+**The file hashes, and the hash is the identity.** TOML is what a person
+edits; canonical JSON — `strata.common.canonical`, the rules
+`post-process` and `feature-store` re-declare too — is what is hashed. A
+trial is the file with its overrides written in. A stage's key is the hash
+of the spec through that stage plus the version of the implementation that
+ran it, computable before anything runs.
+
+**The ledger is what makes a rerun cheap.** Under the project, every
+record by its key, and a directory per trial holding a copy of each record
+it used. A stage whose key already has a record is handed downstream as if
+it had run, so trials that agree through a stage share it, and a change
+reruns only what is downstream of it. Nothing is invalidated: a changed
+argument changes every key after it. Two of the stages cannot be
+deterministic — training, and a person reviewing — so the hash is the
+request's identity and the record binds it to an output; skipping is a
+decision about cost, and the record says which run it produced rather than
+promising the same one again.
+
+**A grid needs every trial cold, or pinned to one parent**, never
+warm-started from the previous trial, and it is refused at load otherwise.
+Selection reads validation; the result is reported on a holdout the study
+never sees, which the catalog now assigns as a third side of the inherited
+split. By default a trial reuses the sides the version carries; a seed on
+the `split` stage draws its own, and the draw is recorded either way.
+
+**Registry, not entry points.** A hand-maintained table of five stages,
+readable in one place. There is no third-party stage, and a plugin seam
+is designed at the third implementation; the three entry-point groups the
+catalog and modelling already have stay as they are.
+
+The first study, a learning-rate grid over a real project, is in the
+README's results. What it taught is recorded in `orchestrator.md`: a
+grid over one parameter merges over the project's parameters rather than
+replacing them, and an exact-set score is not an accuracy for a label set
+that carries two classes per sample.
 
 ## The deployment this is for
 
