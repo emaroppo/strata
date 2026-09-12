@@ -17,10 +17,10 @@ returns the same frames on a second run, and determinism is what keeps a
 re-prepared corpus from re-checksumming into new samples.
 """
 
-import hashlib
 from pathlib import Path
 from typing import ClassVar, Iterable
 
+from strata.catalog import checksum_of
 from strata.catalog.preparers import Prepared, Preparer, PreparerError
 
 #: Container formats to admit. Not a claim about codecs: what OpenCV can
@@ -68,7 +68,8 @@ class VideoFramesPreparer(Preparer):
                 f"install rather than about the file."
             )
 
-        group = f"{source.stem[-60:]}-{_digest(source)}"
+        # The video's own checksum, so its frames keep their names
+        group = f"{source.stem[-60:]}-{checksum_of(source)[:DIGEST_CHARS]}"
         directory = Path(out_dir) / group
         directory.mkdir(parents=True, exist_ok=True)
         fps = capture.get(cv2.CAP_PROP_FPS) or 0.0
@@ -110,12 +111,3 @@ class VideoFramesPreparer(Preparer):
                 f"{source.name} yielded no frames. It opened, so this is an "
                 f"empty or unreadable stream rather than a missing decoder."
             )
-
-
-def _digest(path: Path) -> str:
-    """The video's own checksum, so its frames keep their names."""
-    sha = hashlib.sha256()
-    with open(path, "rb") as f:
-        while chunk := f.read(1 << 20):
-            sha.update(chunk)
-    return sha.hexdigest()[:DIGEST_CHARS]

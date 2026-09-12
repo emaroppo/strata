@@ -367,10 +367,10 @@ auto-labeller/
 │   │                 service.py        #   training asked for from elsewhere
 │   │                 merge.py          #   joining two histories
 │   │                 conformance.py    #   the contract a plugin must pass
+│   │                 predictions.py    #   not predicting the same thing twice
 │   ├── labeller/   strata/labeller/    # the round loop and Label Studio
 │   │                 adapter.py        #   the Label Studio boundary
 │   │                 remote.py         #   asking another host to train
-│   │                 predictions.py    #   not predicting the same thing twice
 │   │   scripts/                        #   one-off rewrites of old project files
 │   ├── prepare-email/                  # plugin: the email type, .eml and JSON
 │   └── prepare-video/                  # plugin: video into frames (OpenCV)

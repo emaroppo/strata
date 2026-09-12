@@ -7,7 +7,7 @@ loaded is the kind of thing asked for, and say what *is* installed when
 nothing matches.
 
 It takes the entries rather than the group, so a consumer keeps the one
-seam its tests already patch: a ``_entries()`` returning what is installed.
+seam its tests already patch: an ``entries()`` returning what is installed.
 """
 
 from collections.abc import Collection, Iterable
