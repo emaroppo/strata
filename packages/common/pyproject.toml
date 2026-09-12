@@ -2,6 +2,7 @@
 name = "strata-common"
 version = "0.1.0"
 description = "What two strata packages need and neither owns: migration plumbing, a service bootstrap, an entry-point resolver"
+readme = "README.md"
 requires-python = ">=3.13"
 # Nothing. Installing a component installs what that component needs, and a
 # shared package that pulled in a database driver for a plugin resolver
