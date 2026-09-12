@@ -66,7 +66,7 @@ jobs:
           enable-cache: true
       - run: uv sync --all-packages --extra all --group dev
       - run: uv run --no-sync python -c "import strata.modelling.baselines.classifier"
-      - run: uv run --no-sync python -c "import strata.modelling.baselines.text_classifier"
+      - run: uv run --no-sync python -c "import strata.modelling.baselines.text"
       - run: uv run --no-sync pytest -q
 
   # What keeps each package publishable on its own. Every wheel is built,
