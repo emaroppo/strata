@@ -61,6 +61,11 @@ class ManifestSample(BaseModel):
     #: Where the label came from — ``human``, ``import`` — as the catalog
     #: recorded it when this version was written.
     source: str | None = None
+    #: Which import the label arrived in, kept through a person's
+    #: confirmation or correction of it, so a run can say how much of what
+    #: it learned from each batch anybody checked. Null for a label nothing
+    #: imported.
+    batch: str | None = None
     #: Whether a person has vouched for the label. False is not a defect:
     #: labels that arrived with a corpus are trusted and trained on. It is a
     #: record, so that a poor result can be read against how much of what it
