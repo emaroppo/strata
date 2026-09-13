@@ -110,6 +110,12 @@ class Manifest(BaseModel):
     #: The metadata key whose values were kept on one side when the sides
     #: were drawn. Null means none: every sample was its own group.
     group_by: str | None = None
+    #: The version whose side assignment this one continues. A version
+    #: inherits its predecessor's sides and carries this forward; one that
+    #: re-split names itself. A warm start reaches back only as far as
+    #: this: a model trained on an earlier version may have seen what is
+    #: now held out. Null from a producer that does not say.
+    sides_from_version: int | None = None
     #: The feature declarations this version was built under, as
     #: ``{name, source, ref}``. Recorded so a materialised directory still
     #: says where its features came from once it is somewhere else.

@@ -238,6 +238,15 @@ The side is per dataset — `train`, `val` or `holdout`, and a holdout never
 reaches a model — which is what it always actually was: two projects over
 one catalog are free to hold out different samples.
 
+**A warm start follows the dataset name across versions, and inheritance
+is what makes that safe.** Every round freezes a new version, and the
+model carried from v3 to v4 has never seen v4's validation or holdout
+because v4 kept every side v3 decided. A version may instead re-split
+from nothing — another grouping, another seed, a benchmark's own split —
+and then records the version its sides began at. A warm start never
+reaches back past that: the round after a re-split starts cold, once, and
+the lineage continues from there.
+
 **A version is its samples *and its answers*.** Identity was the selection
 alone, which meant correcting a label returned the previous version and a
 round trained on the materialised copy of the values it had just corrected.
