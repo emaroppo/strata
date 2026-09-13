@@ -2108,9 +2108,6 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-seed = [
-    { name = "strata-labeller" },
-]
 test = [
     { name = "pytest" },
     { name = "strata-catalog", extra = ["test"] },
@@ -2121,10 +2118,9 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
     { name = "strata-catalog", editable = "packages/catalog" },
     { name = "strata-catalog", extras = ["test"], marker = "extra == 'test'", editable = "packages/catalog" },
-    { name = "strata-labeller", marker = "extra == 'seed'", editable = "packages/labeller" },
     { name = "strata-labels", editable = "packages/labels" },
 ]
-provides-extras = ["seed", "test"]
+provides-extras = ["test"]
 
 [[package]]
 name = "strata-prepare-video"
