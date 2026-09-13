@@ -680,8 +680,10 @@ accepted in exchange for an asset that outlives any single job;
 reproducibility is lineage instead — a run names a dataset version and a
 model version.
 
-**The name.** `auto-labeller` is the command of the smallest package; the
-repository, and the namespace, is `strata`.
+**The name.** The repository, the namespace and every command are
+`strata`. The labelling tool the project began as, `auto-labeller`, is
+one package among six, and its command is `strata-labeller` like the
+rest.
 
 **Infrastructure is not mandatory.** A catalog is a directory — a SQLite
 index, one file per blob — until it is pointed at Postgres and a bucket,

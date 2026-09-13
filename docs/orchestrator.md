@@ -295,7 +295,7 @@ a promise.
 - Both new commands are standard-library argparse with plain and `--json`
   output. Rich tables stay in the labeller; the catalog's install stays as
   thin as it is.
-- The loop commands in `auto-labeller` become parse, request, stage,
+- The loop commands in `strata-labeller` become parse, request, stage,
   render, in that order, with `--json` at the top level.
 - The duplication findings are the map: the exit tails and the progress
   blocks are already helpers, and what remains — the command preambles,
