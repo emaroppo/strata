@@ -303,9 +303,11 @@ both makes the list a cache that can only be wrong.
 So the check that a plugin is installed and handles this label set's task
 happens in the handler, on the side with the facts — the same handler
 in-process and behind HTTP — and a refusal comes back as a structured error
-the client renders, never a 500 with a traceback. Nothing yet asks the
-backend what it serves before a train, which can be after labelling a few
-hundred samples; a `models` command proxying its list is on the roadmap.
+the client renders, never a 500 with a traceback. The list is not used to
+validate a round, but `strata-labeller models` asks for it — and says
+whether a project's model is on it — so a project pointed at a model the
+host does not have finds out before a few hundred samples are labelled
+against it rather than at its first train.
 
 ### Where a model comes from
 
