@@ -29,12 +29,10 @@ config*.toml
 # given host fills them is that host's business.
 /scripts/secrets.sh
 # Design that has not been decided. Kept local, and nothing tracked points at
-# it: what gets decided there moves into TODO.md.
+# it: what gets decided there moves into docs/roadmap.md.
 /docs/proposals.md
-# Working notes at the root: reviews and drafts, not documentation.
-/*-findings.md
-/*-architecture.md
-/multi-catalog-services.md
+# Working notes: reviews and drafts, not documentation.
+/notes/
 /docker-compose.trial.yml
 # Label Studio exports. They hold a real project's tasks and annotations.
 /project-*.json

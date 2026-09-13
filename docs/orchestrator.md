@@ -2,8 +2,8 @@
 
 Status: **built and run.** `architecture.md` carries the summary; this is
 the design in full, kept because the reasoning behind each decision is
-worth more than the decision. It is deliberately narrower than
-`proposals.md`, which holds everything that might follow.
+worth more than the decision. It is deliberately narrower than the
+design around it: what is here was built.
 
 ## What it is for
 
@@ -19,8 +19,8 @@ Three layers, and the orchestrator is the top one:
 - **Operations.** One function per command, in the package that owns it:
   the catalog's in `catalog`, training and scoring in `modelling`, the
   Label Studio ones in `labeller`. Each takes a request and returns a
-  record. This is the CLI split of `proposals.md` §9, done in the shape
-  the orchestrator needs.
+  record. This is the CLI split, done in the shape the orchestrator
+  needs.
 - **Front ends** over the operations. The CLI for a person, which parses
   arguments, builds the request, calls the operation and renders the
   record. The two HTTP services are the same idea for the two operations
@@ -84,8 +84,8 @@ Rules, all of which exist so that the file hashes:
   its canonical form.
 - **A stage is a registered name and literal arguments.** No conditionals,
   no loops, no templating. Anything that needs logic is a stage, not a
-  key. This is the discipline `proposals.md` §3 names as what stops a
-  declarative pipeline becoming a bad programming language.
+  key. This is the discipline that stops a declarative pipeline becoming
+  a bad programming language.
 - **A trial is the base file plus overrides**, applied to the payload
   before validation and hashing, the way `post-process` applies `--set`.
   A trial's id is the hash of its effective spec. There is no separate
@@ -108,9 +108,11 @@ A function taking a request and a context, returning a record.
   the same record either way. The host's client lives in `modelling`
   beside the service it speaks to, so the train stage dispatches without
   knowing what a labelling project is. A remote round trains on the sides
-  the catalog's version carries: a split drawn locally rewrites a copy of
-  the directory, and the host materialises from the catalog, so an
-  unlocked split is a local round's instrument for now.
+  this side's directory carries: the split travels with the round, one
+  letter per sample in manifest order with a digest of the order, and the
+  host writes the same copy the local split stage would have — or refuses
+  a split over other samples. A drawn split is a remote round's instrument
+  as much as a local one's.
 - **A stage declares what it consumes and what it produces**, as resource
   kinds: `samples`, `dataset_version`, `dataset_dir`, `run`, `scores`,
   `metrics`, `tasks`, `annotations`. `train` consumes a `dataset_dir` and
@@ -157,22 +159,23 @@ which label, which view.
   catalog draws a holdout only from samples no earlier version placed, so
   a project whose every sample is already train or val gets an empty one,
   reported as such in the manifest. A study wanting a holdout there
-  unlocks the split, and the draw is recorded like any other. The `split` stage exists so the
-  default can be unlocked: give it a seed, and it draws its own
-  assignment; put `"split.seed"` in the grid, and the split is a
-  parameter like any other. Either way the realisation — who landed
-  where — is recorded, so an inherited split and a drawn one read the
-  same in the ledger, and a later trial that should share a draw names
-  the record it inherits from.
+  unlocks the split, and the draw is recorded like any other. The `split`
+  stage exists so the default can be unlocked: give it a seed, and it
+  draws its own assignment; put `"split.seed"` in the grid, and the split
+  is a parameter like any other. Either way the realisation — who landed
+  where — is recorded in the run store beside the run that trained on it,
+  `run_sample`, read back by `RunStore.saw`: an inherited split and a
+  drawn one read the same there, and the ledger's split record names the
+  directory and the counts rather than embedding the draw.
 - **Perturbations.** An optional `perturb` stage flips the label of a
   chosen fraction of the training side, from a seed or an explicit list,
   and records for each touched sample the original and the perturbed
   value. It writes the manifest training reads; the catalog is never
   written to. A study of mislabelled data is a grid over its fraction,
   read against a holdout it never touched.
-- **Augmentation.** `proposals.md` §18: the realised parameters of each
-  augmentation, per sample per epoch, recorded by the model through the
-  contract addition described there. Not in the first slice.
+- **Augmentation.** The realised parameters of each augmentation, per
+  sample per epoch, recorded by the model through an addition to the model
+  contract. Not in the first slice.
 
 The mechanism is the same for all three — a draw, written down rather than
 a seed relied on — and the reason is the same: a number is only readable
@@ -198,23 +201,27 @@ record per stage:
       05-evaluate.json
 ```
 
-- **The key is the prefix hash**: the hash of the canonical spec through
-  that stage, every upstream stage included, plus the version of the
-  implementation that ran it. Computable from the spec alone, before
-  anything runs. A stage whose key has a record is skipped and its record
-  is handed downstream as if it had run — and since `records/` is shared,
-  two trials that agree through a stage share it, as do two experiments
-  over one project. The trial's own directory still holds a copy of every
-  record it used, marked reused, so a trial reads whole. This is the rule
-  `ensure_materialised` and the prediction cache already apply, extended
-  to every stage.
-- **One input is not in the key: `project.toml`.** The prefix hashes the
-  experiment file, and the project supplies what the file does not say —
-  the label set, the collections, the model when a stage names none, the
-  feature declarations. A change there changes the request, which the
-  record shows, but not the key. Either the project's relevant fields join
-  the prefix, or an experiment says everything it depends on; the first
-  slice leaves this open and the ledger makes it visible.
+- **The key is the prefix hash, the request, and the catalog**: the hash
+  of the canonical spec through that stage, every upstream stage included;
+  the version of the implementation that ran it; the request as it was
+  actually built — the file's arguments over the project's declarations,
+  with what upstream produced wired in, paths relative to the project; and
+  the id of the catalog the stages were handed. Computable before the
+  stage runs, once its upstream has. A stage whose key has a record is
+  skipped and its record is handed downstream as if it had run — and since
+  `records/` is shared, two trials that agree through a stage share it, as
+  do two experiments over one project. The trial's own directory still
+  holds a copy of every record it used, marked reused, so a trial reads
+  whole. This is the rule `ensure_materialised` and the prediction cache
+  already apply, extended to every stage.
+- **`project.toml` is in the key through the request.** The project
+  supplies what the file does not say — the label set, the collections,
+  the model when a stage names none, its parameters, the feature
+  declarations — and all of it lands in the request, so an edit there
+  moves every key it touches. The file itself is hashed with the project's
+  identity, its declared name, rather than the path used to find it: the
+  same file beside the same project on another machine is the same
+  experiment, and its ledger reads the same there.
 - **The project as configured, varied where the file says.** A `train`
   stage's parameters are the project's, the file's `params` override them
   key by key, and a grid key lands on top of both — so a grid over one
@@ -228,9 +235,10 @@ record per stage:
   every prefix hash after it, and those stages run again. A corrected
   annotation changes the dataset's annotation digest, which is in the
   `dataset` stage's record, and the versions numbering carries the rest.
-- **A run gains a nullable experiment id**, so a study is a query over the
-  run store — what `proposals.md` §11 asks for. The trial is in the
-  ledger, not on the run.
+- **A run carries a nullable experiment id**, so a study is a query over
+  the run store: `RunStore.for_experiment`. The trial is in the ledger,
+  not on the run. The id travels with a remote round too, so the host's
+  store records it.
 
 **Why skipping is allowed here and not in `post-process`.** Its stages
 are pure, so its hash *is* the output's identity and a run is written
@@ -245,8 +253,8 @@ a promise.
 ## A grid
 
 - **Cartesian product** of the listed values, one trial each, in the order
-  listed. Nothing smarter: `proposals.md` §11 says the optimiser is the
-  last thing to write, and the grid is enough to produce the first result.
+  listed. Nothing smarter: the optimiser is the last thing to write, and
+  the grid is enough to produce the first result.
 - **Sequential.** One GPU refuses a second job rather than queueing it, and
   that is right.
 - **Every trial is fresh, or every trial is pinned to one parent.** Never
@@ -302,8 +310,7 @@ resumable. Its output is the
 comparison the review said was missing — rounds against labels reviewed
 against a metric — and it is honest without the evaluation package: a
 model's self-reported metric is safe to compare while one model is in
-play, as `proposals.md` §10 says. Comparing across models waits for
-canonical evaluation, which stays where the sequence puts it.
+play. Comparing across models waits for canonical evaluation.
 
 Two things the slice forces forward, both small:
 
@@ -324,7 +331,7 @@ Two things the slice forces forward, both small:
   that asserts one has an exact match of zero and a precision worth
   reading, which the plant project showed on its first run. Classification only; spans and boxes are
   refused rather than approximated. It is the first piece of the
-  canonical evaluation `proposals.md` §10 describes, pulled forward
+  canonical evaluation, pulled forward
   because the slice cannot be read without it. Comparing across models
   still waits for the rest.
 
@@ -342,14 +349,13 @@ Order of work:
    is not needed by the slice.
 4. The catalog administration commands move, as their own commit.
 5. The experiment file, chain validation, the ledger, the grid, and the
-   split record. Built: `strata-experiment check|run`, `packages/experiment`.
-   The nullable experiment id on `run` is not yet added; the ledger maps a
-   trial to its run id, which is enough to read a study until it is.
+   split record. Built: `strata-experiment check|run`, `packages/experiment`,
+   and the experiment id on `run`.
 6. The slice run, and its numbers into the README.
 
-## Not decided
+## Decided last
 
-- The package name. `experiment` is closest to how the intent was said;
+- The package name: `experiment`, closest to how the intent was said;
   `pipeline` is kept free for processing.
 - Whether `push` and `export` are stages in the first slice or only
   later. A study that stops at `predict` needs neither; a full round does.
@@ -360,4 +366,5 @@ Order of work:
   the augmentation ones, as above, or in the ledger beside the stage that
   made them. The run store, on the argument that all three describe what
   one run saw and are asked about together; the ledger already points at
-  the run.
+  the run. Built for the split: `run_sample`, written with the run from
+  the manifest it trained on.
