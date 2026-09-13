@@ -116,6 +116,10 @@ class Manifest(BaseModel):
     #: this: a model trained on an earlier version may have seen what is
     #: now held out. Null from a producer that does not say.
     sides_from_version: int | None = None
+    #: A split the corpus arrived with, as the freeze read it: the metadata
+    #: key naming each sample's set, and which of its values were held out
+    #: or validation. Null when every side was drawn.
+    given_split: dict[str, Any] | None = None
     #: The feature declarations this version was built under, as
     #: ``{name, source, ref}``. Recorded so a materialised directory still
     #: says where its features came from once it is somewhere else.
