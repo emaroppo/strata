@@ -48,16 +48,16 @@ def test_every_frame_of_one_video_is_one_group(clip, tmp_path):
     and the rest in validation scores a model on what it has memorised.
     """
     index = run(VideoFramesPreparer(every=2), [clip], tmp_path / "out")
-    groups = {entry.group_id for entry in index.samples.values()}
-    assert len(groups) == 1
-    assert groups != {None}
+    videos = {entry.metadata["video"] for entry in index.samples.values()}
+    assert len(videos) == 1
+    assert videos != {None}
 
 
 def test_two_videos_are_two_groups(tmp_path):
     first = write_video(tmp_path / "one.mp4", frames=4)
     second = write_video(tmp_path / "two.mp4", frames=4, shade_from=100)
     index = run(VideoFramesPreparer(every=2), [first, second], tmp_path / "out")
-    assert len({entry.group_id for entry in index.samples.values()}) == 2
+    assert len({entry.metadata["video"] for entry in index.samples.values()}) == 2
 
 
 def test_the_frames_are_admitted_by_the_frames_type(clip, tmp_path):
@@ -77,7 +77,7 @@ def test_the_type_reads_the_group_off_the_index(clip, tmp_path):
     index = run(VideoFramesPreparer(every=5), [clip], out)
     frames = resolve("frames")()
     name = next(iter(index.samples))
-    assert frames.group_id_for(out / name, out) == index.samples[name].group_id
+    assert frames.metadata_for(out / name, out)["video"] == index.samples[name].metadata["video"]
 
 
 def test_a_frame_knows_where_in_the_video_it_was(clip, tmp_path):

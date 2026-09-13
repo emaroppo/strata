@@ -43,9 +43,11 @@ class ManifestSample(BaseModel):
     checksum: str
     #: Relative to the manifest's own directory, so the whole thing moves.
     path: str
-    #: Shared by samples that must not straddle the split; null means the
-    #: sample is its own group.
-    group_id: str | None = None
+    #: What the catalog recorded about the sample: where it came from, its
+    #: frame index, the video it belongs to. Any grouping a split respects
+    #: is a key in here, named by the manifest's ``group_by``, so a split
+    #: can be drawn again from the directory under another key.
+    metadata: dict[str, Any] = Field(default_factory=dict)
     #: Which side of the split. ``holdout`` never reaches a model, in
     #: training or in validation. See ``docs/adr/0003``.
     split: Literal["train", "val", "holdout"]
@@ -105,6 +107,9 @@ class Manifest(BaseModel):
     #: version written before one could.
     holdout_ratio: float | None = None
     holdout_ratio_achieved: float | None = None
+    #: The metadata key whose values were kept on one side when the sides
+    #: were drawn. Null means none: every sample was its own group.
+    group_by: str | None = None
     #: The feature declarations this version was built under, as
     #: ``{name, source, ref}``. Recorded so a materialised directory still
     #: says where its features came from once it is somewhere else.

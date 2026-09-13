@@ -195,8 +195,7 @@ full-text search is wanted.
 catalog.catalog_identity    id, created_at
 
 catalog.sample              id, location, offset, length, checksum, media,
-                            subtype, group_id, metadata JSON, ingested_at,
-                            deleted_at
+                            subtype, metadata JSON, ingested_at, deleted_at
 catalog.sample_collection   sample_id, collection
 
 catalog.label_set           id, name, schema JSON (task type, classes, ...)
@@ -211,7 +210,7 @@ catalog.annotation_conflict sample_id, label_set_id, kept_value,
 
 catalog.dataset             id, name, version, label_set_id, query,
                             annotation_digest, val_ratio, holdout_ratio
-                            (each asked and achieved), created_at
+                            (each asked and achieved), group_by, created_at
 catalog.dataset_member      dataset_id, sample_id, side
 ```
 
@@ -220,10 +219,14 @@ many annotations as there are label sets over it, so "presence, labelled
 last year" and "boxes, labelled this year" coexist without either being
 owned by the tool that produced it.
 
-**`group_id` is a column, assigned at ingest by the subtype's rule** — one
-per video for frames, unique per sample for standalone images. So one
-catalog holds both kinds and splits groups by a column, with no directory
-globs and no project setting saying which kind a corpus is.
+**A grouping is a metadata key, and nothing groups unless a project asks.**
+Frames carry `video`, written at ingest by the sample type; a preparer or a
+project can write any key of its own — the actor in frame, the thread a
+message belongs to. A version is frozen with `group_by` naming the key
+whose values stay on one side, or none, and records which. So the same
+samples can be split by video for one study and by actor for another, a
+grouping is just another dimension to query on, and the catalog enforces
+none of them on its own.
 
 **Datasets are materialised, not queries.** A dataset is a saved selection
 plus its split. That makes a training run reproducible by id, and it makes
@@ -529,8 +532,7 @@ document — belongs to the catalog, not to the labelling tool, which once
 defined it in three places: an extension list, a grouping rule and a
 metadata lambda.
 
-A sample type is a plugin owning the three things that differ per kind of
-data at ingest:
+A sample type is a plugin owning what differs per kind of data at ingest:
 
 ```python
 class Satellite(Image):
@@ -538,9 +540,11 @@ class Satellite(Image):
     subtype = "satellite"
     extensions = frozenset({"tif", "tiff"})
 
-    def metadata_for(self, path) -> dict: ...   # bounds, CRS, capture time
-    def group_id_for(self, path) -> str | None: ...  # by scene, or None
+    def metadata_for(self, path) -> dict: ...   # bounds, CRS, capture time, scene
 ```
+
+Anything a split might group by — the scene, the video — is a key in that
+metadata, and a project names it when it freezes a version.
 
 **Inheritance is safe here**, unlike for label sets. Classes map to a
 checkpoint's output neurons by position, so a parent label set gaining a
@@ -549,9 +553,9 @@ copied rather than inherited. A sample type is code, not stored data, and
 `Satellite(Image)` overriding one method has nothing at a distance.
 
 **Nothing in the schema changes.** `sample.media` and `sample.subtype` are
-free strings, `metadata` is arbitrary JSON, `group_id` is per sample. That a
-new type needs no migration is the sign the concept was factored right
-before it was finished.
+free strings and `metadata` is arbitrary JSON. That a new type needs no
+migration is the sign the concept was factored right before it was
+finished.
 
 Three decisions, settled:
 
@@ -612,11 +616,12 @@ Two invariants, checked at registration because both fail silently:
 The stored pair is a denormalisation of the hierarchy, not an independent
 fact.
 
-A project declares `[data] type`, which separates *what a sample is* from
-*how it groups* — one word for both was why frames ingested as plain images
-silently ruined a train/val split. A project written with the old
-`[data] kind` is refused with the command that rewrites it, rather than
-guessed at.
+A project declares `[data] type`, which says what a sample is, and
+`[catalog] group_by`, which says what stays together when a version is
+split — two separate statements, where one word for both was why frames
+ingested as plain images silently ruined a train/val split. A project
+written with the old `[data] kind` is refused with the command that
+rewrites it, rather than guessed at.
 
 ### A fourth responsibility: canonical form
 
@@ -657,11 +662,11 @@ content addressing, grouping and collections.
 
 Two consequences worth stating.
 
-**Grouping becomes declared rather than inferred.** `Frames.group_id_for`
+**Grouping becomes declared rather than inferred.** The frames type used to
 read the directory a frame sat in, which is a convention two pieces of code
 have to agree about. What extracted the frames *knows* they are one video,
-and now says so in the index; the directory rule stays as the fallback for a
-corpus nobody prepared.
+and says so in the index under `video`; the directory rule stays as the
+fallback for a corpus nobody prepared.
 
 **Determinism is the contract that matters.** A conversion that produces
 different bytes on a second run re-checksums the corpus, and re-checksumming

@@ -95,9 +95,10 @@ class VideoFramesPreparer(Preparer):
                             # that does not report a frame rate cannot be
                             # turned into a time by guessing one.
                             "seconds": round(index / fps, 3) if fps > 0 else None,
+                            # Which video, as a fact rather than a directory
+                            # layout: what a project names as its group_by
+                            "video": group,
                         },
-                        # What a directory layout could only imply
-                        group_id=group,
                     )
                     kept += 1
                     if self.max_frames is not None and kept >= self.max_frames:

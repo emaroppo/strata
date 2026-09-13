@@ -1,8 +1,8 @@
 # strata-prepare-video
 
-Video into frames a catalog can hold, grouped so one video cannot straddle
-a split. A plugin to `strata-catalog`, found through its entry points,
-carrying OpenCV.
+Video into frames a catalog can hold, each recording which video it came
+from, so a project can keep a video on one side of a split. A plugin to
+`strata-catalog`, found through its entry points, carrying OpenCV.
 
 ```bash
 uv add strata-prepare-video
@@ -15,9 +15,10 @@ uv add strata-prepare-video
 | `strata.preparers` | `video-frames` | `.mp4`, `.mov`, `.mkv` and the rest into `frames` |
 
 Frames are written one directory per video, sampled every `every` frames
-up to `max_frames`, as JPEG at `quality`. The prepared index declares one
-group per video, which is what keeps consecutive near-duplicate frames on
-one side of a split; the directory layout says the same thing for tools
+up to `max_frames`, as JPEG at `quality`. The prepared index records each
+frame's video under the metadata key `video`; a project that freezes its
+versions with `group_by = "video"` keeps consecutive near-duplicate frames
+on one side of a split. The directory layout says the same thing for tools
 that read only that.
 
 Every frame is decoded in order and most are thrown away, rather than
