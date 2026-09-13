@@ -134,6 +134,11 @@ class Manifest(BaseModel):
     #: the catalog's own account of where it read each one.
     features: list[dict] = Field(default_factory=list)
     samples: list[ManifestSample] = Field(default_factory=list)
+    #: Members of the version left out of ``samples``, by checksum, because
+    #: a feature they carry is under dispute — two people answered the
+    #: label set it reads from differently, and neither answer can be told
+    #: to a model as a fact. Back in once someone settles it.
+    disputed: list[str] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
