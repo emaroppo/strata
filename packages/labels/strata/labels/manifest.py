@@ -147,6 +147,46 @@ class Manifest(BaseModel):
         return [s for s in self.samples if s.split == "holdout"]
 
 
+#: One letter per side, for a split to travel positionally.
+SIDE_LETTERS = {"train": "t", "val": "v", "holdout": "h"}
+LETTER_SIDES = {letter: side for side, letter in SIDE_LETTERS.items()}
+
+
+def sides_string(manifest: Manifest) -> str:
+    """The split as realised, one letter per sample in manifest order.
+
+    ``t``, ``v`` or ``h``. Positional, so it is a few kilobytes for a corpus
+    of fifty thousand where a checksum per sample would be megabytes — and
+    safe only beside :func:`order_digest`, which proves the reader's
+    manifest lists the same samples in the same order.
+    """
+    return "".join(SIDE_LETTERS[sample.split] for sample in manifest.samples)
+
+
+def sides_from_string(text: str) -> list[str]:
+    """The sides a :func:`sides_string` encodes, refusing a letter it does not know."""
+    unknown = sorted({c for c in text if c not in LETTER_SIDES})
+    if unknown:
+        raise ValueError(
+            f"A split string holds t, v or h per sample; this one holds {', '.join(unknown)}."
+        )
+    return [LETTER_SIDES[c] for c in text]
+
+
+def order_digest(manifest: Manifest) -> str:
+    """A digest of the samples' checksums in manifest order.
+
+    Two manifests of one frozen version list the same samples in the same
+    order on every host; this is what proves it before anything is applied
+    by position. SHA-256 over each checksum followed by a newline.
+    """
+    digest = hashlib.sha256()
+    for sample in manifest.samples:
+        digest.update(sample.checksum.encode())
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
 def feature_digest(features: dict[str, Any] | None) -> str:
     """A stable digest of one sample's features: the third input to a prediction.
 

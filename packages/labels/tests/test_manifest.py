@@ -113,3 +113,26 @@ def test_the_digest_is_pinned():
     assert feature_digest({"species": "oak"}) == (
         "ec13fe6c664ccaf9075245c1ee0a2cd5bf77eda0494ddc8b359adadacbe78c00"
     )
+
+
+# ----------------------------------------------------------------------
+# The split, positionally
+# ----------------------------------------------------------------------
+
+
+def test_the_sides_travel_positionally_with_a_proof_of_the_order():
+    import hashlib
+
+    from strata.labels import order_digest, sides_from_string, sides_string
+
+    held = (("a", "train"), ("b", "val"), ("c", "holdout"), ("d", "train"))
+    samples = [{"checksum": c * 64, "path": f"files/{c}", "split": side} for c, side in held]
+    manifest = Manifest(**_fields(samples=samples))
+
+    assert sides_string(manifest) == "tvht"
+    assert sides_from_string("tvht") == ["train", "val", "holdout", "train"]
+    # Pinned: two hosts compute it, so its form is a contract
+    expected = hashlib.sha256(b"".join(c * 64 + b"\n" for c in (b"a", b"b", b"c", b"d")))
+    assert order_digest(manifest) == expected.hexdigest()
+    with pytest.raises(ValueError, match="holds x"):
+        sides_from_string("tvx")

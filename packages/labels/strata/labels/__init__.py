@@ -22,6 +22,9 @@ from .manifest import (
     ManifestFormatError,
     ManifestSample,
     feature_digest,
+    order_digest,
+    sides_from_string,
+    sides_string,
 )
 from .schema import AnySchema, BBoxSchema, ClassificationSchema, SchemaError, SpanSchema
 from .values import (
@@ -55,6 +58,9 @@ __all__ = [
     "Manifest",
     "ManifestFormatError",
     "ManifestSample",
+    "order_digest",
+    "sides_from_string",
+    "sides_string",
     "Prediction",
     "ClassificationSchema",
     "SchemaError",
