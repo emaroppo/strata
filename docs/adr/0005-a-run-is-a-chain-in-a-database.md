@@ -65,6 +65,13 @@ a change to this record, not to the flag.
   continues it. A parent in neither store cannot be honoured: the link is
   dropped and the run reported, because a dangling parent would make the
   history claim a lineage it cannot show.
+- What a run saw is recorded per sample with the side it was on, which
+  import batch its label arrived in and whether a person vouched for it,
+  as the manifest said. So a run can answer, per side and per batch, how
+  much of what it learned from nobody checked, and `report` shows the
+  validation share beside the metric: a validation set of unreviewed
+  imports measures agreement with whoever labelled them. Null means the
+  manifest did not say, which is not the same as unreviewed.
 - Checkpoints are left behind by a merge unless asked for. They are the
   large half by orders of magnitude, and a run whose checkpoint did not
   come has its column cleared rather than left pointing at a file on
