@@ -45,6 +45,7 @@ __pycache__/
 .venv/
 projects/*
 
-# Sister repositories kept beside this one until the split; each has its own history.
-/feature-store/
-/post-process/
+# Sister repositories, each with its own history, kept beside the other
+# packages so they read the same way. Not workspace members: see pyproject.
+/packages/feature-store/
+/packages/post-process/

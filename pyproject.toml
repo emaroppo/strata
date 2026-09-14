@@ -1,5 +1,8 @@
 [tool.uv.workspace]
 members = ["packages/*"]
+# Sister repositories of their own, beside the others but not in this lock;
+# each locks and tests itself and takes strata-common as a path source.
+exclude = ["packages/feature-store", "packages/post-process"]
 
 [dependency-groups]
 dev = [

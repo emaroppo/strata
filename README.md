@@ -84,8 +84,11 @@ catalog may not import the tool that fills it.
 | [`strata-prepare-video`](packages/prepare-video/README.md) | video into grouped frames | catalog |
 
 Two sister packages hold the same instrument's other half and are read the
-same way: `feature-store`, structured data with the same frozen versions,
-and `post-process`, the transformations over it.
+same way: [`strata-feature-store`](packages/feature-store/README.md),
+structured data with the same frozen versions, and
+[`strata-post-process`](packages/post-process/README.md), the
+transformations over it. Each is a repository of its own beside the
+others, with its own history and CI.
 
 It runs on one machine with nothing installed but Python, and scales out
 to a catalog on one host, object storage on another and a GPU on a third,
