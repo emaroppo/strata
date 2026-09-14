@@ -27,3 +27,4 @@ is one road on it, with the reason it goes that way.
 | [0012](0012-the-review-queue-is-two-pools.md) | The review queue is two pools, and the unscored are left out |
 | [0013](0013-label-studio-stops-at-the-adapter.md) | Label Studio stops at the adapter, and a URL is a credential |
 | [0014](0014-a-label-set-declares-its-shape.md) | A label set declares its shape, and a model refuses before a round |
+| [0015](0015-a-package-exports-its-contract.md) | A package exports its contract, and a module path across packages is a promise |
