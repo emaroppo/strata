@@ -30,10 +30,9 @@ nothing, while the two facts worth knowing about a run months later are
 when it happened and which machine did it.
 
 Run ids used to autoincrement, which meant something only inside one
-store — and there were two, both numbering from one. There is no
-migration: an id minted this way and an integer sort against each other
-by first digit, so a store from before is refused with a message rather
-than failing on a missing column later.
+store — and there were two, both numbering from one. There was no
+migration; a store from before was refused with a message while any
+existed, and the refusal went once none did.
 
 ## Why the class list is on the run
 
