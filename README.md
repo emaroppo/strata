@@ -127,6 +127,7 @@ environment. The catalog and labeller READMEs have the rest, and
 ```bash
 uv run pytest
 uv run ruff check .
+uv run ruff format --check .
 ```
 
 Each package's tests also pass with only that package installed, and CI
