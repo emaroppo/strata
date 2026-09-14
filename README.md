@@ -65,10 +65,11 @@ what it got wrong. Each round the model improves and there is less to fix.
 
 ## The components
 
-Eight packages under one `strata` namespace, each installable on its own,
+Nine packages under one `strata` namespace, each installable on its own,
 each with a README of its own. The dependency graph is acyclic and
-enforced by the build: `labels` and `common` are the leaves, `experiment`
-is the top, and the catalog may not import the tool that fills it.
+enforced by the build: `labels` and `common` are the leaves, `labeller`
+and `experiment` are peers at the top over the job they share, and the
+catalog may not import the tool that fills it.
 
 | package | what it is | depends on |
 |---|---|---|
@@ -76,8 +77,9 @@ is the top, and the catalog may not import the tool that fills it.
 | [`strata-common`](packages/common/README.md) | migration plumbing, a service bootstrap, an entry-point resolver, the canonical form that gets hashed | nothing |
 | [`strata-catalog`](packages/catalog/README.md) | samples, storage, annotations, dataset versions; SQLite and files, or Postgres and a bucket | labels, common |
 | [`strata-modelling`](packages/modelling/README.md) | train and predict; model plugins, runs, checkpoints, a prediction cache; the training service | labels, common |
-| [`strata-labeller`](packages/labeller/README.md) | the labelling loop, the review queue, and the Label Studio boundary | catalog, modelling |
-| [`strata-experiment`](packages/experiment/README.md) | an experiment as a file: stages, a grid, a ledger | all of the above |
+| [`strata-project`](packages/project/README.md) | the job as a file: catalog, collections, label set, model; the host's settings | catalog, modelling |
+| [`strata-labeller`](packages/labeller/README.md) | the labelling loop, the review queue, and the Label Studio boundary | project, catalog, modelling |
+| [`strata-experiment`](packages/experiment/README.md) | an experiment as a file: stages, a grid, a ledger | project, catalog, modelling |
 | [`strata-prepare-email`](packages/prepare-email/README.md) | mail into documents: the email type and two converters | catalog |
 | [`strata-prepare-video`](packages/prepare-video/README.md) | video into grouped frames | catalog |
 

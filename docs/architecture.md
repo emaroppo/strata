@@ -19,9 +19,9 @@ That principle decides most of what follows.
 
 ## The packages
 
-Six live under a `strata` PEP 420 namespace — `strata.labels`,
-`strata.catalog`, `strata.modelling`, `strata.labeller`, `strata.common`,
-`strata.experiment` — distributed as `strata-labels` and so on. Namespacing
+Seven live under a `strata` PEP 420 namespace — `strata.labels`,
+`strata.catalog`, `strata.modelling`, `strata.project`, `strata.labeller`,
+`strata.common`, `strata.experiment` — distributed as `strata-labels` and so on. Namespacing
 rather than bare top-level names because `catalog` and `labels` collide
 with almost anything in a shared environment, and because another package
 then costs nothing. Independent
@@ -34,12 +34,14 @@ Short names are used below for readability.
 | `labels` | what an annotation *is*: value types, schema descriptors, the indexing contract; and the manifest a trainer is handed | — |
 | `catalog` | samples, storage, grouping, annotations, datasets | `labels` |
 | `modelling` | train and predict; model plugins; runs and checkpoints | `catalog`, `labels` |
-| `labeller` | active learning, and the Label Studio adapter that feeds it | `catalog`, `modelling`, `labels` |
+| `project` | the job as a file: catalog, collections, label set, model; the host's settings | `catalog`, `modelling`, `labels` |
+| `labeller` | active learning, and the Label Studio adapter that feeds it | `project`, `catalog`, `modelling`, `labels` |
 | `common` | what `catalog` and `modelling` both need and neither owns: migration plumbing, an engine factory, a service bootstrap, an entry-point resolver, the canonical form that gets hashed | — |
-| `experiment` | an experiment as a file: stages from a config, a grid over them, a ledger of what ran | all of the above |
+| `experiment` | an experiment as a file: stages from a config, a grid over them, a ledger of what ran | `project`, `catalog`, `modelling`, `labels`, `common` |
 
-Acyclic, with `labels` and `common` as the leaves and `experiment` at the
-top: it sequences the others' stages and nothing imports it. `common`
+Acyclic, with `labels` and `common` as the leaves and the two tools at the
+top: `labeller` and `experiment` are peers over `project`, the job both
+read, and neither imports the other (`docs/adr/0016`). `common`
 declares no dependency of its own; what a module needs sits behind an
 extra, so a plugin resolver never pulls in a database driver.
 
@@ -57,7 +59,9 @@ a label, a sample or a run. It is not `labels`, which every consumer already
 imports and which stays about what an annotation is.
 
 `labeller` is deliberately thin — active learning plus a UI adapter. The
-centre of gravity is the catalog.
+centre of gravity is the catalog. `project` is thinner still: the one
+file the tools share, and what a tool keeps of its own goes in a section
+the job carries without reading.
 
 ### One repo
 
@@ -698,7 +702,7 @@ model version.
 
 **The name.** The repository, the namespace and every command are
 `strata`. The labelling tool the project began as, `auto-labeller`, is
-one package among six, and its command is `strata-labeller` like the
+one package among seven, and its command is `strata-labeller` like the
 rest.
 
 **Infrastructure is not mandatory.** A catalog is a directory — a SQLite

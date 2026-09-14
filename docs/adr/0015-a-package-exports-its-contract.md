@@ -24,10 +24,15 @@ this rule exists to close.
 
 ## Consequences
 
-- `labeller` exports `Project`, `ProjectError` and `Settings`, which is
-  what `experiment` needs and all it needs. The labelling loop, the
-  review queue and the Label Studio adapter stay the package's own.
-- `experiment` imports from the package, not its modules.
-- The remaining module-path imports between `labeller`, `modelling` and
-  `catalog` are settled under the same rule: promoted to an export, or
-  named in the module as a promise.
+- `labeller` exported `Project`, `ProjectError` and `Settings`, which was
+  what `experiment` needed. The job then moved below both (record 0016),
+  so the labeller exports its own view of a project and nothing in the
+  workspace imports it today. The labelling loop, the review queue and
+  the Label Studio adapter stay the package's own.
+- `experiment` and `labeller` import the job from `strata.project`, not
+  from its modules.
+- `modelling` exports `absolute` beside `resolve`: the two read the same
+  reference syntax, and the project anchors references through it.
+- The remaining module-path imports between `labeller`, `modelling`,
+  `project` and `catalog` are settled under the same rule: promoted to an
+  export, or named in the module as a promise.
