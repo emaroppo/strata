@@ -10,16 +10,18 @@ its source — human, import, model — and sources are ranked: a person
 outranks an import outranks a model, and a write never replaces an answer
 from a source that outranks it. When a merge finds two answers of equal
 standing that differ, the target keeps its own and the disagreement is
-recorded beside it. Returning a sample to the queue deletes its row.
+recorded beside it. Returning a sample to the queue supersedes its row;
+the history is kept (record 0027).
 
 ## Why unlabelled is the absence of a row
 
 There is then no combination of flags that means nothing. A reviewer who
 looked and found none of the classes present has *answered* — an empty
 value is a real annotation, distinct from a sample nobody has seen. The
-queue is defined by the absence of a row, which is why `unskip` and
-`discard` delete rather than flag: that is exactly the state an unreviewed
-import should be returned to.
+queue is defined by the absence of a current row. `unskip` and `discard`
+stamp the row superseded rather than flag it, which returns the sample to
+exactly the state an unreviewed import starts in while the record of the
+skip stays (record 0027).
 
 ## Why sources are ranked
 

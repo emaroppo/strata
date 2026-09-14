@@ -24,9 +24,10 @@ in cheap random access and real filesystem paths, and a tar member in a
 bucket can honour neither. So the local backend keeps three rules nothing
 forces on it: write-once, no listing (after ingest the index is
 authoritative), and no paths on the protocol — `path_for` exists on the
-local class only, for the one caller that needs files on the host that
-ingested them. Packing into tars later was then a new backend rather than
-a migration.
+local class only, for the Label Studio mount and for the repack, the two
+callers that need files on the host that ingested them; the blob server
+(record 0013) is what makes the mount optional. Packing into tars later was
+then a new backend rather than a migration.
 
 ## Two orderings that make repacking safe
 

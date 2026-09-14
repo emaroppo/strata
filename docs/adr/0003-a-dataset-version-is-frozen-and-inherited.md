@@ -57,7 +57,10 @@ than assumed, and a caller who asked for 20% can find out it got 50%.
 - Inherited sides are never overruled, so a version whose every sample an
   earlier version placed draws no holdout, and says so. A study wanting one
   there draws its own split and records the draw (`orchestrator.md`).
-- A group straddling sides can only have come from outside; it is forced
-  to train, which removes the leak rather than preserving it.
+- A group straddling sides that the draw decides is forced to train, which
+  removes the leak rather than preserving it. A cut the corpus's own split
+  made is reproduced and counted instead, since a benchmark's division is
+  what a result is compared against (record 0024, which also records where a
+  lineage begins and ends).
 - The materialised directory is self-contained (record 0004), so a run
   resolves back to the exact samples and answers behind it by version.

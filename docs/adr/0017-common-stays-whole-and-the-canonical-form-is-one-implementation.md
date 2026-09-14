@@ -4,7 +4,7 @@
 
 ## The decision
 
-`strata-common` keeps its six modules behind their extras: the store
+`strata-common` keeps its modules behind their extras: the store
 plumbing catalog and modelling share, and the identity vocabulary every
 tool shares. The canonical JSON form that gets hashed has one
 implementation, in `common`, and `strata-post-process` and

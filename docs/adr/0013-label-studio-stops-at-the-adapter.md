@@ -31,9 +31,11 @@ coexist on purpose: the local-files path is what Label Studio serves off a
 mount and what every task created before the serving API uses; an HTTP
 base URL is what replaces it. Reading accepts both, so the changeover is a
 setting rather than a migration, and old tasks keep resolving until they
-are relinked. The mount's prefix stays "images" for every project because
-it is a directory name reviewers' tasks already point at; changing the
-string orphans them, which is a relink rather than a rename.
+are relinked. The mount's prefix is a directory name reviewers' tasks
+already point at, so changing it orphans them, which is a relink rather
+than a rename. It is per catalog (`blobs_prefix`, "blobs" by default), since
+two catalogs are two mounts; the deployment that predates that keeps
+"images" in its config rather than in the code.
 
 ## Why signed URLs, and why the expiry is quantized
 

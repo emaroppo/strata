@@ -38,7 +38,9 @@ memory and takes the first one with it.
 
 The laptop and the host are separate releases once the packages are. A
 field one side added and the other ignores fails silently — which is how
-remote rounds once dropped a project's features. So `/healthz` states the
+remote rounds once dropped a project's features (record 0026 has the other
+half of that incident: the reuse rule that lived in two places). So
+`/healthz` states the
 protocol, the client refuses a host on another before sending anything,
 and every other request names it or is refused. The number goes up only
 when an older side would misread a newer one; a field added with a
