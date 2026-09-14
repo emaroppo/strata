@@ -15,7 +15,7 @@ uv add "strata-common[service]"       # uvicorn
 
 | module | what it is | extra |
 |---|---|---|
-| `canonical` | one canonical JSON form for anything that gets hashed: `canonical_json`, `canonical_bytes`, `content_hash`, `short_hash`. The rules `post-process` and `feature-store` re-declare, pinned by a contract test | none |
+| `canonical` | one canonical JSON form for anything that gets hashed: `canonical_json`, `canonical_bytes`, `content_hash`, `short_hash`. One implementation, imported by `strata-post-process` and `strata-feature-store` too; `contract` ships the payload every consumer pins the digest of | none |
 | `plugins` | resolving a name through an entry-point group: `available`, `find`, `load`. Refuses an ambiguity rather than picking a winner, and reserves built-in names | none |
 | `stages` | `Stage(name, version, consumes, produces, run)`: the contract a pipeline stage meets, so an experiment file can sequence stages from several packages | none |
 | `database` | `engine(url)`: the one engine factory, with the SQLite pragmas every store wants | `migrations` |

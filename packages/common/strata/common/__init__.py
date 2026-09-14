@@ -13,4 +13,6 @@ naming no domain object. A catalog, a run or a label is never mentioned.
 
 #: Every module here is importable on its own, and that is the promise
 #: (``docs/adr/0015``).
-PUBLIC_MODULES = frozenset({"canonical", "database", "migrations", "plugins", "service", "stages"})
+PUBLIC_MODULES = frozenset(
+    {"canonical", "contract", "database", "migrations", "plugins", "service", "stages"}
+)

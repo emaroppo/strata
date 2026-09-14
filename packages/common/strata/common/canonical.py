@@ -11,11 +11,9 @@ materialised by the caller, and a refusal for anything whose serialisation
 is not single-valued. Two specs that mean the same thing hash the same;
 two that differ anywhere do not.
 
-These are the rules ``post-process`` and ``feature-store`` use, re-declared
-here rather than imported, as they re-declare them from each other: a
-shared contract, tested against a payload the other implementation hashed,
-and no release of one tool coordinated with another. Where the two differ
-— a datetime's precision — this follows ``post-process``.
+The one implementation: ``strata-post-process`` and ``strata-feature-store``
+import it rather than re-declare it (``docs/adr/0017``). The payload every
+consumer pins the digest of is ``strata.common.contract``.
 """
 
 import hashlib
@@ -112,11 +110,27 @@ def short_hash(payload: Any, length: int = 16) -> str:
     return content_hash(payload)[:length]
 
 
+def hash_file(path, chunk_size: int = 1 << 20) -> tuple[str, int]:
+    """The digest of a file's bytes, and how many there were.
+
+    The one hash over raw bytes rather than a canonical form: a release is
+    its bytes, and what those bytes mean is not this function's business.
+    """
+    digest = hashlib.sha256()
+    size = 0
+    with open(path, "rb") as handle:
+        while chunk := handle.read(chunk_size):
+            digest.update(chunk)
+            size += len(chunk)
+    return digest.hexdigest(), size
+
+
 __all__ = [
     "CANONICAL_VERSION",
     "canonical_bytes",
     "canonical_json",
     "content_hash",
+    "hash_file",
     "short_hash",
     "to_jsonable",
 ]

@@ -414,7 +414,7 @@ implementation, and nothing shells out to a command.
 
 **The file hashes, and the hash is the identity.** TOML is what a person
 edits; canonical JSON — `strata.common.canonical`, the rules
-`strata-post-process` and `strata-feature-store` re-declare too — is what is hashed,
+`strata-post-process` and `strata-feature-store` import too — is what is hashed,
 with the project in it by its declared name rather than by the path used
 to find it. A trial is the file with its overrides written in. A stage's
 key is the hash of the spec through that stage, the version of the

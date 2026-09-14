@@ -29,3 +29,4 @@ is one road on it, with the reason it goes that way.
 | [0014](0014-a-label-set-declares-its-shape.md) | A label set declares its shape, and a model refuses before a round |
 | [0015](0015-a-package-exports-its-contract.md) | A package exports its contract, and a module path across packages is a promise |
 | [0016](0016-a-project-is-the-job-and-a-tool-extends-it.md) | A project is the job, and a tool extends it in a section of its own |
+| [0017](0017-common-stays-whole-and-the-canonical-form-is-one-implementation.md) | `common` stays whole, and the canonical form is one implementation |

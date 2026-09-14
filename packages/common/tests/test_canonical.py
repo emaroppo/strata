@@ -1,14 +1,15 @@
-"""The canonical form, and the contract it shares with the sister tools.
+"""The canonical form, and the one payload every implementation hashes.
 
-The first test pins a digest computed by ``post-process``'s own
-implementation over the same payload. It is what keeps the three
-re-declarations one contract: if this fails, either this module or theirs
-has changed meaning, and the shared hashes are no longer comparable.
+``strata.common.contract.PAYLOAD`` is checked in once; the digest below was
+computed by ``post-process``'s own implementation over it before that
+package imported this one, and every package that hashes anything pins
+the same digest in its tests. If this fails, the rules changed meaning:
+bump ``CANONICAL_VERSION`` and recompute, and every consumer's pin fails
+on upgrade, which is the point.
 """
 
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
-from enum import Enum
+from datetime import UTC, datetime
 
 import pytest
 
@@ -16,40 +17,33 @@ from strata.common.canonical import (
     CANONICAL_VERSION,
     canonical_json,
     content_hash,
+    hash_file,
     short_hash,
     to_jsonable,
 )
+from strata.common.contract import PAYLOAD
 
-
-class Kind(Enum):
-    A = "alpha"
-
-
-#: Hashed by post-process 0.1.0's ``content_hash`` on 2026-09-12, at its
-#: CANONICAL_VERSION 1. Recomputed there, not here, when either side changes.
-CONTRACT_PAYLOAD = {
-    "zeta": [3, 1, 2],
-    "alpha": {"nested": {"y": None, "x": True}, "when": date(2026, 9, 12)},
-    "stamp": datetime(2026, 9, 12, 13, 45, 0),
-    "ratio": 0.25,
-    "count": 7,
-    "text": "café — 日本",
-    "kind": Kind.A,
-    "empty": [],
-    "flag": False,
-}
 CONTRACT_JSON = (
-    '{"alpha":{"nested":{"x":true,"y":null},"when":"2026-09-12"},"count":7,"empty":[],'
-    '"flag":false,"kind":"alpha","ratio":0.25,"stamp":"2026-09-12T13:45:00",'
-    '"text":"café — 日本","zeta":[3,1,2]}'
+    '{"alpha":{"nested":{"x":true,"y":null},"when":"2026-09-12"},"big":9007199254740992,'
+    '"count":7,"empty":[],"flag":false,"kind":"alpha","none":{},"pair":[1,"two"],'
+    '"point":{"x":1,"y":2},"ratio":0.25,"stamp":"2026-09-12T13:45:00","text":"café — 日本",'
+    '"tick":"2026-09-12T13:45:00.123456","zeta":[3,1,2]}'
 )
-CONTRACT_HASH = "49e5ba7a67fcf11d95c8a03725984300ed0acf74f648f095740b2c4199ad6c9f"
+CONTRACT_HASH = "ff7fdb1e6ac5180784e6665dc600bce4887a6a045e0e9c5a24c5b43104771556"
 
 
-def test_it_agrees_with_post_process():
+def test_the_contract_payload_hashes_as_pinned():
     assert CANONICAL_VERSION == 1
-    assert canonical_json(CONTRACT_PAYLOAD) == CONTRACT_JSON
-    assert content_hash(CONTRACT_PAYLOAD) == CONTRACT_HASH
+    assert canonical_json(PAYLOAD) == CONTRACT_JSON
+    assert content_hash(PAYLOAD) == CONTRACT_HASH
+
+
+def test_hash_file_reads_raw_bytes_and_counts_them(tmp_path):
+    path = tmp_path / "release.bin"
+    path.write_bytes(b"abc" * 1000)
+    digest, size = hash_file(path, chunk_size=7)
+    assert size == 3000
+    assert digest == hash_file(path)[0]
 
 
 def test_key_order_and_whitespace_do_not_change_the_hash():
@@ -103,7 +97,7 @@ def test_something_unknown_is_refused_not_stringified():
 
 
 def test_short_hash_is_a_prefix_and_refuses_to_be_tiny():
-    assert content_hash(CONTRACT_PAYLOAD).startswith(short_hash(CONTRACT_PAYLOAD))
-    assert len(short_hash(CONTRACT_PAYLOAD, 12)) == 12
+    assert content_hash(PAYLOAD).startswith(short_hash(PAYLOAD))
+    assert len(short_hash(PAYLOAD, 12)) == 12
     with pytest.raises(ValueError, match="collide"):
-        short_hash(CONTRACT_PAYLOAD, 4)
+        short_hash(PAYLOAD, 4)
