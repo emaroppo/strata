@@ -6,8 +6,12 @@
 
 What a sibling package may use of another is what that package's
 `__init__` exports. A cross-package import that names a module path
-instead is a promise made knowingly: the module says so in its docstring,
-and it is treated as public from then on.
+instead is a promise made knowingly: the package lists the module in
+`PUBLIC_MODULES` in its `__init__`, and it is treated as public from
+then on. The dependency graph test reads that list from the installed
+package and refuses any other path, so the promise is checked wherever a
+consumer runs its tests, before and after the packages are repositories
+apart.
 
 ## Why
 
@@ -33,6 +37,16 @@ this rule exists to close.
   from its modules.
 - `modelling` exports `absolute` beside `resolve`: the two read the same
   reference syntax, and the project anchors references through it.
-- The remaining module-path imports between `labeller`, `modelling`,
-  `project` and `catalog` are settled under the same rule: promoted to an
-  export, or named in the module as a promise.
+- Every module path in use between the packages stays as it is and is
+  promised: `catalog.config`, `catalog.stages`, the type and preparer
+  registries and the feature specs; `modelling.stages`, its remote
+  client and wire, and the plugin registry; every module of `common`.
+  A promise is preferred over a promotion where the module is a layer
+  with a shape of its own, and a flat `__init__` would hide it.
+- `catalog.storage.signing` is promised only until the catalog hands out
+  signed URLs itself. A promise that consumers hold the secret is not
+  one to keep.
+- A promised module that moves is moved in every consumer in the same
+  change, never left behind as a re-exporting module. Promoting one to
+  an export later is the reverse edit, and the test names every
+  consumer that still uses the path.
