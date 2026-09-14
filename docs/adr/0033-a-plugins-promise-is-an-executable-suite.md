@@ -47,10 +47,9 @@ a re-prepared corpus from re-checksumming.
 
 ## Consequences
 
-- A message longer than a model's window is not converted today. That lets a
-  model's window decide what the durable asset holds, the reverse of the
-  architecture's stance, accepted for a first pass with the source kept. It is
-  lifted when a document is windowed at training time rather than at
-  conversion.
+- The mail preparer refuses a message longer than an arbitrary limit. That
+  lets a number chosen at conversion decide what the durable asset holds, the
+  reverse of the architecture's stance; it is a first-pass compromise with the
+  source kept, and no condition for lifting it has been decided.
 - The union of prediction types is not a plugin surface: a new label type goes
   into `labels` first, and every layer reads it through the union (record 0004).

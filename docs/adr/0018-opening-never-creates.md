@@ -48,8 +48,10 @@ query error far from the cause. The refusal names the command to run.
 - A read-only database role can open a catalog.
 - The head revision is read from disk once per process, since the modelling
   host opens a catalog per request.
-- The run store's `local` constructor still builds on open. A per-project
-  SQLite file with a constructor that asks for it is the same shape as
-  `Catalog.local`, and inconsistent with `connect`; it can follow.
+- The run store follows the same shape: `RunStore.open` verifies and never
+  creates, `RunStore.local` makes a store if there is none and opens it if
+  there is, and the prediction cache opens the store rather than building
+  tables of its own. `push` and `report` consult; a round, a merge's target
+  and the modelling host write.
 - Ingest passes `create` on every run and never mints a second identity,
   because `create` on an existing store is an open.
