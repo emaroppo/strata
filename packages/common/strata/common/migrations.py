@@ -15,6 +15,7 @@ refuses it with the commands that fix it, rather than stamping it head and
 having it claim columns it does not have.
 """
 
+import functools
 from pathlib import Path
 
 from alembic.config import Config
@@ -32,6 +33,12 @@ def script_directory(migrations: Path) -> ScriptDirectory:
     config = Config()
     config.set_main_option("script_location", str(migrations))
     return ScriptDirectory.from_config(config)
+
+
+@functools.cache
+def head_revision(migrations: Path) -> str:
+    """The chain's head, read from disk once: opening happens per request somewhere."""
+    return script_directory(migrations).get_current_head()
 
 
 def stamp_if_new(engine: Engine, migrations: Path) -> str | None:
@@ -66,12 +73,12 @@ def require_current(engine: Engine, migrations: Path, name: str) -> None:
     ignored, because the alternative is a missing column surfacing as a
     query error somewhere far from the cause.
     """
-    scripts = script_directory(migrations)
-    head = scripts.get_current_head()
+    head = head_revision(migrations)
     with engine.connect() as conn:
         current = MigrationContext.configure(conn).get_current_revision()
     if current == head:
         return
+    scripts = script_directory(migrations)
     if current is None:
         raise SchemaOutOfDate(
             f"This {name} predates migrations. Its schema is the baseline, so "

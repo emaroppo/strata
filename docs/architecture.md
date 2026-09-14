@@ -269,10 +269,15 @@ SQLite, and they change at different times for different reasons.
 
 A database `create_all` just built is stamped at head, because it is at
 head by construction and replaying the chain in every test would cost more
-than the tests do. A database with tables and no revision predates
-migrations and is **refused on open**: it is at the baseline, and stamping
-it head would have it claim columns it does not have. A test diffs the
-chain against `tables.py`, because a chain nothing exercises rots.
+than the tests do. That happens only in `Catalog.create`, which the
+commands that put data in ask for. **Opening never creates**: `connect`
+checks the recorded revision against head and touches nothing else, so a
+command that consults a catalog cannot leave an empty one behind or issue
+DDL against a live one. An index with no catalog in it is refused as
+missing; a database with tables and no revision predates migrations and
+is refused too, since it is at the baseline and stamping it head would
+have it claim columns it does not have. A test diffs the chain against
+`tables.py`, because a chain nothing exercises rots.
 
 Each package ships its chain and the command that runs it,
 `strata-catalog-migrate` and `strata-modelling-migrate`, so there is no

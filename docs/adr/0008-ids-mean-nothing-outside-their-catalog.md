@@ -51,3 +51,6 @@ thing a copy does — forgetting it is the classic way this fails days later.
   annotations, not the task ids.
 - A copy of a catalog numbers its datasets on its own, so a host checks a
   round's dataset name, version and digest, not only its catalog.
+- An identity is minted when a catalog is created and never on open.
+  Opening consults and writes nothing, so whichever client looks first at
+  a partially restored index cannot give it a fresh identity.
