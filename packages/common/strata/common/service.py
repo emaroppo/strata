@@ -9,6 +9,7 @@ start, which a supervisor reports rather than restarting forever.
 import os
 import sys
 from collections.abc import Callable
+from typing import Any
 
 #: Where a service listens, for every service. 0.0.0.0 so another machine
 #: can reach it; the port is each consumer's own default.
@@ -16,13 +17,13 @@ HOST_ENV = "STRATA_SERVE_HOST"
 PORT_ENV = "STRATA_SERVE_PORT"
 
 
-def serve(build: Callable[[], object], *, prog: str, port: int, error: type[Exception]) -> None:
+def serve(build: Callable[[], Any], *, prog: str, port: int, error: type[Exception]) -> None:
     """Build the app, then serve it until stopped.
 
     ``error`` is what ``build`` raises when a setting it cannot start
     without is absent; anything else is a bug and propagates as one.
     """
-    import uvicorn
+    import uvicorn  # pyright: ignore[reportMissingImports]  (the service extra)
 
     try:
         app = build()

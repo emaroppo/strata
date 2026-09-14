@@ -38,7 +38,10 @@ def script_directory(migrations: Path) -> ScriptDirectory:
 @functools.cache
 def head_revision(migrations: Path) -> str:
     """The chain's head, read from disk once: opening happens per request somewhere."""
-    return script_directory(migrations).get_current_head()
+    head = script_directory(migrations).get_current_head()
+    if head is None:
+        raise SchemaOutOfDate(f"No migrations under {migrations}; nothing to be current with.")
+    return head
 
 
 def stamp_if_new(engine: Engine, migrations: Path) -> str | None:

@@ -15,7 +15,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from .values import Boxes, Choices, Spans
+from .values import Boxes, Choices, Spans, Value
 
 
 class SchemaError(ValueError):
@@ -34,6 +34,15 @@ def _shared_class_validator():
         return self
 
     return model_validator(mode="after")(check)
+
+
+def _expect[V: Value](kind: type[V], value: Value, task: str) -> V:
+    """``value`` as the type a ``task`` label set holds, or a refusal that names both."""
+    if not isinstance(value, kind):
+        raise SchemaError(
+            f"a {task} label set holds {kind.__name__}, not {type(value).__name__}"
+        )
+    return value
 
 
 def _refuse_unknown_classes(known: list[str], used) -> None:
@@ -59,12 +68,13 @@ class ClassificationSchema(BaseModel):
 
     _classes_are_usable = _shared_class_validator()
 
-    def validate_value(self, value: Choices) -> None:
+    def validate_value(self, value: Value) -> None:
         """Raise if ``value`` does not fit this schema.
 
         An empty value is valid and meaningful: a sample a human looked at
         and found nothing in is a real answer, not a missing one.
         """
+        value = _expect(Choices, value, self.task)
         _refuse_unknown_classes(self.classes, value.values)
         if not self.multiple and len(value.values) > 1:
             raise SchemaError(
@@ -82,7 +92,8 @@ class ClassificationSchema(BaseModel):
     # join rather than a scan, and a new task type becomes queryable by
     # implementing this and nothing else.
 
-    def classes_asserted(self, value: Choices) -> set[str]:
+    def classes_asserted(self, value: Value) -> set[str]:
+        value = _expect(Choices, value, self.task)
         return set(value.values)
 
     # Ranking is deliberately not here. A prediction carries its
@@ -110,7 +121,8 @@ class SpanSchema(BaseModel):
 
     _classes_are_usable = _shared_class_validator()
 
-    def validate_value(self, value: Spans) -> None:
+    def validate_value(self, value: Value) -> None:
+        value = _expect(Spans, value, self.task)
         _refuse_unknown_classes(
             self.classes, (label for s in value.values for label in s.labels)
         )
@@ -157,7 +169,8 @@ class SpanSchema(BaseModel):
                 f"non-overlapping. Set overlapping if that is what the job is."
             )
 
-    def classes_asserted(self, value: Spans) -> set[str]:
+    def classes_asserted(self, value: Value) -> set[str]:
+        value = _expect(Spans, value, self.task)
         return {label for s in value.values for label in s.labels if label}
 
 
@@ -171,10 +184,12 @@ class BBoxSchema(BaseModel):
 
     _classes_are_usable = _shared_class_validator()
 
-    def validate_value(self, value: Boxes) -> None:
+    def validate_value(self, value: Value) -> None:
+        value = _expect(Boxes, value, self.task)
         _refuse_unknown_classes(self.classes, (b.label for b in value.values))
 
-    def classes_asserted(self, value: Boxes) -> set[str]:
+    def classes_asserted(self, value: Value) -> set[str]:
+        value = _expect(Boxes, value, self.task)
         return {b.label for b in value.values if b.label}
 
 

@@ -15,9 +15,13 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class Value(BaseModel):
-    """Base for every annotation payload."""
+    """Base for every annotation payload.
 
-    kind: str
+    Each concrete payload declares ``kind`` as the literal that names it,
+    which is what :data:`AnyValue` discriminates on. It is not declared
+    here, where a narrowing override would be an error and nothing reads
+    it through the base.
+    """
 
     #: Frozen because an annotation is a record of what someone said.
     #:
@@ -127,11 +131,12 @@ class Spans(Value):
         # move under the same permutation.
         if not isinstance(data, dict) or not data.get("values"):
             return data
+        values = list(data["values"])
         try:
-            order = sorted(range(len(data["values"])), key=lambda i: _span_key(data["values"][i]))
+            order = sorted(range(len(values)), key=lambda i: _span_key(values[i]))
         except (AttributeError, KeyError, TypeError):
             return data  # malformed; field validation says what is wrong
-        data = {**data, "values": [data["values"][i] for i in order]}
+        data = {**data, "values": [values[i] for i in order]}
         confidences = data.get("confidences")
         if confidences and len(confidences) == len(order):
             data["confidences"] = [confidences[i] for i in order]

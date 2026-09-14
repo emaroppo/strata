@@ -71,10 +71,11 @@ def to_jsonable(payload: Any) -> Any:
         return payload
     if is_dataclass(payload) and not isinstance(payload, type):
         return to_jsonable(asdict(payload))
-    if hasattr(payload, "model_dump"):
+    dump = getattr(payload, "model_dump", None)
+    if callable(dump):
         # A pydantic model, without this package depending on pydantic:
         # dumped in python mode so dates stay dates and are handled above.
-        return to_jsonable(payload.model_dump(mode="python"))
+        return to_jsonable(dump(mode="python"))
     raise TypeError(f"no canonical form for {type(payload).__name__}")
 
 

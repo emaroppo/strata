@@ -68,6 +68,9 @@ jobs:
       - run: uv run --no-sync python -c "import strata.modelling.baselines.image"
       - run: uv run --no-sync python -c "import strata.modelling.baselines.text"
       - run: uv run --no-sync pytest -q
+      # Typed here, with every extra installed, so an optional framework is
+      # a real import rather than a missing one.
+      - run: uv run --no-sync pyright
 
   # What keeps each package publishable on its own. Every wheel is built,
   # then each package is installed alone — with only what it declares, the

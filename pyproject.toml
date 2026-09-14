@@ -8,6 +8,7 @@ exclude = ["packages/feature-store", "packages/post-process"]
 dev = [
     "pytest>=8.0",
     "ruff>=0.6",
+    "pyright>=1.1",
     "httpx>=0.27",
     "fastapi>=0.110",
 ]
@@ -38,3 +39,22 @@ src = [
 [tool.ruff.lint]
 # Pinned: ruff's default set widens between releases
 select = ["E", "F", "I"]
+
+[tool.pyright]
+# Standard strictness over every package's source. Run with every extra
+# installed, as CI's extras job does, so an optional framework is a real
+# import rather than a missing one.
+include = [
+    "packages/labels/strata",
+    "packages/common/strata",
+    "packages/catalog/strata",
+    "packages/modelling/strata",
+    "packages/project/strata",
+    "packages/labeller/strata",
+    "packages/experiment/strata",
+    "packages/prepare-email/strata",
+    "packages/prepare-video/strata",
+]
+pythonVersion = "3.13"
+venvPath = "."
+venv = ".venv"
