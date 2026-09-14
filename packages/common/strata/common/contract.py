@@ -26,8 +26,9 @@ class Point:
 PAYLOAD = {
     "zeta": [3, 1, 2],
     "alpha": {"nested": {"y": None, "x": True}, "when": date(2026, 9, 12)},
-    "stamp": datetime(2026, 9, 12, 13, 45, 0),
-    "tick": datetime(2026, 9, 12, 13, 45, 0, 123456),
+    # Naive on purpose: the canonical form refuses an aware datetime
+    "stamp": datetime(2026, 9, 12, 13, 45, 0),  # noqa: DTZ001
+    "tick": datetime(2026, 9, 12, 13, 45, 0, 123456),  # noqa: DTZ001
     "ratio": 0.25,
     "count": 7,
     "big": 2**53,

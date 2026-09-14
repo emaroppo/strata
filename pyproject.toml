@@ -37,8 +37,14 @@ src = [
 ]
 
 [tool.ruff.lint]
-# Pinned: ruff's default set widens between releases
-select = ["E", "F", "I"]
+# Pinned: ruff's default set widens between releases. Widened on purpose
+# once, in one commit, rather than left to drift.
+select = ["E", "F", "I", "B", "SIM", "DTZ", "UP", "C4", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# typer declares options as call defaults; that is its idiom, not a bug
+"packages/*/strata/*/cli/*.py" = ["B008"]
+"packages/*/strata/*/cli/**/*.py" = ["B008"]
 
 [tool.pyright]
 # Standard strictness over every package's source. Run with every extra

@@ -117,7 +117,8 @@ def test_a_confidence_follows_its_span_through_the_sort():
         values=[Span(labels=["last"], start=10, end=12), Span(labels=["first"], start=0, end=2)],
         confidences=[0.1, 0.9],
     )
-    assert [(s.label, c) for s, c in zip(prediction.values, prediction.confidences)] == [
+    paired = zip(prediction.values, prediction.confidences, strict=True)
+    assert [(s.label, c) for s, c in paired] == [
         ("first", 0.9),
         ("last", 0.1),
     ]

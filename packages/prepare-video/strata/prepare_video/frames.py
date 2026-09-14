@@ -17,8 +17,9 @@ returns the same frames on a second run, and determinism is what keeps a
 re-prepared corpus from re-checksumming into new samples.
 """
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import ClassVar, Iterable
+from typing import ClassVar
 
 from strata.catalog import checksum_of
 from strata.catalog.types.preparers import Prepared, Preparer, PreparerError

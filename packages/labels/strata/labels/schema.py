@@ -11,6 +11,7 @@ made of is deliberately absent; that is the catalog's. See
 ``docs/adr/0014``.
 """
 
+from itertools import pairwise
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -151,7 +152,7 @@ class SpanSchema(BaseModel):
         exactly what this refuses.
         """
         spans = sorted(value.values, key=lambda s: (s.start, s.end))
-        for earlier, later in zip(spans, spans[1:]):
+        for earlier, later in pairwise(spans):
             if later.start >= earlier.end:
                 continue
             if (later.start, later.end) == (earlier.start, earlier.end):

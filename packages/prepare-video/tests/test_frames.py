@@ -110,7 +110,7 @@ def test_a_second_run_writes_the_same_frames(clip, tmp_path):
 def test_a_file_that_will_not_open_is_reported(tmp_path):
     broken = tmp_path / "broken.mp4"
     broken.write_bytes(b"not a video")
-    with pytest.raises(PreparerError, match="could not open|no frames"):
+    with pytest.raises(PreparerError, match=r"could not open|no frames"):
         run(VideoFramesPreparer(), [broken], tmp_path / "out")
 
 

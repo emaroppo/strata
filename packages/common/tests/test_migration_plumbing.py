@@ -124,7 +124,7 @@ def test_a_database_behind_head_names_the_upgrade(migrations, url):
     metadata.create_all(engine)
     with engine.begin() as conn:
         MigrationContext.configure(conn).stamp(script_directory(migrations), "0001")
-    with pytest.raises(SchemaOutOfDate, match="(?s)at revision 0001.*upgrade head"):
+    with pytest.raises(SchemaOutOfDate, match=r"(?s)at revision 0001.*upgrade head"):
         require_current(engine, migrations, "thing")
 
 

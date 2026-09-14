@@ -33,7 +33,7 @@ def serve(build: Callable[[], Any], *, prog: str, port: int, error: type[Excepti
 
     uvicorn.run(
         app,
-        host=os.environ.get(HOST_ENV, "0.0.0.0"),  # noqa: S104
+        host=os.environ.get(HOST_ENV, "0.0.0.0"),
         port=int(os.environ.get(PORT_ENV, str(port))),
     )
 

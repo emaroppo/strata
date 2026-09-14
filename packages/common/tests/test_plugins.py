@@ -60,7 +60,7 @@ def test_load_checks_the_base_class():
     assert load(_entry("ordered", "collections:OrderedDict"), Mapping, error=Refused).__name__ == (
         "OrderedDict"
     )
-    with pytest.raises(Refused, match="'deque' resolves to .* which is not a Mapping"):
+    with pytest.raises(Refused, match=r"'deque' resolves to .* which is not a Mapping"):
         load(_entry("deque", "collections:deque"), Mapping, error=Refused)
 
 
