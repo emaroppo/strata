@@ -36,9 +36,7 @@ def test_a_span_round_trips():
 def test_spans_are_sorted_into_reading_order():
     # So a stored annotation and a model's output compare equal when they
     # say the same thing
-    spans = Spans(
-        values=[Span(labels=["B"], start=10, end=12), Span(labels=["A"], start=0, end=3)]
-    )
+    spans = Spans(values=[Span(labels=["B"], start=10, end=12), Span(labels=["A"], start=0, end=3)])
     assert [s.label for s in spans.values] == ["A", "B"]
 
 
@@ -64,9 +62,7 @@ def test_an_empty_span_is_allowed():
 
 
 def test_a_span_prediction_carries_confidences():
-    prediction = SpansPrediction(
-        values=[Span(labels=["PER"], start=0, end=3)], confidences=[0.7]
-    )
+    prediction = SpansPrediction(values=[Span(labels=["PER"], start=0, end=3)], confidences=[0.7])
     assert isinstance(prediction, Spans)
     assert prediction.confidences == [0.7]
 
@@ -109,9 +105,7 @@ def test_span_text_must_match_its_offsets():
 
 
 def test_span_text_may_be_omitted():
-    SpanSchema(classes=["PER"]).validate_value(
-        Spans(values=[Span(labels=["PER"], start=0, end=5)])
-    )
+    SpanSchema(classes=["PER"]).validate_value(Spans(values=[Span(labels=["PER"], start=0, end=5)]))
 
 
 def test_an_unknown_span_class_is_refused():
@@ -149,17 +143,13 @@ def test_a_region_can_carry_two_labels():
 def test_a_second_label_is_refused_where_it_was_not_declared():
     schema = SpanSchema(classes=["name", "place"])
     with pytest.raises(SchemaError, match="single-label"):
-        schema.validate_value(
-            Spans(values=[Span(labels=["name", "place"], start=0, end=4)])
-        )
+        schema.validate_value(Spans(values=[Span(labels=["name", "place"], start=0, end=4)]))
 
 
 def test_an_unknown_class_is_found_on_any_label():
     schema = SpanSchema(classes=["name"], multi_label=True)
     with pytest.raises(SchemaError, match="place"):
-        schema.validate_value(
-            Spans(values=[Span(labels=["name", "place"], start=0, end=4)])
-        )
+        schema.validate_value(Spans(values=[Span(labels=["name", "place"], start=0, end=4)]))
 
 
 def test_overlapping_regions_are_refused_where_they_were_not_declared():
@@ -329,9 +319,7 @@ def test_an_image_with_no_boxes_asserts_nothing():
         (
             {
                 "kind": "boxes",
-                "values": [
-                    {"label": "car", "x": 0.1, "y": 0.1, "width": 0.2, "height": 0.2}
-                ],
+                "values": [{"label": "car", "x": 0.1, "y": 0.1, "width": 0.2, "height": 0.2}],
             },
             Boxes,
         ),

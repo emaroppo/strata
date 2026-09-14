@@ -558,7 +558,7 @@ class Satellite(Image):
     subtype = "satellite"
     extensions = frozenset({"tif", "tiff"})
 
-    def metadata_for(self, path) -> dict: ...   # bounds, CRS, capture time, scene
+    def metadata_for(self, path) -> dict: ...  # bounds, CRS, capture time, scene
 ```
 
 Anything a split might group by — the scene, the video — is a key in that

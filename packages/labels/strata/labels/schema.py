@@ -40,9 +40,7 @@ def _shared_class_validator():
 def _expect[V: Value](kind: type[V], value: Value, task: str) -> V:
     """``value`` as the type a ``task`` label set holds, or a refusal that names both."""
     if not isinstance(value, kind):
-        raise SchemaError(
-            f"a {task} label set holds {kind.__name__}, not {type(value).__name__}"
-        )
+        raise SchemaError(f"a {task} label set holds {kind.__name__}, not {type(value).__name__}")
     return value
 
 
@@ -124,9 +122,7 @@ class SpanSchema(BaseModel):
 
     def validate_value(self, value: Value) -> None:
         value = _expect(Spans, value, self.task)
-        _refuse_unknown_classes(
-            self.classes, (label for s in value.values for label in s.labels)
-        )
+        _refuse_unknown_classes(self.classes, (label for s in value.values for label in s.labels))
         for span in value.values:
             if span.text and len(span.text) != span.end - span.start:
                 raise SchemaError(
@@ -195,6 +191,4 @@ class BBoxSchema(BaseModel):
 
 
 #: Every schema, discriminated on ``task``.
-AnySchema = Annotated[
-    ClassificationSchema | SpanSchema | BBoxSchema, Field(discriminator="task")
-]
+AnySchema = Annotated[ClassificationSchema | SpanSchema | BBoxSchema, Field(discriminator="task")]

@@ -20,9 +20,7 @@ FPS = 10.0
 
 
 def write_video(path, frames: int = 10, shade_from: int = 0):
-    writer = cv2.VideoWriter(
-        str(path), cv2.VideoWriter_fourcc(*"mp4v"), FPS, (32, 24)
-    )
+    writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), FPS, (32, 24))
     if not writer.isOpened():  # pragma: no cover - depends on the build
         pytest.skip("this OpenCV cannot write mp4v")
     for i in range(frames):
@@ -102,9 +100,7 @@ def test_a_second_run_writes_the_same_frames(clip, tmp_path):
     second = run(VideoFramesPreparer(every=5), [clip], tmp_path / "two")
     assert set(first.samples) == set(second.samples)
     for name in first.samples:
-        assert (tmp_path / "one" / name).read_bytes() == (
-            tmp_path / "two" / name
-        ).read_bytes()
+        assert (tmp_path / "one" / name).read_bytes() == (tmp_path / "two" / name).read_bytes()
 
 
 def test_a_file_that_will_not_open_is_reported(tmp_path):

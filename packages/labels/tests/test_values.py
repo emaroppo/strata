@@ -94,9 +94,7 @@ def test_every_prediction_type_refuses_a_mismatch():
     with pytest.raises(ValidationError, match="positional"):
         BoxesPrediction(values=[box, box, box], confidences=[0.9])
     with pytest.raises(ValidationError, match="positional"):
-        SpansPrediction(
-            values=[Span(labels=["name"], start=0, end=4)], confidences=[0.1, 0.2]
-        )
+        SpansPrediction(values=[Span(labels=["name"], start=0, end=4)], confidences=[0.1, 0.2])
     with pytest.raises(ValidationError, match="positional"):
         ChoicesPrediction(values=["cat", "dog"], confidences=[0.9])
 
