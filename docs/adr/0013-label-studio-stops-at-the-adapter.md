@@ -63,3 +63,7 @@ for exactly the requested lifetime.
   catalog knows what a sample is and the client should not.
 - `relink` re-signs a queue that outlives its window, and moves tasks off
   the mount onto the server, which is what lets the mount go away.
+- The catalog issues the URL its server verifies. The labeller asks the
+  catalog's configuration for signed URLs and never sees the secret, so
+  the two halves of the credential cannot drift apart across packages
+  (record 0015).

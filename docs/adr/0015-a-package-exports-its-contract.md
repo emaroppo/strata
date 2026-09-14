@@ -43,9 +43,9 @@ this rule exists to close.
   client and wire, and the plugin registry; every module of `common`.
   A promise is preferred over a promotion where the module is a layer
   with a shape of its own, and a flat `__init__` would hide it.
-- `catalog.storage.signing` is promised only until the catalog hands out
-  signed URLs itself. A promise that consumers hold the secret is not
-  one to keep.
+- Signing was the one reach-in to move rather than promise: the catalog
+  hands out the URL its server verifies, and a promise that consumers
+  hold the secret was not one to keep.
 - A promised module that moves is moved in every consumer in the same
   change, never left behind as a re-exporting module. Promoting one to
   an export later is the reverse edit, and the test names every
