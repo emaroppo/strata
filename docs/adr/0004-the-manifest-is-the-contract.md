@@ -47,3 +47,11 @@ added with room already made, and did not bump the format.
   different catalog can match its samples (record 0001), and it carries the
   catalog's identity, so a directory says what built it (record 0008).
 - Features travel in it as plain JSON, not as label values (record 0011).
+- Two values that say the same thing compare equal. `Spans` sorts its
+  ranges into reading order as it is parsed, by offset and then by labels,
+  and a prediction's confidences move under the same permutation because
+  they are positional. The sort runs over the raw payload, before the
+  model is built, rather than writing into the frozen model afterwards: a
+  value is frozen because it is a record of what someone said, and a type
+  that goes around its own `frozen` is the one place that promise is
+  not kept.

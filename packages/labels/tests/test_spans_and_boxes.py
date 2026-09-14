@@ -71,6 +71,35 @@ def test_a_span_prediction_carries_confidences():
     assert prediction.confidences == [0.7]
 
 
+def test_confidences_follow_their_span_into_reading_order():
+    prediction = SpansPrediction(
+        values=[Span(labels=["B"], start=10, end=12), Span(labels=["A"], start=0, end=3)],
+        confidences=[0.2, 0.9],
+    )
+    assert [s.label for s in prediction.values] == ["A", "B"]
+    assert prediction.confidences == [0.9, 0.2]
+
+
+def test_spans_are_ordered_when_parsed_from_json():
+    parsed = SpansPrediction.model_validate(
+        {
+            "kind": "spans",
+            "values": [
+                {"labels": ["B"], "start": 10, "end": 12},
+                {"labels": ["A"], "start": 0, "end": 3},
+            ],
+            "confidences": [0.2, 0.9],
+        }
+    )
+    assert [s.label for s in parsed.values] == ["A", "B"]
+    assert parsed.confidences == [0.9, 0.2]
+
+
+def test_a_malformed_span_in_a_set_is_reported_by_field_validation():
+    with pytest.raises(ValidationError, match="Not a range"):
+        Spans.model_validate({"kind": "spans", "values": [{"labels": ["A"], "start": 5, "end": 1}]})
+
+
 def test_span_text_must_match_its_offsets():
     # The offsets are authoritative, so a disagreeing substring is a bug
     # somewhere upstream rather than something to store quietly

@@ -117,32 +117,31 @@ class Spans(Value):
     kind: Literal["spans"] = "spans"
     values: list[Span] = Field(default_factory=list)
 
-    @model_validator(mode="after")
-    def _in_reading_order(self) -> "Spans":
+    @model_validator(mode="before")
+    @classmethod
+    def _in_reading_order(cls, data: object) -> object:
         # Sorted on the way in so a stored annotation and a model's output
-        # compare equal when they say the same thing.
-        #
-        # Carried out as a permutation rather than a sort so that
-        # confidences, which are positional against these values, move with
-        # them. Sorting the values alone reassigned every confidence to
-        # whichever span happened to land in its place.
-        order = sorted(
-            range(len(self.values)),
-            # Labels break the tie, so two regions at one offset order the
-            # same way wherever they were built. Without it a stored
-            # annotation and a model's output can say exactly the same
-            # thing and compare unequal.
-            key=lambda i: (
-                self.values[i].start,
-                self.values[i].end,
-                tuple(self.values[i].labels),
-            ),
-        )
-        object.__setattr__(self, "values", [self.values[i] for i in order])
-        confidences = getattr(self, "confidences", None)
+        # compare equal when they say the same thing. Labels break the tie
+        # so two regions at one offset order the same way wherever they were
+        # built. Confidences are positional against these values, so they
+        # move under the same permutation.
+        if not isinstance(data, dict) or not data.get("values"):
+            return data
+        try:
+            order = sorted(range(len(data["values"])), key=lambda i: _span_key(data["values"][i]))
+        except (AttributeError, KeyError, TypeError):
+            return data  # malformed; field validation says what is wrong
+        data = {**data, "values": [data["values"][i] for i in order]}
+        confidences = data.get("confidences")
         if confidences and len(confidences) == len(order):
-            object.__setattr__(self, "confidences", [confidences[i] for i in order])
-        return self
+            data["confidences"] = [confidences[i] for i in order]
+        return data
+
+
+def _span_key(span: object) -> tuple[int, int, tuple[str, ...]]:
+    if isinstance(span, dict):
+        return (span["start"], span["end"], tuple(span.get("labels", ())))
+    return (span.start, span.end, tuple(span.labels))  # type: ignore[attr-defined]
 
 
 class SpansPrediction(Spans, Prediction):
