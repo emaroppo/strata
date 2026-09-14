@@ -42,6 +42,19 @@ a checkpoint whose class list has since been reordered corrupts silently
 rather than failing, so classes are append-only and the list as trained
 is recorded and checked.
 
+## What a checkpoint holds
+
+Tensors and plain values: a state dict, the class list, and for the text
+baselines the name of the encoder. Nothing in it needs an unpickler, and
+both baselines load with `weights_only=True`. The text loader shipped
+with it off from the day it was written, for no reason the history
+records, and stayed that way through two refactors while every checkpoint
+on disk loaded fine with it on. A checkpoint is the one artefact that
+arrives from another machine — a merge copies them on request — and a
+loader that will execute what it is handed turns every copied run into a
+code path. Anything a checkpoint needs beyond tensors and plain values is
+a change to this record, not to the flag.
+
 ## Consequences
 
 - A run is written only once it finished; a round that died halfway
