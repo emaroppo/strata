@@ -2362,6 +2362,7 @@ all = [
     { name = "pillow" },
     { name = "rich" },
     { name = "timm" },
+    { name = "tokenizers" },
     { name = "torch" },
     { name = "torchvision" },
     { name = "transformers" },
@@ -2384,6 +2385,7 @@ test = [
 ]
 text = [
     { name = "rich" },
+    { name = "tokenizers" },
     { name = "torch" },
     { name = "transformers" },
 ]
@@ -2411,6 +2413,7 @@ requires-dist = [
     { name = "strata-labels", editable = "packages/labels" },
     { name = "strata-modelling", extras = ["image", "text"], marker = "extra == 'all'", editable = "packages/modelling" },
     { name = "timm", marker = "extra == 'image'", specifier = ">=1.0" },
+    { name = "tokenizers", marker = "extra == 'text'", specifier = ">=0.22,<0.23" },
     { name = "torch", marker = "extra == 'image'", specifier = ">=2.0" },
     { name = "torch", marker = "extra == 'text'", specifier = ">=2.0" },
     { name = "torchvision", marker = "extra == 'image'", specifier = ">=0.15" },
