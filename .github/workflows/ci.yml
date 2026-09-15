@@ -94,6 +94,8 @@ jobs:
             install: strata-catalog[test,serve,s3] httpx
           - package: modelling
             install: strata-modelling[test,service] httpx
+          - package: project
+            install: strata-project[test]
           - package: labeller
             install: strata-labeller httpx fastapi
           - package: experiment
