@@ -1,14 +1,12 @@
 """What a label set is: the task, its classes, and the rules over them.
 
 A schema is stored data — it is what ``catalog.label_set`` holds — so it is a
-model rather than a class hierarchy with behaviour bolted on. The behaviour
-it does carry is pure: validating a value against the class list, and saying
-which classes a value asserts.
+model. The behaviour it carries is pure: validating a value against the class
+list, and saying which classes a value asserts.
 
 An empty class list is allowed and validates nothing. The label set is
 authoritative: a project's file seeds its classes once. What the sample is
-made of is deliberately absent; that is the catalog's. See
-``docs/adr/0014``.
+made of is the catalog's. See ``docs/adr/0014``.
 """
 
 from itertools import pairwise
@@ -57,8 +55,7 @@ class ClassificationSchema(BaseModel):
     """Classes for a whole sample."""
 
     task: Literal["classification"] = "classification"
-    #: Append-only by convention: a checkpoint maps output neurons to this
-    #: list by position, so reordering invalidates every checkpoint silently.
+    #: Append-only by convention (``docs/adr/0005``).
     classes: list[str] = Field(default_factory=list)
     #: False for mutually exclusive classes.
     multiple: bool = True
@@ -70,8 +67,8 @@ class ClassificationSchema(BaseModel):
     def validate_value(self, value: Value) -> None:
         """Raise if ``value`` does not fit this schema.
 
-        An empty value is valid and meaningful: a sample a human looked at
-        and found nothing in is a real answer, not a missing one.
+        An empty value is valid: a human looked and found nothing, which is an
+        answer (``docs/adr/0009``).
         """
         value = _expect(Choices, value, self.task)
         _refuse_unknown_classes(self.classes, value.values)
@@ -84,29 +81,25 @@ class ClassificationSchema(BaseModel):
         if duplicates:
             raise SchemaError(f"Repeated class(es): {', '.join(sorted(duplicates))}")
 
-    # -- the indexing contract -----------------------------------------
+    # -- the indexing contract (docs/adr/0039) --------------------------
     #
     # The one question the catalog asks of a schema it does not otherwise
-    # understand. Answering it is what makes "every sample labelled X" a
-    # join rather than a scan, and a new task type becomes queryable by
-    # implementing this and nothing else.
+    # understand.
 
     def classes_asserted(self, value: Value) -> set[str]:
         value = _expect(Choices, value, self.task)
         return set(value.values)
 
-    # Ranking is deliberately not here. A prediction carries its
-    # confidences; how to turn those into a review order — least-confident,
-    # entropy, margin — is an active-learning strategy, and active learning
-    # belongs to the labeller.
+    # Ranking is not here: turning confidences into a review order is the
+    # labeller's. docs/adr/0012
 
 
 class SpanSchema(BaseModel):
     """Labelled character ranges inside a document.
 
     ``multi_label`` and ``overlapping`` are separate questions about shape,
-    both false by default, declared rather than inferred so a model can
-    refuse before a round. See ``docs/adr/0014``.
+    both false by default, declared rather than inferred. See
+    ``docs/adr/0014``.
     """
 
     task: Literal["span"] = "span"
@@ -141,20 +134,13 @@ class SpanSchema(BaseModel):
             self._refuse_overlaps(value)
 
     def _refuse_overlaps(self, value: Spans) -> None:
-        """No two regions may intersect.
-
-        A sweep, since values arrive in reading order — but sorted again
-        rather than assumed, because being wrong here means letting through
-        exactly what this refuses.
-        """
+        """No two regions may intersect."""
         spans = sorted(value.values, key=lambda s: (s.start, s.end))
         for earlier, later in pairwise(spans):
             if later.start >= earlier.end:
                 continue
             if (later.start, later.end) == (earlier.start, earlier.end):
-                # Worth its own message: this is what a multi-label region
-                # looks like when it has been built as two spans, and the
-                # fix is one span with two labels rather than a flag.
+                # A multi-label region built as two spans. docs/adr/0014
                 raise SchemaError(
                     f"Two regions share the offsets {earlier.start}..{earlier.end} "
                     f"({earlier.label} and {later.label}). A region carrying two "

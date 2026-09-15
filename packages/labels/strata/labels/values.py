@@ -5,8 +5,8 @@ produced them and of any storage. One class per task type, discriminated on
 ``kind`` so a value round-trips out of JSON as the right type without the
 reader knowing which task it came from.
 
-A prediction is the same value plus the model's confidence in it, so ranking
-and storage speak one shape rather than two that drift.
+A prediction is the same value plus the model's confidence in it. See
+``docs/adr/0012``.
 """
 
 from typing import Annotated, Literal
@@ -18,42 +18,27 @@ class Value(BaseModel):
     """Base for every annotation payload.
 
     Each concrete payload declares ``kind`` as the literal that names it,
-    which is what :data:`AnyValue` discriminates on. It is not declared
-    here, where a narrowing override would be an error and nothing reads
-    it through the base.
+    which is what :data:`AnyValue` discriminates on.
     """
 
-    #: Frozen because an annotation is a record of what someone said.
-    #:
-    #: ``extra="forbid"`` because the default is to ignore: ``Boxes(boxes=[...])``
-    #: — the field is ``values`` — would otherwise build an empty ``Boxes``
-    #: without complaint, and an empty value is not nothing here. It means a
-    #: reviewer looked and found none of the classes present. A typo would
-    #: land in the catalog as that answer, and read back as one.
+    #: Frozen, and ``extra="forbid"`` so a misspelled field cannot build an
+    #: empty value, which is an answer here (``docs/adr/0009``).
     model_config = {"frozen": True, "extra": "forbid"}
 
 
 class Prediction(Value):
     """A value a model produced, with how sure it was.
 
-    A base rather than a field repeated on each type, so "this is model
-    output" is something code can ask rather than infer. Confidences are
-    positional against ``values``: the nth confidence belongs to the nth
-    thing asserted, whether that is a class, a span or a box.
+    Confidences are positional against ``values``: the nth confidence
+    belongs to the nth thing asserted, whether that is a class, a span or a
+    box. See ``docs/adr/0012``.
     """
 
     confidences: list[float] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _confidences_line_up(self) -> "Prediction":
-        """Positional means positional, for every kind of prediction.
-
-        This lived on :class:`ChoicesPrediction` alone, so a detector
-        returning three boxes and one confidence was accepted and the
-        confidences quietly belonged to the wrong boxes. Nothing raised —
-        and the bbox schema ranks the review queue off exactly these
-        numbers, so the effect was a queue ordered by another box's score.
-        """
+        """Positional means positional, for every kind of prediction (``docs/adr/0012``)."""
         values = getattr(self, "values", None)
         if self.confidences and values is not None and len(self.confidences) != len(values):
             raise ValueError(
@@ -81,15 +66,10 @@ class Span(BaseModel):
     because it makes a stored annotation readable without fetching the
     document, but it is a convenience: the offsets are authoritative.
 
-    **Labels, plural.** Label Studio's model is a region with a list of
-    labels on it, and this was a single string — so a reviewer marking one
-    phrase as two things had the second one dropped on the way in, without
-    anything raising. The annotation tool must not be able to express more
-    than the layer storing it.
-
-    A region carrying two labels is *one* span with two labels, not two
-    spans at the same offsets. Whether a label set permits either is
-    :class:`~strata.labels.SpanSchema`'s to declare.
+    **Labels, plural.** A region carrying two labels is *one* span with two
+    labels, not two spans at the same offsets. Whether a label set permits
+    either is :class:`~strata.labels.SpanSchema`'s to declare. See
+    ``docs/adr/0014``.
     """
 
     labels: list[str] = Field(default_factory=list)
@@ -124,11 +104,9 @@ class Spans(Value):
     @model_validator(mode="before")
     @classmethod
     def _in_reading_order(cls, data: object) -> object:
-        # Sorted on the way in so a stored annotation and a model's output
-        # compare equal when they say the same thing. Labels break the tie
-        # so two regions at one offset order the same way wherever they were
-        # built. Confidences are positional against these values, so they
-        # move under the same permutation.
+        # Sorted on the way in, labels breaking the tie, so two values that say
+        # the same thing compare equal; confidences move under the same
+        # permutation. docs/adr/0004
         if not isinstance(data, dict) or not data.get("values"):
             return data
         values = list(data["values"])
@@ -157,9 +135,7 @@ class Box(BaseModel):
     """A labelled rectangle over an image.
 
     Fractions of the image with a top-left origin, never pixels and never
-    percentages. Label Studio speaks percentages alongside the original
-    dimensions; converting at the boundary is what keeps a stored box
-    meaningful without them.
+    percentages. See ``docs/adr/0013``.
     """
 
     label: str
@@ -197,11 +173,8 @@ class BoxesPrediction(Boxes, Prediction):
 #: Every annotation payload, discriminated on ``kind``.
 AnyValue = Annotated[Choices | Spans | Boxes, Field(discriminator="kind")]
 
-#: Every payload a *model* produced. Separate from :data:`AnyValue` because
-#: parsing a prediction as a plain value silently drops its confidences —
-#: the extra field is simply not on the class, and pydantic discards what it
-#: does not recognise. Anything holding model output has to say so, or it
-#: keeps the answer and loses how sure the model was of it.
+#: Every payload a *model* produced. Separate from :data:`AnyValue`: parsing
+#: a prediction as a plain value drops its confidences (``docs/adr/0012``).
 AnyPrediction = Annotated[
     ChoicesPrediction | SpansPrediction | BoxesPrediction,
     Field(discriminator="kind"),

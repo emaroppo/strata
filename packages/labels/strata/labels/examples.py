@@ -1,12 +1,8 @@
 """A sample of every label type, for the tests of any package that handles them.
 
-A label type is defined here and handled in several places: the catalog
-stores it, a manifest carries it, modelling reads it and caches predictions
-of it, the labeller shows it in Label Studio and ranks a queue by it. Each
-of those tests its own layer against every example below. So a type added
-here is covered by every package the next time that package upgrades — and
-fails there, loudly, until it is handled — without any test having to reach
-across a package boundary to find it.
+Every package that handles a label type tests its own layer against every
+example below, so a type added here fails there until it is handled. See
+``docs/adr/0004``.
 
 Adding a label type means adding an example of it here; a test in this
 package refuses a type in the unions that has none.
@@ -61,8 +57,7 @@ EXAMPLES: tuple[LabelTypeExample, ...] = (
         ),
         media="text",
     ),
-    # A region carrying two labels. Label Studio could always express it;
-    # the layer storing it once dropped the second label without a word.
+    # A region carrying two labels (docs/adr/0014)
     LabelTypeExample(
         name="multi-label spans",
         schema=SpanSchema(classes=["name", "place"], multi_label=True),

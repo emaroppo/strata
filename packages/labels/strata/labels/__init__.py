@@ -9,8 +9,7 @@ description. A change here is a wire-format change.
 **May not import:** anything doing I/O, any storage layer, any ML
 framework, or Label Studio, whose format converts inside ``strata.labeller``.
 
-Every schema answers *which classes does this annotation assert*, which is
-what lets the catalog index annotations it does not otherwise understand.
+Every schema answers which classes an annotation asserts (``docs/adr/0039``).
 Why the manifest lives here: ``docs/adr/0004``.
 """
 
