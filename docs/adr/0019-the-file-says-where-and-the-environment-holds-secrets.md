@@ -47,3 +47,7 @@ listens on every interface so another machine can reach it.
 - The modelling host has no run store fallback to guess from; its
   `STRATA_RUNS_URL` is stated.
 - Migrations read the same tables and the same environment as every reader.
+- A command given no `--config` reads the file `$STRATA_CONFIG` names, then
+  `./config.toml`: the same variable a service reads, so a host states its
+  file once and a project directory carries no copy. A variable naming a
+  missing file is refused rather than defaulted.
