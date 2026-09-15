@@ -39,7 +39,9 @@ existed, and the refusal went once none did.
 Checkpoints map output neurons to classes by position. A warm start from
 a checkpoint whose class list has since been reordered corrupts silently
 rather than failing, so classes are append-only and the list as trained
-is recorded and checked.
+is recorded and checked. When the list only grew, the text heads rebuild
+the head and keep the encoder's fine-tuned weights; a list changed any
+other way starts from the pretrained encoder.
 
 ## What a checkpoint holds
 

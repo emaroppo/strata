@@ -1,20 +1,11 @@
 """Extracting frames, and declaring which video they came from.
 
-**The grouping is the point.** Consecutive frames are near-duplicates, so a
-split putting some of a video in train and the rest in validation scores a
-model on what it has already memorised — which reads as a very good model.
-The type has always known this; what it could only *infer*, from a
-directory layout both sides had to agree about, is now declared as a fact
-by the thing that actually knows: one group per video, in the prepared
-index. Frames are still written one directory per video, so the corpus
-stays browsable and a project prepared by something else still works.
+**The grouping is the point.** Consecutive frames are near-duplicates
+(``docs/adr/0003``), so each frame records its video in the prepared index;
+frames are still written one directory per video (``docs/adr/0010``).
 
-**Every frame is decoded, and most are thrown away.** Seeking by frame
-number is faster and lies: with inter-frame compression a seek lands on the
-nearest keyframe, and which frame that is depends on the codec and the
-encoder that produced the file. Decoding in order is the only way this
-returns the same frames on a second run, and determinism is what keeps a
-re-prepared corpus from re-checksumming into new samples.
+**Every frame is decoded, and most are thrown away**, never sought
+(``docs/adr/0033``).
 """
 
 from collections.abc import Iterable
@@ -24,9 +15,7 @@ from typing import ClassVar
 from strata.catalog import checksum_of
 from strata.catalog.types.preparers import Prepared, Preparer, PreparerError
 
-#: Container formats to admit. Not a claim about codecs: what OpenCV can
-#: decode depends on how it was built, and a file it cannot read is
-#: reported rather than skipped.
+#: Container formats to admit, not codecs. docs/adr/0010
 CONTAINERS = frozenset({"mp4", "mov", "mkv", "avi", "webm", "m4v"})
 
 #: Enough of the video's own checksum to name its directory uniquely while
@@ -69,7 +58,8 @@ class VideoFramesPreparer(Preparer):
                 f"install rather than about the file."
             )
 
-        # The video's own checksum, so its frames keep their names
+        # The video's own checksum, so its frames keep their names.
+        # docs/adr/0033
         group = f"{source.stem[-60:]}-{checksum_of(source)[:DIGEST_CHARS]}"
         directory = Path(out_dir) / group
         directory.mkdir(parents=True, exist_ok=True)
@@ -92,12 +82,10 @@ class VideoFramesPreparer(Preparer):
                         metadata={
                             "source_file": source.name,
                             "frame_index": index,
-                            # Null rather than a wrong number: a container
-                            # that does not report a frame rate cannot be
-                            # turned into a time by guessing one.
+                            # Null rather than a wrong number. docs/adr/0038
                             "seconds": round(index / fps, 3) if fps > 0 else None,
-                            # Which video, as a fact rather than a directory
-                            # layout: what a project names as its group_by
+                            # Which video, as a fact: what a project names as
+                            # its group_by. docs/adr/0023
                             "video": group,
                         },
                     )

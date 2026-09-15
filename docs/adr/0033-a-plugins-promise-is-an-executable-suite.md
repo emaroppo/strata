@@ -28,9 +28,13 @@ It is deterministic: a re-run produces the same bytes at the same paths, or the
 corpus re-checksums and every annotation is orphaned. An unreadable source is
 refused, not skipped. The index it writes is merged with what is there, so
 converting a grown source adds rather than forgets, and a corrupt index does
-not refuse a corpus, since the files are what is ingested. A preparer is
+not refuse a corpus, since the files are what is ingested. It is keyed by
+path relative to the corpus root, posix-style, so it survives the corpus
+being moved or read from another machine. A preparer is
 resolved from the type it produces and the extension it reads, with an
-ambiguity refused by both names.
+ambiguity refused by both names. A project refuses a preparer whose output
+it would not ingest, since the corpus would convert and ingest would then
+admit none of it.
 
 Two decisions the preparers make for themselves belong beside this. A prepared
 file is named for what it says, not where it sat: positional names re-ingest

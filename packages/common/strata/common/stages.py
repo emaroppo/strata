@@ -17,9 +17,8 @@ class Stage(NamedTuple):
     """One named, versioned operation, and the kinds it links."""
 
     name: str
-    #: Bumped when behaviour changes in a way that moves the result. Recorded
-    #: beside the spec hash: a changed implementation under an unchanged spec
-    #: is a different result.
+    #: Bumped when behaviour changes in a way that moves the result, and
+    #: recorded beside the spec hash. docs/adr/0037
     version: str
     #: What it needs to have been produced before it runs. Empty for a stage
     #: that starts from the catalog alone.

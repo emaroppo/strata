@@ -35,6 +35,28 @@ answers belong to when they are merged back (record 0009). On Postgres,
 preserving keys leaves the sequences at zero, so resetting them is the last
 thing a copy does — forgetting it is the classic way this fails days later.
 
+A copy goes into an empty index only. Merging two catalogs is a different
+problem, where ids collide and content has to arbitrate (record 0009), and
+doing it by accident here would be worse than not offering it. The target
+minted an identity of its own when it was created, and that is dropped
+before anything is copied: keeping it would make a second catalog holding
+the same rows rather than the same corpus. The class index is copied with
+the rest rather than rebuilt, because it is written through each schema's
+indexing contract (record 0039) and rebuilding it would mean the copy
+knowing what a label value means.
+
+## Why the identity is minted at creation, and how it is read
+
+Not on first ask. A catalog nobody had questioned would have no identity,
+and a copy of it would carry none, so whether two databases are the same
+corpus would depend on whether anyone had happened to look. The identity is
+a timestamp and a random suffix: sortable by time and unique without
+coordinating with anything, as a run id is (record 0005).
+
+Listing a host's catalogs asks each one for its identity rather than
+reading a name from the configuration. Two names in the file pointing at
+one database is the mistake this makes visible.
+
 ## Consequences
 
 - A task map from before identities were recorded is adopted, and the

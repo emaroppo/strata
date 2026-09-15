@@ -61,6 +61,16 @@ person's file as their own.
 
 - `experiment` no longer depends on the labeller, and the labeller
   installs without an orchestrator.
+- `config.toml` describes the machine and is never part of a project.
+  Handing someone the project directory hands them the job's definition
+  and its record, not its data: a run names the dataset version and model
+  version it came from, and those resolve in the catalog.
+- Span-only fields in `[label_set]` default to unset rather than false, so
+  setting one on another task is refused by name rather than ignored.
+- A model reference is anchored at the project root, because a run
+  records it to read back when the directory it was relative to is gone,
+  and a project's paths are absolute so nothing handed to a model or a
+  worker depends on the working directory.
 - The job seeds the catalog's label set from `[label_set]` directly; the
   tool's schema is not on that path.
 - A section the job does not own passes through unread. The labeller

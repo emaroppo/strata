@@ -1,19 +1,14 @@
 """Canonical JSON, and the hash taken over it.
 
 Every spec the orchestrator runs is identified by the hash of its canonical
-form, and the argument for JSON is not that it is declarative: it is that
-it **hashes**. A spec that cannot be canonically serialised cannot be an
-identity, and a changed spec that hashes the same silently reuses what the
-old one produced.
+form (``docs/adr/0037``).
 
 Canonical means: sorted keys, no incidental whitespace, defaults already
 materialised by the caller, and a refusal for anything whose serialisation
-is not single-valued. Two specs that mean the same thing hash the same;
-two that differ anywhere do not.
+is not single-valued.
 
-The one implementation: ``strata-post-process`` and ``strata-feature-store``
-import it rather than re-declare it (``docs/adr/0017``). The payload every
-consumer pins the digest of is ``strata.common.contract``.
+The one implementation (``docs/adr/0017``). The payload every consumer pins
+the digest of is ``strata.common.contract``.
 """
 
 import hashlib
@@ -23,18 +18,14 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any
 
-#: Bumped if the canonical form itself changes meaning, which would make
-#: every previously recorded hash incomparable rather than merely different.
+#: Bumped if the canonical form itself changes meaning. docs/adr/0017
 CANONICAL_VERSION = 1
 
 
 def to_jsonable(payload: Any) -> Any:
     """``payload`` reduced to what :func:`json.dumps` accepts, refusing the rest.
 
-    The refusals are the point. A set has no order, so two runs would
-    serialise it two ways and hash differently while meaning the same
-    thing. A timezone-aware datetime means two clocks are in play and the
-    hash would record which. A NaN has no JSON form every reader agrees on.
+    The refusals are the point. See ``docs/adr/0017``.
     """
     if isinstance(payload, dict):
         out = {}
@@ -114,8 +105,8 @@ def short_hash(payload: Any, length: int = 16) -> str:
 def hash_file(path, chunk_size: int = 1 << 20) -> tuple[str, int]:
     """The digest of a file's bytes, and how many there were.
 
-    The one hash over raw bytes rather than a canonical form: a release is
-    its bytes, and what those bytes mean is not this function's business.
+    The one hash over raw bytes rather than a canonical form. See
+    ``docs/adr/0017``.
     """
     digest = hashlib.sha256()
     size = 0

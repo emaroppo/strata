@@ -25,6 +25,19 @@ reviewer's stray overlap is stored as an answer nobody can use. An
 annotation tool able to express more than the layer storing it is the
 wrong way round, and the declaration is where the two are reconciled.
 
+## What a Label Studio config can say about shape
+
+The valid media and task combinations are not their product: boxes only
+make sense on images and character spans only on text, so a template
+exists for each pair that does. A project's own labeling config is read for
+`multi_label`, since what the config permits is what reviewers will produce
+and so what the label set has to accept; overlap has no attribute to read,
+because Label Studio always allows it, so it stays declared in
+`project.toml`. A region carrying two labels is one span with two labels,
+not two spans at one offset. The boundary once read a region's first label
+and dropped the rest, and nothing raised: the second label a reviewer
+chose never reached the catalog.
+
 ## Why the refusal is before the round
 
 A model pointed at the wrong task, or missing a class it emits, or a
@@ -55,6 +68,38 @@ rather than inherited from a default nobody chose. The overlap between
 windows defaults to a fraction of the window, because a fixed token count
 is either too small for a long window or larger than a short one, and the
 second silently means the windows never advance.
+
+## How the text heads meet a label set
+
+A sigmoid head scores every class independently, so it cannot promise to
+name only one: a single-choice label set is refused, since a second class
+would land as a pre-annotation a reviewer has to undo, on a control that
+will not display it. A softmax head names exactly one, so a multi-choice
+label set is refused too: it would train on the first answer and be scored
+as though the rest had been asked for.
+
+Windowing gives several answers for one document, and a classifier has to
+combine them. There is no right default: `max` says a class is present if
+any window was confident, `mean` averages the evidence, `any` takes the
+union, and they disagree most on exactly the long documents windowing
+exists for. So `window_aggregation` is required when a classifier windows,
+and checked in the constructor, where a typo fails before a round rather
+than at the first prediction. A single-label head does not offer `any`,
+since the union is not an answer it may give. Every window of a document
+carries the document's labels, because the target is a statement about the
+whole and nothing says which window earned it. Each window is decoded to
+its own winner before the merge, so a class that came second everywhere
+never reaches it; keeping it would mean holding every window's logits, and
+both heads share the limit so they stay consistent.
+
+For spans, the tokenizer reports character offsets into the original
+string for every window, so nothing is rebased afterwards, the step that
+would otherwise most easily go wrong, and silently. An entity in the
+overlap between two windows is found by both: it is one entity when the
+label and both offsets agree, and the higher confidence wins, since the
+window that saw it with more context is the one to believe. An entity
+longer than the overlap is found in halves and reported as two, a known and
+visible failure rather than a surprising one.
 
 ## Consequences
 

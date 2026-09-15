@@ -1,9 +1,7 @@
 """Starting an app from the environment, and refusing to start degraded.
 
-A service that comes up missing something essential looks like a working
-process from the outside. So the consumer's ``build()`` raises, and this
-turns the raise into a message on stderr and exit status 2 — a failed
-start, which a supervisor reports rather than restarting forever.
+The consumer's ``build()`` raises, and this turns the raise into a message
+on stderr and exit status 2. See ``docs/adr/0019``.
 """
 
 import os
@@ -11,8 +9,8 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
-#: Where a service listens, for every service. 0.0.0.0 so another machine
-#: can reach it; the port is each consumer's own default.
+#: Where a service listens: 0.0.0.0 unless set, and the port each
+#: consumer's own default. docs/adr/0019
 HOST_ENV = "STRATA_SERVE_HOST"
 PORT_ENV = "STRATA_SERVE_PORT"
 

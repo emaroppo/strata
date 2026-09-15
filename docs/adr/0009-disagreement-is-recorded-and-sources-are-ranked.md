@@ -43,6 +43,25 @@ has no bearing on two people disagreeing. Answering again clears it,
 whichever way they go. One row per sample per label set: the pair being
 shown matters more than the history of who disagreed when.
 
+The conflict is recorded beside the one current answer, not in place of
+it: everything that reads an annotation wants the answer, not a set of
+candidates. It names the catalog the other answer came from, so "the
+laptop said otherwise" is answerable rather than merely "something did".
+
+## How a merge ranks what arrives
+
+An answer beats a skip, since someone got further with the sample than
+someone else did, unless the skip was a person's and the answer an
+import's: then nobody got further and a guess arrived. Each answer travels
+with its source. Left behind, every arriving answer would be written as a
+person's, and an import made on a laptop would come home looking reviewed.
+A label set the target has never heard of is reported, not created: it is
+far more likely a typo or the wrong copy than something the target wants
+invented on its behalf. A dry run reads everything and writes nothing, so
+the report can be shown before anything is committed; a conflict is the
+interesting outcome, and fifty of them are easier to look at before the
+merge than to find afterwards.
+
 ## Consequences
 
 - Only annotations move in a merge. Samples do not, and that is a limit

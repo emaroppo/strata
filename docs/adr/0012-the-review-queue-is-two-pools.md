@@ -50,7 +50,12 @@ selected the documents the model was most wrong about — the densest had
 400 spans in 3,896 characters, most of them noise — and deleting a wrong
 span costs what marking a missing one does. Counting spans over a
 confidence threshold separates the two and stops rewarding a model for
-guessing more. Right while a training set is being built, wrong once it
+guessing more. The threshold is 0.9: a span the model is that sure of is
+usually right enough to confirm at a glance, and below it checking costs
+about what marking from scratch does. A model that asserts spans and says
+nothing about how sure it is has every span counted: absent is unknown,
+not unconfident, and scoring it zero would hide such a model's output from
+this ranking entirely. Right while a training set is being built, wrong once it
 exists: a model already good at these documents learns nothing from
 another. Name it deliberately, and stop naming it when that turns.
 

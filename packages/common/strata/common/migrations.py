@@ -1,18 +1,14 @@
 """Running a package's migration chain from inside its installed wheel.
 
-There is no ``alembic.ini`` anywhere. Each package ships a ``migrations``
-directory beside its tables, and everything here takes that directory as
-an argument — so the package's own ``schema_version`` is two lines naming
-the path and the command, and its ``env.py`` is its database URL and one
-call to :func:`run_alembic`.
+There is no ``alembic.ini``. Each package ships a ``migrations`` directory
+beside its tables, and everything here takes that directory as an
+argument, so a package's ``env.py`` is its database URL and one call to
+:func:`run_alembic`.
 
-Two guards on opening a database. ``create_all`` builds the whole schema in
-one step, which keeps a checkout runnable and a suite fast, but leaves no
-revision recorded; :func:`stamp_if_new` records head against a database
-this process just created. A database that already held tables and no
-revision predates migrations and is at the *baseline*; :func:`require_current`
-refuses it with the commands that fix it, rather than stamping it head and
-having it claim columns it does not have.
+Two guards on opening a database: :func:`stamp_if_new` records head
+against a database this process just created, and :func:`require_current`
+refuses one that is behind, with the commands that fix it. See
+``docs/adr/0018``.
 """
 
 import functools
@@ -47,11 +43,9 @@ def head_revision(migrations: Path) -> str:
 def stamp_if_new(engine: Engine, migrations: Path) -> str | None:
     """Record head against a database that has no revision yet.
 
-    **Only correct for a database this process just created.** A database
-    that already held tables and no revision predates migrations, and is at
-    the baseline rather than at head — stamping it head would have it claim
-    columns it does not have, and a later ``upgrade`` would find nothing to
-    do. :func:`require_current` is the guard for that case.
+    **Only correct for a database this process just created.** One that
+    already held tables and no revision is at the baseline, and
+    :func:`require_current` is the guard for it. See ``docs/adr/0018``.
 
     Returns the revision stamped, or None where one was already recorded.
     """
@@ -70,11 +64,8 @@ def require_current(engine: Engine, migrations: Path, name: str) -> None:
     ``name`` is the package's short name, so the message can name the
     command that migrates it: ``strata-<name>-migrate``.
 
-    Refused rather than upgraded in passing: a migration rewrites somebody's
-    data, and doing that as a side effect of opening a connection is not a
-    decision this should be making on their behalf. Refused rather than
-    ignored, because the alternative is a missing column surfacing as a
-    query error somewhere far from the cause.
+    Refused rather than upgraded in passing, and rather than ignored. See
+    ``docs/adr/0018``.
     """
     head = head_revision(migrations)
     with engine.connect() as conn:

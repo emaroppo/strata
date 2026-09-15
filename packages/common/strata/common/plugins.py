@@ -1,10 +1,9 @@
 """Resolving a name through an entry-point group.
 
-Three groups use this — sample types, preparers, models — and each had
-written the same lookup: find the entries with that name, refuse a name
-registered twice rather than take whichever loaded first, check that what
-loaded is the kind of thing asked for, and say what *is* installed when
-nothing matches.
+For sample types, preparers and models: find the entries with that name,
+refuse a name registered twice, check that what loaded is the kind of
+thing asked for, and say what *is* installed when nothing matches. See
+``docs/adr/0033``.
 
 It takes the entries rather than the group, so a consumer keeps the one
 seam its tests already patch: an ``entries()`` returning what is installed.
@@ -17,8 +16,7 @@ from importlib.metadata import EntryPoint
 def available(entries: Iterable[EntryPoint]) -> dict[str, str]:
     """Registered names, and what each resolves to.
 
-    Read from what is installed rather than a list someone maintains,
-    which is the only honest answer to "what can this do".
+    Read from what is installed. See ``docs/adr/0034``.
     """
     return {entry.name: entry.value for entry in entries}
 
@@ -38,8 +36,7 @@ def find(
     ``hint`` is appended when nothing matches, for a group with another
     way to name things. A name in ``reserved`` belongs to the package
     owning the group, and a plugin registering it is refused rather than
-    resolved by install order: it would change behaviour and nothing would
-    report it.
+    resolved by install order. See ``docs/adr/0033``.
     """
     entries = list(entries)
     matches = [entry for entry in entries if entry.name == name]

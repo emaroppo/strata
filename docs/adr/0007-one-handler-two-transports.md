@@ -57,6 +57,12 @@ different file with the same name. Choosing a parent and recording the
 run happen on the host, because only the machine holding the checkpoints
 can decide which one, or record a path it actually has.
 
+A round splits between the machines where the knowledge is. Which samples
+make a dataset is the project's business, its collections, its label set,
+its ratios, and the catalog is reachable from both machines, so the
+version is frozen by the caller. Everything after that needs a GPU and the
+checkpoints, and both live on the host.
+
 ## Consequences
 
 - What is sent is built from the host's own request models, so a field
