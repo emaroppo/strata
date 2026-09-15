@@ -44,8 +44,3 @@ __pycache__/
 *.pyc
 .venv/
 projects/*
-
-# Sister repositories, each with its own history, kept beside the other
-# packages so they read the same way. Not workspace members: see pyproject.
-/packages/feature-store/
-/packages/post-process/
