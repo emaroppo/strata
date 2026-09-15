@@ -38,6 +38,31 @@ not two spans at one offset. The boundary once read a region's first label
 and dropped the rest, and nothing raised: the second label a reviewer
 chose never reached the catalog.
 
+## A schema is stored data
+
+A schema is what a label set's row holds, so it is a pydantic model rather
+than a class hierarchy with behaviour; the behaviour it carries is pure:
+validating a value against the class list, and saying which classes a
+value asserts. Spans once stored a single label and now carry a list, for
+the reason above. Two spans at the same offsets are refused with a message
+of their own, because that is what a multi-label region looks like when it
+has been built as two spans, and the fix is one span with both labels
+rather than a flag.
+
+## Why a model declares its own classes
+
+A model with an implicit negative class, such as a presence detector's
+"none", predicts a class nothing else knows about. It gets no output
+neuron, trains as an all-zeros target, and is emitted when no class clears
+the threshold, so the model cannot contradict itself. Left undeclared, the
+prediction is legal to the model and dropped by whatever displays it,
+silently, and worst on exactly the samples worth reviewing; so the label
+set has to declare it, and training refuses if it does not. The requirement
+is read from the built model rather than the class, since it can depend on
+a parameter, and the model is built before its requirements are read:
+construction is seconds where the round is minutes, so a refusal still
+comes before the expensive part.
+
 ## Why the refusal is before the round
 
 A model pointed at the wrong task, or missing a class it emits, or a
@@ -109,4 +134,6 @@ visible failure rather than a surprising one.
   photograph and classifying a document are the same task; the media is
   the catalog's business, on the sample.
 - A label set's schema is read back through a discriminator, so a catalog
-  can hold boxes it can also hand back.
+  can hold boxes it can also hand back. An annotation is read the same way:
+  read as one task's value, a boxes annotation parses without complaint
+  into an empty choices value, and the catalog forgets what a person said.

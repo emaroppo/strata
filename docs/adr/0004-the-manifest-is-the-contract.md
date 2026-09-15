@@ -35,6 +35,28 @@ bump it: pydantic ignores fields it does not know, which is exactly why
 that case is safe and the other is not. The third side of the split was
 added with room already made, and did not bump the format.
 
+## Why every layer reads a value through the union
+
+A label type is defined in `labels` and handled in several places: the
+catalog stores it, a manifest carries it, modelling reads it and caches
+predictions of it, the labeller shows it and ranks a queue by it. So every
+layer reads a value through the union of types rather than one of them. A
+manifest sample's value is any annotation payload, since a dataset version
+is what a model trains from, and pinning it to choices would mean no
+detector could ever be handed one. A model's `Example.target` is the union,
+since naming one concrete type would say a model can only be trained on
+that kind. What a scoring pass returns carries the union of predictions:
+naming one concrete type there once refused every span and box prediction
+on the way out, the last place a value travels before the review queue is
+ranked. The conformance suite's table of what each task emits is not a
+plugin surface; a new label type is added to `labels` first.
+
+`labels` ships one example of every label type, and each package that
+handles label types tests its own layer against all of them. A type added
+there fails in every package the next time it upgrades, loudly, until it is
+handled, and no test reaches across a package boundary to find it. A test in
+`labels` refuses a type in the unions that has no example.
+
 ## Consequences
 
 - The training core takes a directory and a manifest and nothing else.

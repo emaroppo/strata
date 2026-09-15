@@ -59,6 +59,20 @@ this ranking entirely. Right while a training set is being built, wrong once it
 exists: a model already good at these documents learns nothing from
 another. Name it deliberately, and stop naming it when that turns.
 
+## What a prediction is
+
+A prediction is the same value as an annotation plus the model's
+confidences, so ranking and storage speak one shape rather than two that
+drift. `Prediction` is a base rather than a field repeated on each type, so
+"this is model output" is something code can ask rather than infer.
+Confidences are positional against the values, and that is checked for
+every kind: the check once lived on choices alone, so a detector returning
+three boxes and one confidence was accepted, and its review queue was
+ordered by another box's score. The union of predictions is separate from
+the union of values, because parsing a prediction as a plain value silently
+drops its confidences: the field is not on the class, and pydantic discards
+what it does not recognise. Anything holding model output has to say so.
+
 ## Consequences
 
 - The number shown beside a pre-annotation is the inverse of the default

@@ -43,7 +43,7 @@ class ManifestSample(BaseModel):
     #: What the catalog recorded about the sample: where it came from, its
     #: frame index, the video it belongs to. Any grouping a split respects
     #: is a key in here, named by the manifest's ``group_by``
-    #: (``docs/adr/0003``).
+    #: (``docs/adr/0023``).
     metadata: dict[str, Any] = Field(default_factory=dict)
     #: Which side of the split. ``holdout`` never reaches a model, in
     #: training or in validation. See ``docs/adr/0003``.
@@ -99,7 +99,7 @@ class Manifest(BaseModel):
     #: The version whose side assignment this one continues. A version
     #: inherits its predecessor's sides and carries this forward; one that
     #: re-split names itself. A warm start reaches back only as far as this
-    #: (``docs/adr/0003``). Null from a producer that does not say.
+    #: (``docs/adr/0024``). Null from a producer that does not say.
     sides_from_version: int | None = None
     #: A split the corpus arrived with, as the freeze read it: the metadata
     #: key naming each sample's set, and which of its values were held out

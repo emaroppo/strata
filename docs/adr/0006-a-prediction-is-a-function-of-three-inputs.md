@@ -54,3 +54,13 @@ its properties.
 - The training core returns predictions and never writes them; persisting
   is the caller's business, or a catalog dependency comes back into the
   core.
+- What a scoring pass returns holds a prediction rather than being one.
+  When both were called prediction, code unwrapped the value in some places
+  and not others, and the cache stored wrappers. A wrapper serialises
+  happily and reads back empty, since pydantic ignores keys it does not
+  know, so a cache full of nothing looks exactly like a cache full of
+  answers until a ranking sorts on them. The cache refuses anything that is
+  not model output.
+- When spans went from one `label` to a list of `labels`, the cache was
+  rewritten to follow, so a cached answer keeps reading under the one form
+  the value type accepts and nothing computed was thrown away.

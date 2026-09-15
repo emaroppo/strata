@@ -58,3 +58,19 @@ the only one expressible, which is the corner worth not painting into.
   that does not carry them before the round, not during it — a model that
   needs a feature nobody supplies would train on whatever a missing value
   degrades to, silently, and report a number for it.
+- `requires_features` means cannot predict without, not cannot train
+  without. A model that learns to infer a feature as an auxiliary task
+  wants it while training and never at inference, and declaring the
+  stronger thing would make that model inexpressible.
+- A feature's name is what the model calls it, distinct from its ref,
+  because what a model wants is not always named the way the catalog
+  stores it.
+- A version's manifest records the declarations it was built under, so a
+  materialised directory still says where its features came from once it
+  is somewhere else. Only the name is contract, since it is what
+  `requires_features` is checked against; source and ref are the catalog's
+  own account.
+- A member whose feature is under dispute is left out of the materialised
+  version and named in the manifest: two people answered the label set it
+  reads from differently, and neither answer can be told to a model as a
+  fact. It is back once someone settles it.

@@ -63,6 +63,31 @@ its ratios, and the catalog is reachable from both machines, so the
 version is frozen by the caller. Everything after that needs a GPU and the
 checkpoints, and both live on the host.
 
+## How the wire behaves
+
+The request types came first, and the wire was built from them, so the
+format was not retrofitted onto an interface that grew in process. Every
+request names the protocol, and the host checks it on every call, since a
+laptop can be upgraded or downgraded between two of them; the client's
+handshake runs once, since a host does not change release under a running
+command. A round is checked before the host accepts it, not inside the job:
+a caller that gets a 202 for a round that cannot run learns nothing until it
+polls. A job's result is set before its state reads done, or a caller that
+sees done first reads a job with no result and cannot tell success from
+loss.
+
+A refusal carries its reason in the body, and that reason is the whole value
+of the error: an unservable model says what to do about it, where a bare 400
+says nothing. A refusal is final and not retried; an unreachable host is
+retried, since it says nothing about the round.
+
+On the host, versions are materialised under their dataset and version, so
+two rounds over one version share a directory rather than each fetching a
+copy. Features and predictions cross keyed by checksum rather than as
+parallel lists: a caller keeping two lists aligned across a wire eventually
+does not, and a sample the catalog does not know is simply absent, where a
+positional answer could not say which.
+
 ## Consequences
 
 - What is sent is built from the host's own request models, so a field

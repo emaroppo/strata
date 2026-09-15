@@ -56,6 +56,48 @@ loader that will execute what it is handed turns every copied run into a
 code path. Anything a checkpoint needs beyond tensors and plain values is
 a change to this record, not to the flag.
 
+## What else a run records, and why
+
+- **The model's version.** A model is upgraded underneath a project, and
+  its version is bumped when a change makes old checkpoints unreadable. A
+  warm start across a version is refused: output neurons map to the class
+  list by position, so a mismatch corrupts rather than fails.
+- **The model reference, anchored.** Predicting or warm-starting from a run
+  later must not depend on the directory a file reference was relative to
+  still being there.
+- **The catalog, from the manifest.** Not from the request: the directory
+  is the record of what was trained on, and the one thing the local and
+  remote paths share.
+- **The experiment that asked for it,** so a study is a query over the
+  store rather than a walk of the ledger.
+- **What it saw.** The side of every sample in its manifest, the split as
+  realised, inherited or drawn, so it is asked of the run rather than of a
+  directory that may since have been deleted. A run from before this has no
+  rows, which means unknown, not empty.
+- **The machine, by name.** The id carries a host token for uniqueness;
+  the name is stored too because an id is immutable and a machine can be
+  renamed or handed on.
+- **The curve, kept by the handler** as well as forwarded to the caller. A
+  model that never calls back records none, which is the honest answer
+  rather than a fabricated one.
+
+Adding a class should not cost the rounds already trained. An image head
+grows: new neurons start from a fresh init while every existing class keeps
+the row it learned; any other change to the list shifts the index each
+neuron stands for, so the model is rebuilt. A checkpoint's saved
+configuration is provenance only: hyperparameters belong to
+`[model.params]`, and letting a checkpoint override them made editing them
+look like it did nothing. The label set's class list is append-only by
+convention rather than by constraint, because a run records the list it
+trained with, and that, not the catalog's row, is what a checkpoint is
+checked against.
+
+History and the latest run are ordered by creation time, the id breaking a
+tie, because a store can hold ids minted elsewhere. A merge copies metrics
+without their ids, since a metric's id is its store's numbering and the
+target mints its own. A run's short form drops the microseconds for people;
+the full id is what everything keys on and what a merge needs.
+
 ## Consequences
 
 - A run is written only once it finished; a round that died halfway

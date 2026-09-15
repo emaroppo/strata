@@ -50,3 +50,8 @@ this rule exists to close.
   change, never left behind as a re-exporting module. Promoting one to
   an export later is the reverse edit, and the test names every
   consumer that still uses the path.
+- The catalog is the durable asset: every other package is a producer or
+  a consumer of what it holds, and annotations outlive the tool that
+  collected them. So it may import `labels`, the standard library and its
+  own optional storage drivers, and never the labeller, modelling, Label
+  Studio or an ML framework.

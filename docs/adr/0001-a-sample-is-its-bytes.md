@@ -48,3 +48,10 @@ which is what keeps a review queue fast over a LAN.
   to its own samples.
 - Canonical form (record 0010) is what keeps the checksum honest: two
   documents that read identically must be one sample.
+- A materialised file's extension comes from the recorded source path,
+  because a checksum has none and some readers still look.
+- A sample row's metadata is outside its comparison and its hash: two rows
+  for the same sample are the same sample, whatever is recorded about
+  where it came from. A frozen row hashes every field it compares, and a
+  dict cannot be hashed, so a row carrying metadata could otherwise not be
+  put in a set at all.
