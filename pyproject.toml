@@ -20,7 +20,6 @@ strata-modelling = { workspace = true }
 strata-project = { workspace = true }
 strata-labeller = { workspace = true }
 strata-experiment = { workspace = true }
-strata-prepare-email = { workspace = true }
 strata-prepare-video = { workspace = true }
 strata-feature-store = { workspace = true }
 strata-post-process = { workspace = true }
@@ -47,7 +46,6 @@ testpaths = [
     "packages/project",
     "packages/labeller",
     "packages/experiment",
-    "packages/prepare-email",
     "packages/plugins",
 ]
 
@@ -68,7 +66,6 @@ src = [
     # Plugins. Listed for the same reason as the rest: without it ruff
     # reads their own namespace as third-party and reorders every import
     # block that mixes them with the packages they build on.
-    "packages/prepare-email",
     "packages/plugins/catalog/prepare-video",
 ]
 
@@ -94,7 +91,6 @@ include = [
     "packages/project/strata",
     "packages/labeller/strata",
     "packages/experiment/strata",
-    "packages/prepare-email/strata",
     "packages/plugins/catalog/prepare-video/strata",
 ]
 pythonVersion = "3.13"

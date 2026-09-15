@@ -86,9 +86,9 @@ Plugins are not packages of the system but extensions of one: the
 first-party ones live in [`strata-plugins`](packages/plugins/README.md),
 one distribution per plugin under the package it extends (video into
 grouped frames, for the catalog), and
-[`strata-prepare-email`](packages/prepare-email/README.md), mail into
-documents, is the emails demo project's own plugin, an example of one
-written outside these repositories.
+`strata-prepare-email`, mail into documents, is the emails demo project's
+own plugin (`strata-demo-emails`, beside these repositories), an example of
+one written outside them.
 
 Two sister packages hold the same instrument's other half and are read the
 same way: [`strata-feature-store`](packages/feature-store/README.md),

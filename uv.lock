@@ -23,7 +23,6 @@ members = [
     "strata-labels",
     "strata-modelling",
     "strata-post-process",
-    "strata-prepare-email",
     "strata-prepare-video",
     "strata-project",
 ]
@@ -2468,44 +2467,6 @@ provides-extras = ["test"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "pytest", specifier = ">=8.0" },
-    { name = "ruff", specifier = ">=0.6" },
-]
-
-[[package]]
-name = "strata-prepare-email"
-version = "0.1.0"
-source = { editable = "packages/prepare-email" }
-dependencies = [
-    { name = "strata-catalog" },
-    { name = "strata-labels" },
-]
-
-[package.optional-dependencies]
-test = [
-    { name = "pytest" },
-    { name = "strata-catalog", extra = ["test"] },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pyright" },
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
-    { name = "strata-catalog", editable = "packages/catalog" },
-    { name = "strata-catalog", extras = ["test"], marker = "extra == 'test'", editable = "packages/catalog" },
-    { name = "strata-labels", editable = "packages/labels" },
-]
-provides-extras = ["test"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pyright", specifier = ">=1.1" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "ruff", specifier = ">=0.6" },
 ]

@@ -1,0 +1,30 @@
+[submodule "packages/labels"]
+	path = packages/labels
+	url = ../strata-labels.git
+[submodule "packages/common"]
+	path = packages/common
+	url = ../strata-common.git
+[submodule "packages/catalog"]
+	path = packages/catalog
+	url = ../strata-catalog.git
+[submodule "packages/modelling"]
+	path = packages/modelling
+	url = ../strata-modelling.git
+[submodule "packages/project"]
+	path = packages/project
+	url = ../strata-project.git
+[submodule "packages/labeller"]
+	path = packages/labeller
+	url = ../strata-labeller.git
+[submodule "packages/experiment"]
+	path = packages/experiment
+	url = ../strata-experiment.git
+[submodule "packages/plugins"]
+	path = packages/plugins
+	url = ../strata-plugins.git
+[submodule "packages/feature-store"]
+	path = packages/feature-store
+	url = ../strata-feature-store.git
+[submodule "packages/post-process"]
+	path = packages/post-process
+	url = ../strata-post-process.git

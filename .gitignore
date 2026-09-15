@@ -44,3 +44,4 @@ __pycache__/
 *.pyc
 .venv/
 projects/*
+# The packages are submodules; their own ignore files cover their trees.
