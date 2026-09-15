@@ -126,7 +126,9 @@ docker compose up -d         # a Label Studio for development
 ```
 
 After a `git pull`, `git submodule update --init` brings each package to
-the commit this checkout names. The base install carries no ML framework.
+the commit this checkout names. A change to a package is committed and
+pushed in `packages/<name>`; this repository then records the new commit
+with `git add packages/<name>` and a commit of its own. The base install carries no ML framework.
 `config.toml` says where things are on this machine and nothing about a
 job; a command reads the one `$STRATA_CONFIG` names, so a project directory
 anywhere on the machine uses it. Credentials come from the environment. The
