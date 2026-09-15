@@ -2,7 +2,9 @@
 # Every package is a repository of its own, held here as a submodule so one
 # checkout carries the whole system. Plugins sit under packages/plugins by
 # the package they extend.
-members = ["packages/*", "packages/plugins/*/*"]
+# Plugins are listed by the package they extend; a new grouping under
+# packages/plugins is a new line here.
+members = ["packages/*", "packages/plugins/catalog/*"]
 # The plugins directory itself is a grouping, not a package.
 exclude = ["packages/plugins"]
 

@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -17,12 +19,16 @@ jobs:
       - run: uv run --no-sync ruff check .
       - run: uv run --no-sync ruff format --check .
 
-  # The base install has no ML framework: this run also proves it stays that way.
+  # Each package's own repository has the jobs that prove it stands alone;
+# this workspace's jobs prove the packages agree with each other. The base
+# install has no ML framework: this run also proves it stays that way.
   tests:
     name: tests (base install)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -48,6 +54,8 @@ jobs:
           --health-timeout 3s --health-retries 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -62,6 +70,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -73,49 +83,3 @@ jobs:
       # a real import rather than a missing one.
       - run: uv run --no-sync pyright
 
-  # What keeps each package publishable on its own. Every wheel is built,
-  # then each package is installed alone — with only what it declares, the
-  # other strata packages coming from those wheels as they would from an
-  # index — and its own tests run there. In a checkout everything is
-  # installed together, so a package quietly relying on one it does not
-  # declare passes every other job; this is the job it fails.
-  standalone:
-    name: standalone (${{ matrix.package }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - package: labels
-            install: strata-labels
-          - package: common
-            install: strata-common[migrations,service]
-          - package: catalog
-            install: strata-catalog[test,serve,s3] httpx
-          - package: modelling
-            install: strata-modelling[test,service] httpx
-          - package: project
-            install: strata-project[test]
-          - package: labeller
-            install: strata-labeller httpx fastapi
-          - package: experiment
-            install: strata-experiment[test]
-          - package: prepare-email
-            install: strata-prepare-email[test]
-          - package: prepare-video
-            install: strata-prepare-video[test]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-      - run: uv build --all-packages --wheel --out-dir dist
-      - run: uv venv --python 3.13 standalone
-      - name: install the package alone
-        # set -f: the extras' brackets are not a glob. --no-cache, because
-        # every package is 0.1.0 and uv would otherwise hand back whatever it
-        # built for that version last time rather than the wheel just built.
-        run: |
-          set -f
-          uv pip install --no-cache --python standalone/bin/python --find-links dist ${{ matrix.install }} pytest
-      - run: standalone/bin/python -m pytest -q packages/${{ matrix.package }}/tests

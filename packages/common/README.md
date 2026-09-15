@@ -28,8 +28,15 @@ alembic and refused on open until it has been, in either direction. Each
 package ships its chain and the command that runs it, so upgrading a
 package and then its database needs nothing from a checkout.
 
+## Decisions
+
+`docs/adr/NNNN`, wherever this package's code says it, is a record in the strata umbrella repository: https://github.com/emaroppo/strata/tree/main/docs/adr.
+
 ## Tests
 
 ```bash
-uv run pytest packages/common
+uv sync --find-links dist --group dev --extra migrations --extra service
+uv run pytest
 ```
+
+Inside the strata workspace: `uv run pytest packages/common` from its root.

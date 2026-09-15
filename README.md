@@ -65,8 +65,9 @@ what it got wrong. Each round the model improves and there is less to fix.
 
 ## The components
 
-Nine packages under one `strata` namespace, each installable on its own,
-each with a README of its own. The dependency graph is acyclic and
+Seven packages under one `strata` namespace, each a repository of its own
+with its README, its CI and its history, held here as submodules so one
+checkout carries the whole system. The dependency graph is acyclic and
 enforced by the build: `labels` and `common` are the leaves, `labeller`
 and `experiment` are peers at the top over the job they share, and the
 catalog may not import the tool that fills it.
@@ -80,15 +81,21 @@ catalog may not import the tool that fills it.
 | [`strata-project`](packages/project/README.md) | the job as a file: catalog, collections, label set, model; the host's settings | catalog, modelling |
 | [`strata-labeller`](packages/labeller/README.md) | the labelling loop, the review queue, and the Label Studio boundary | project, catalog, modelling |
 | [`strata-experiment`](packages/experiment/README.md) | an experiment as a file: stages, a grid, a ledger | project, catalog, modelling |
-| [`strata-prepare-email`](packages/prepare-email/README.md) | mail into documents: the email type and two converters | catalog |
-| [`strata-prepare-video`](packages/prepare-video/README.md) | video into grouped frames | catalog |
+
+Plugins are not packages of the system but extensions of one: the
+first-party ones live in [`strata-plugins`](packages/plugins/README.md),
+one distribution per plugin under the package it extends (video into
+grouped frames, for the catalog), and
+[`strata-prepare-email`](packages/prepare-email/README.md), mail into
+documents, is the emails demo project's own plugin, an example of one
+written outside these repositories.
 
 Two sister packages hold the same instrument's other half and are read the
 same way: [`strata-feature-store`](packages/feature-store/README.md),
 structured data with the same frozen versions, and
 [`strata-post-process`](packages/post-process/README.md), the
-transformations over it. Each is a repository of its own beside the
-others, with its own history and CI.
+transformations over it. Repositories of their own like the rest, held
+here the same way.
 
 It runs on one machine with nothing installed but Python, and scales out
 to a catalog on one host, object storage on another and a GPU on a third,
@@ -112,15 +119,20 @@ handle.
 ## Setup
 
 ```bash
+git clone --recurse-submodules <this repository>
 uv sync --extra image        # or --extra text, or --extra all
 cp config.example.toml config.toml
 docker compose up -d         # a Label Studio for development
 ```
 
-The base install carries no ML framework. `config.toml` says where things
-are on this machine and nothing about a job; credentials come from the
-environment. The catalog and labeller READMEs have the rest, and
-`deploy/` holds the two hosts' units and compose files.
+After a `git pull`, `git submodule update --init` brings each package to
+the commit this checkout names. The base install carries no ML framework.
+`config.toml` says where things are on this machine and nothing about a
+job; a command reads the one `$STRATA_CONFIG` names, so a project directory
+anywhere on the machine uses it. Credentials come from the environment. The
+catalog and labeller READMEs have the rest; each host's unit and compose
+file is in its package, under `deploy/catalog-host` and
+`deploy/modelling-host`.
 
 ## Tests
 
@@ -130,9 +142,10 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
-Each package's tests also pass with only that package installed, and CI
-checks it for all eight: every wheel built, the package installed alone,
-the others coming from those wheels as they would from an index.
+Each package's own repository checks that its tests pass with only that
+package installed, its wheel built and installed alone into a fresh
+environment. This workspace's CI checks that the packages agree with each
+other: one environment, every suite, every extra, and the types.
 
 ## Results
 

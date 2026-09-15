@@ -50,7 +50,7 @@ here fails in each package until that package handles it.
 
 ## Decisions
 
-Recorded in the umbrella repository's `docs/adr/`: the manifest as the
+Recorded in the strata umbrella repository's `docs/adr/` (https://github.com/emaroppo/strata/tree/main/docs/adr): the manifest as the
 contract between catalog and modelling (0004), the prediction cache's third
 input (0006), features as plain JSON (0011), and a label set declaring its
 shape (0014).
@@ -58,5 +58,8 @@ shape (0014).
 ## Tests
 
 ```bash
-uv run pytest packages/labels
+uv sync --find-links dist --group dev
+uv run pytest
 ```
+
+Inside the strata workspace: `uv run pytest packages/labels` from its root.

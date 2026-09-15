@@ -27,10 +27,19 @@ depends on the codec, and decoding in order is the only way the same
 frames come out on a second run. Determinism is what keeps a re-prepared
 corpus from re-checksumming into new samples.
 
+## Decisions
+
+`docs/adr/NNNN`, wherever this code says it, is a record in the strata
+umbrella repository: https://github.com/emaroppo/strata/tree/main/docs/adr.
+
 ## Tests
 
 ```bash
-uv run pytest packages/prepare-video
+cd catalog/prepare-video      # in the strata-plugins repository
+uv sync --find-links ../../dist --group dev --extra test   # after .github/sibling-wheels.sh labels common catalog
+uv run pytest
 ```
+
+Inside the strata workspace: `uv run pytest packages/plugins` from its root.
 
 Includes the catalog's `PreparerContract`.
