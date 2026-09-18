@@ -652,8 +652,10 @@ A project declares `[data] type`, which says what a sample is, and
 `[catalog] group_by`, which says what stays together when a version is
 split — two separate statements, where one word for both was why frames
 ingested as plain images silently ruined a train/val split. A project
-written with the old `[data] kind` is refused with the command that
-rewrites it, rather than guessed at.
+written with the old `[data] kind` is refused as an unknown key rather
+than guessed at; the rewrite is by hand, `kind = "frames"` becoming
+`type = "frames"` with `group_by = "video"`, and `kind = "images"` the
+media its label set annotates, `image` or `text`.
 
 ### Canonical form is the catalog's
 
