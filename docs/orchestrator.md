@@ -273,7 +273,7 @@ a promise.
 ## What it depends on, and what it does not
 
 - **Package:** `strata.experiment`, distribution `strata-experiment`.
-  Depends on `labels`, `common`, `catalog`, `modelling` and `labeller`,
+  Depends on `contracts`, `common`, `catalog`, `modelling` and `labeller`,
   since a full round needs the Label Studio stages. It is the top of the
   graph; nothing depends on it.
 - **The stage contract stays free of anything catalog-shaped.** Requests

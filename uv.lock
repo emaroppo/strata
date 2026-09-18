@@ -17,12 +17,13 @@ resolution-markers = [
 members = [
     "strata-catalog",
     "strata-common",
+    "strata-contracts",
     "strata-experiment",
     "strata-feature-store",
     "strata-labeller",
-    "strata-labels",
     "strata-modelling",
     "strata-post-process",
+    "strata-prepare",
     "strata-prepare-video",
     "strata-project",
 ]
@@ -2088,7 +2089,7 @@ dependencies = [
     { name = "alembic" },
     { name = "sqlalchemy" },
     { name = "strata-common", extra = ["migrations"] },
-    { name = "strata-labels" },
+    { name = "strata-contracts" },
 ]
 
 [package.optional-dependencies]
@@ -2110,9 +2111,6 @@ serve = [
     { name = "strata-common", extra = ["service"] },
     { name = "uvicorn" },
 ]
-test = [
-    { name = "pytest" },
-]
 
 [package.dev-dependencies]
 dev = [
@@ -2128,15 +2126,14 @@ requires-dist = [
     { name = "boto3", marker = "extra == 's3'", specifier = ">=1.34" },
     { name = "fastapi", marker = "extra == 'serve'", specifier = ">=0.110" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'postgres'", specifier = ">=3.2" },
-    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
     { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "strata-catalog", extras = ["s3", "serve", "postgres"], marker = "extra == 'all'", editable = "packages/catalog" },
     { name = "strata-common", extras = ["migrations"], editable = "packages/common" },
     { name = "strata-common", extras = ["service"], marker = "extra == 'serve'", editable = "packages/common" },
-    { name = "strata-labels", editable = "packages/labels" },
+    { name = "strata-contracts", editable = "packages/contracts" },
     { name = "uvicorn", marker = "extra == 'serve'", specifier = ">=0.29" },
 ]
-provides-extras = ["s3", "serve", "postgres", "all", "test"]
+provides-extras = ["s3", "serve", "postgres", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -2187,6 +2184,35 @@ dev = [
 ]
 
 [[package]]
+name = "strata-contracts"
+version = "0.1.0"
+source = { editable = "packages/contracts" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "strata-common" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.0" },
+    { name = "strata-common", editable = "packages/common" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "ruff", specifier = ">=0.6" },
+]
+
+[[package]]
 name = "strata-experiment"
 version = "0.1.0"
 source = { editable = "packages/experiment" }
@@ -2194,7 +2220,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "strata-catalog" },
     { name = "strata-common" },
-    { name = "strata-labels" },
+    { name = "strata-contracts" },
     { name = "strata-modelling" },
     { name = "strata-project" },
 ]
@@ -2217,7 +2243,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
     { name = "strata-catalog", editable = "packages/catalog" },
     { name = "strata-common", editable = "packages/common" },
-    { name = "strata-labels", editable = "packages/labels" },
+    { name = "strata-contracts", editable = "packages/contracts" },
     { name = "strata-modelling", editable = "packages/modelling" },
     { name = "strata-project", editable = "packages/project" },
 ]
@@ -2285,8 +2311,9 @@ dependencies = [
     { name = "label-studio-sdk" },
     { name = "rich" },
     { name = "strata-catalog" },
-    { name = "strata-labels" },
+    { name = "strata-contracts" },
     { name = "strata-modelling" },
+    { name = "strata-prepare" },
     { name = "strata-project" },
     { name = "typer" },
 ]
@@ -2305,8 +2332,9 @@ requires-dist = [
     { name = "label-studio-sdk", specifier = ">=1.0" },
     { name = "rich", specifier = ">=13.0" },
     { name = "strata-catalog", editable = "packages/catalog" },
-    { name = "strata-labels", editable = "packages/labels" },
+    { name = "strata-contracts", editable = "packages/contracts" },
     { name = "strata-modelling", editable = "packages/modelling" },
+    { name = "strata-prepare", editable = "packages/prepare" },
     { name = "strata-project", editable = "packages/project" },
     { name = "typer", specifier = ">=0.9" },
 ]
@@ -2321,31 +2349,6 @@ dev = [
 ]
 
 [[package]]
-name = "strata-labels"
-version = "0.1.0"
-source = { editable = "packages/labels" }
-dependencies = [
-    { name = "pydantic" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pyright" },
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.0" }]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pyright", specifier = ">=1.1" },
-    { name = "pytest", specifier = ">=8.0" },
-    { name = "ruff", specifier = ">=0.6" },
-]
-
-[[package]]
 name = "strata-modelling"
 version = "0.1.0"
 source = { editable = "packages/modelling" }
@@ -2353,7 +2356,7 @@ dependencies = [
     { name = "alembic" },
     { name = "sqlalchemy" },
     { name = "strata-common", extra = ["migrations"] },
-    { name = "strata-labels" },
+    { name = "strata-contracts" },
 ]
 
 [package.optional-dependencies]
@@ -2409,7 +2412,7 @@ requires-dist = [
     { name = "strata-catalog", marker = "extra == 'service'", editable = "packages/catalog" },
     { name = "strata-common", extras = ["migrations"], editable = "packages/common" },
     { name = "strata-common", extras = ["service"], marker = "extra == 'service'", editable = "packages/common" },
-    { name = "strata-labels", editable = "packages/labels" },
+    { name = "strata-contracts", editable = "packages/contracts" },
     { name = "strata-modelling", extras = ["image", "text"], marker = "extra == 'all'", editable = "packages/modelling" },
     { name = "timm", marker = "extra == 'image'", specifier = ">=1.0" },
     { name = "tokenizers", marker = "extra == 'text'", specifier = ">=0.22,<0.23" },
@@ -2472,18 +2475,55 @@ dev = [
 ]
 
 [[package]]
-name = "strata-prepare-video"
+name = "strata-prepare"
 version = "0.1.0"
-source = { editable = "packages/plugins/catalog/prepare-video" }
+source = { editable = "packages/prepare" }
 dependencies = [
-    { name = "opencv-python-headless" },
-    { name = "strata-catalog" },
+    { name = "strata-common" },
+    { name = "strata-contracts" },
 ]
 
 [package.optional-dependencies]
 test = [
     { name = "pytest" },
-    { name = "strata-catalog", extra = ["test"] },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
+    { name = "strata-common", editable = "packages/common" },
+    { name = "strata-contracts", editable = "packages/contracts" },
+]
+provides-extras = ["test"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "ruff", specifier = ">=0.6" },
+]
+
+[[package]]
+name = "strata-prepare-video"
+version = "0.1.0"
+source = { editable = "packages/plugins/prepare/prepare-video" }
+dependencies = [
+    { name = "opencv-python-headless" },
+    { name = "strata-contracts" },
+    { name = "strata-prepare" },
+]
+
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+    { name = "strata-prepare", extra = ["test"] },
 ]
 
 [package.dev-dependencies]
@@ -2497,8 +2537,9 @@ dev = [
 requires-dist = [
     { name = "opencv-python-headless", specifier = ">=4.10" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
-    { name = "strata-catalog", editable = "packages/catalog" },
-    { name = "strata-catalog", extras = ["test"], marker = "extra == 'test'", editable = "packages/catalog" },
+    { name = "strata-contracts", editable = "packages/contracts" },
+    { name = "strata-prepare", editable = "packages/prepare" },
+    { name = "strata-prepare", extras = ["test"], marker = "extra == 'test'", editable = "packages/prepare" },
 ]
 provides-extras = ["test"]
 
@@ -2515,7 +2556,7 @@ version = "0.1.0"
 source = { editable = "packages/project" }
 dependencies = [
     { name = "strata-catalog" },
-    { name = "strata-labels" },
+    { name = "strata-contracts" },
     { name = "strata-modelling" },
     { name = "tomlkit" },
 ]
@@ -2536,7 +2577,7 @@ dev = [
 requires-dist = [
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
     { name = "strata-catalog", editable = "packages/catalog" },
-    { name = "strata-labels", editable = "packages/labels" },
+    { name = "strata-contracts", editable = "packages/contracts" },
     { name = "strata-modelling", editable = "packages/modelling" },
     { name = "tomlkit", specifier = ">=0.13" },
 ]

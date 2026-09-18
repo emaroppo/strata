@@ -65,27 +65,29 @@ what it got wrong. Each round the model improves and there is less to fix.
 
 ## The components
 
-Seven packages under one `strata` namespace, each a repository of its own
+Eight packages under one `strata` namespace, each a repository of its own
 with its README, its CI and its history, held here as submodules so one
 checkout carries the whole system. The dependency graph is acyclic and
-enforced by the build: `labels` and `common` are the leaves, `labeller`
-and `experiment` are peers at the top over the job they share, and the
-catalog may not import the tool that fills it.
+enforced by the build: `common` is the leaf and `contracts` sits on it,
+`labeller` and `experiment` are peers at the top over the job they share,
+and the catalog and the preparers that fill it never import each other —
+what passes between them is a prepared index, defined in `contracts`.
 
 | package | what it is | depends on |
 |---|---|---|
-| [`strata-labels`](packages/labels/README.md) | what an annotation is: value types, schemas, the manifest a trainer is handed | pydantic |
+| [`strata-contracts`](packages/contracts/README.md) | what crosses a boundary: sample types and the prepared index going into a catalog, annotation values and schemas, the manifest a trainer is handed | pydantic, common |
 | [`strata-common`](packages/common/README.md) | migration plumbing, a service bootstrap, an entry-point resolver, the canonical form that gets hashed | nothing |
-| [`strata-catalog`](packages/catalog/README.md) | samples, storage, annotations, dataset versions; SQLite and files, or Postgres and a bucket | labels, common |
-| [`strata-modelling`](packages/modelling/README.md) | train and predict; model plugins, runs, checkpoints, a prediction cache; the training service | labels, common |
+| [`strata-catalog`](packages/catalog/README.md) | samples, storage, annotations, dataset versions; SQLite and files, or Postgres and a bucket | contracts, common |
+| [`strata-prepare`](packages/prepare/README.md) | raw data into a prepared corpus: preparers, the folder ones, the conformance suite | contracts, common |
+| [`strata-modelling`](packages/modelling/README.md) | train and predict; model plugins, runs, checkpoints, a prediction cache; the training service | contracts, common |
 | [`strata-project`](packages/project/README.md) | the job as a file: catalog, collections, label set, model; the host's settings | catalog, modelling |
-| [`strata-labeller`](packages/labeller/README.md) | the labelling loop, the review queue, and the Label Studio boundary | project, catalog, modelling |
+| [`strata-labeller`](packages/labeller/README.md) | the labelling loop, the review queue, and the Label Studio boundary | project, catalog, prepare, modelling |
 | [`strata-experiment`](packages/experiment/README.md) | an experiment as a file: stages, a grid, a ledger | project, catalog, modelling |
 
 Plugins are not packages of the system but extensions of one: the
 first-party ones live in [`strata-plugins`](packages/plugins/README.md),
 one distribution per plugin under the package it extends (video into
-grouped frames, for the catalog), and
+grouped frames, for `prepare`), and
 `strata-prepare-email`, mail into documents, is the emails demo project's
 own plugin (`strata-demo-emails`, beside these repositories), an example of
 one written outside them.
@@ -101,8 +103,9 @@ It runs on one machine with nothing installed but Python, and scales out
 to a catalog on one host, object storage on another and a GPU on a third,
 without a consumer noticing the difference. Images and text documents are
 both supported, for whole-sample classification, bounding boxes or
-character spans; a corpus that is not already the shape a catalog holds,
-mail or video, is converted first by a preparer. Two limits up front: no
+character spans. Every corpus is prepared before a catalog takes it: mail
+or video is converted by a preparer, and a folder already in shape is
+indexed where it sits. Two limits up front: no
 detection baseline ships, so a bbox project brings its own model; and the
 shipped span tagger refuses a label set that allows overlapping or
 multi-label regions, which the catalog and the review queue otherwise

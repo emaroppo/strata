@@ -19,10 +19,11 @@ That principle decides most of what follows.
 
 ## The packages
 
-Seven live under a `strata` PEP 420 namespace — `strata.labels`,
-`strata.catalog`, `strata.modelling`, `strata.project`, `strata.labeller`,
-`strata.common`, `strata.experiment` — distributed as `strata-labels` and so on. Namespacing
-rather than bare top-level names because `catalog` and `labels` collide
+Eight live under a `strata` PEP 420 namespace — `strata.contracts`,
+`strata.catalog`, `strata.prepare`, `strata.modelling`, `strata.project`,
+`strata.labeller`, `strata.common`, `strata.experiment` — distributed as
+`strata-contracts` and so on. Namespacing
+rather than bare top-level names because `catalog` and `contracts` collide
 with almost anything in a shared environment, and because another package
 then costs nothing. Independent
 installability is unaffected: this is how `google.cloud.*` works.
@@ -31,23 +32,26 @@ Short names are used below for readability.
 
 | Package | Owns | Depends on |
 | --- | --- | --- |
-| `labels` | what an annotation *is*: value types, schema descriptors, the indexing contract; and the manifest a trainer is handed | — |
-| `catalog` | samples, storage, grouping, annotations, datasets | `labels` |
-| `modelling` | train and predict; model plugins; runs and checkpoints | `catalog`, `labels` |
-| `project` | the job as a file: catalog, collections, label set, model; the host's settings | `catalog`, `modelling`, `labels` |
-| `labeller` | active learning, and the Label Studio adapter that feeds it | `project`, `catalog`, `modelling`, `labels` |
+| `contracts` | what crosses a boundary: what an annotation *is* (value types, schema descriptors, the indexing contract); what enters a catalog (sample types, the metadata each requires, the prepared index); and the manifest a trainer is handed | `common` |
+| `catalog` | samples, storage, canonical form, grouping, annotations, datasets | `contracts` |
+| `prepare` | getting raw data into a prepared corpus: preparers, the folder ones, the conformance suite | `contracts`, `common` |
+| `modelling` | train and predict; model plugins; runs and checkpoints | `catalog`, `contracts` |
+| `project` | the job as a file: catalog, collections, label set, model; the host's settings | `catalog`, `modelling`, `contracts` |
+| `labeller` | active learning, and the Label Studio adapter that feeds it | `project`, `catalog`, `prepare`, `modelling`, `contracts` |
 | `common` | what `catalog` and `modelling` both need and neither owns: migration plumbing, an engine factory, a service bootstrap, an entry-point resolver, the canonical form that gets hashed | — |
-| `experiment` | an experiment as a file: stages from a config, a grid over them, a ledger of what ran | `project`, `catalog`, `modelling`, `labels`, `common` |
+| `experiment` | an experiment as a file: stages from a config, a grid over them, a ledger of what ran | `project`, `catalog`, `modelling`, `contracts`, `common` |
 
-Acyclic, with `labels` and `common` as the leaves and the two tools at the
+Acyclic, with `common` as the leaf, `contracts` over it, and the two tools at the
 top: `labeller` and `experiment` are peers over `project`, the job both
 read, and neither imports the other (`docs/adr/0016`). `common`
 declares no dependency of its own; what a module needs sits behind an
 extra, so a plugin resolver never pulls in a database driver.
 
-Two converter plugins sit outside the table. `strata-prepare-email` and
-`strata-prepare-video` turn a corpus into a sample type the catalog admits;
-each depends on `catalog`, and nothing depends on them.
+`prepare` and `catalog` never import each other: what passes between them is
+a prepared index, which `contracts` defines (`docs/adr/0040`). Two preparer
+plugins sit outside the table. `strata-prepare-video` and the emails demo's
+`strata-prepare-email` turn a corpus into a sample type a catalog takes; each
+depends on `prepare`, and nothing depends on them.
 
 `strata-common` sits under `catalog` and `modelling`, holding what both
 need and neither owns — running a migration chain from an installed wheel,
@@ -55,8 +59,8 @@ starting a service from the environment, resolving a name through an
 entry-point group, the canonical form that gets hashed — and nothing else:
 it declares no dependency
 of its own, its extras name what each module needs, and it never mentions
-a label, a sample or a run. It is not `labels`, which every consumer already
-imports and which stays about what an annotation is.
+a label, a sample or a run. It is not `contracts`, which every consumer already
+imports and which stays about what crosses between packages.
 
 `labeller` is deliberately thin — active learning plus a UI adapter. The
 centre of gravity is the catalog. `project` is thinner still: the one
@@ -86,23 +90,23 @@ change:
 
 - **Versions are per package.** Each is released on its own, at 0.x, where a
   minor release may break things. A package depending on another requires
-  the minor it was tested with — `strata-labels>=0.1,<0.2` — so moving to a
+  the minor it was tested with — `strata-contracts>=0.1,<0.2` — so moving to a
   new one is a deliberate change in the dependent, not something an install
   does on its own.
-- **The manifest** (`strata.labels`) states its format, and a reader refuses
+- **The manifest** (`strata.contracts`) states its format, and a reader refuses
   one it does not know. The number goes up only when an older reader would
   misread a newer file; a field added with a default does not need it.
 - **The wire** between the laptop and the modelling host states a protocol,
   checked on `/healthz` before anything is sent, on the same rule.
-- **A label type** is a member of the unions in `strata.labels`, and an
+- **A label type** is a member of the unions in `strata.contracts`, and an
   older reader fails loudly on one it does not know. Adding one is a minor
-  release of `labels`, with a sample in `strata.labels.examples`. A consumer
+  release of `contracts`, with a sample in `strata.contracts.examples`. A consumer
   supports it once it has released requiring that version and its own
   label-type tests pass for it. Renaming or removing a field of an existing
   type is a breaking release.
-- **Label-type tests live with each layer.** `labels` checks what it alone
+- **Label-type tests live with each layer.** `contracts` checks what it alone
   can; the catalog, modelling and the labeller each run their own layer
-  against every sample `labels` ships. None reaches across a package
+  against every sample `contracts` ships. None reaches across a package
   boundary, so each runs in its own repository, and a new type fails in
   each consumer until that consumer handles it.
 - **The model contract** lets a caller ask a model to stop early: `on_epoch`
@@ -112,14 +116,14 @@ change:
   `strata-modelling-migrate` run the chain inside the installed wheel, so
   upgrading a package and then its database needs nothing from a checkout.
 
-## `labels`
+## `contracts`
 
 The neutral representation, shared by everything.
 
-**Label Studio's format stays out of it.** `labels` holds value types,
+**Label Studio's format stays out of it.** `contracts` holds value types,
 schema descriptors, encode/decode/validate; Label Studio's XML and result
 handling live in `labeller`, under `strata.labeller.labelstudio`, as a
-boundary adapter. Were they in `labels`, the catalog would be shaped by a
+boundary adapter. Were they in `contracts`, the catalog would be shaped by a
 replaceable annotation UI. Storing canonicalised Label Studio results was
 right while Label Studio was the centre — predictions and annotations
 shared one format and its own tools worked on a handoff — and wrong as the
@@ -129,7 +133,7 @@ record, scrubbed of its volatile fields on the way in.
 **The indexing contract.** The catalog cannot index opaque JSON, but it does
 not need to understand every task type either. It needs each schema to
 answer one question: *which classes does this annotation assert?* That is
-`classes_asserted` on the schema in `strata.labels`. A new task type
+`classes_asserted` on the schema in `strata.contracts`. A new task type
 implements the contract and becomes queryable without the catalog changing.
 
 **A schema also declares what shape its values may take.** Spans were the
@@ -224,8 +228,8 @@ last year" and "boxes, labelled this year" coexist without either being
 owned by the tool that produced it.
 
 **A grouping is a metadata key, and nothing groups unless a project asks.**
-Frames carry `video`, written at ingest by the sample type; a preparer or a
-project can write any key of its own — the actor in frame, the thread a
+Frames carry `video`, which the frames type requires and a preparer states;
+a preparer or a project can write any key of its own — the actor in frame, the thread a
 message belongs to. A version is frozen with `group_by` naming the key
 whose values stay on one side, or none, and records which. So the same
 samples can be split by video for one study and by actor for another, a
@@ -543,32 +547,40 @@ cacheable forever. One source of truth, and it fits the split above — bytes
 for training go straight from object storage at full speed, bytes for
 humans go through a Python hop at human speed, where it costs nothing.
 
-## Sample types: a plugin surface in `catalog`
+## Sample types: a plugin surface in `contracts`
 
 What a sample **is** — a photograph, a video frame, a satellite scene, a
-document — belongs to the catalog, not to the labelling tool, which once
-defined it in three places: an extension list, a grouping rule and a
-metadata lambda.
+document — is a fact about the data, not about the labelling tool, which
+once defined it in three places: an extension list, a grouping rule and a
+metadata lambda. It lives in `contracts`, beside the manifest, because both
+the preparer that produces a corpus and the catalog that takes it need it,
+and neither should need the other (`docs/adr/0040`).
 
-A sample type is a plugin owning what differs per kind of data at ingest:
+A sample type is a plugin declaring what a sample of its kind is and what
+it must arrive with:
 
 ```python
 class Satellite(Image):
-    media = "image"
-    subtype = "satellite"
+    segment = "satellite"
     extensions = frozenset({"tif", "tiff"})
 
-    def metadata_for(self, path) -> dict: ...  # bounds, CRS, capture time, scene
+    class Metadata(Image.Metadata):
+        crs: str  # required: a scene without one is refused
+        captured_at: str | None = None
 ```
 
 Anything a split might group by — the scene, the video — is a key in that
-metadata, and a project names it when it freezes a version.
+metadata, and a project names it when it freezes a version. A key a type
+does not declare is kept as the preparer wrote it; a key becomes required
+only when a type says so.
 
 **Inheritance is safe here**, unlike for label sets. Classes map to a
 checkpoint's output neurons by position, so a parent label set gaining a
 class would silently reindex its children — which is why label sets are
 copied rather than inherited. A sample type is code, not stored data, and
-`Satellite(Image)` overriding one method has nothing at a distance.
+`Satellite(Image)` adding a requirement has nothing at a distance. A
+subtype's `Metadata` has to extend its parent's, so where a `Frames` is
+accepted a subtype of it still carries `video`.
 
 **Nothing in the schema changes.** `sample.media` and `sample.subtype` are
 free strings and `metadata` is arbitrary JSON. That a new type needs no
@@ -577,20 +589,21 @@ finished.
 
 Three decisions, settled:
 
-**Extensions are an allow list, not a discovery filter.** Ingest walks what
-it is pointed at; the user is responsible for a sensibly arranged folder.
-Extensions are then a check — files outside the list are skipped *and
-reported*, with the count and the extensions named, and a walk that matches
-nothing is an error rather than an empty success. Filtering silently is how
-a corpus ends up quietly smaller than the directory it came from, which is
-the failure this whole design keeps running into.
+**A corpus declares itself, and is taken whole or not at all.** Ingest no
+longer walks a directory and guesses: it reads the prepared index, which
+names the type and every file, and checks each against it — inside the
+root, present, admitted by extension, meeting `Metadata`. Any shortfall
+refuses the corpus with every one listed, before anything is written. A
+file under the root the index does not name is counted and said. Filtering
+silently is how a corpus ends up quietly smaller than the directory it came
+from, which is the failure this whole design keeps running into.
 
 **`labeller` keeps only Label Studio.** `data_key` and
 the template name are Label Studio's wire format and config selection, and
 both derive from the type's `media` string. What a file *is* stops being the
 labelling tool's business.
 
-**Built-in types are entry points too**, declared in `catalog`'s own
+**Built-in types are entry points too**, declared in `contracts`'s own
 distribution exactly as the baselines are in `modelling`'s. One lookup path,
 and `available()` answers truthfully for everything — which matters more
 here than for models, because a type that fails to resolve is a data
@@ -623,13 +636,14 @@ satellite                   Satellite(Image)
 satellite/multispectral     Multispectral(Satellite)
 ```
 
-Two invariants, checked at registration because both fail silently:
+Three invariants, checked at registration because each fails silently:
 
 - **A subclass may not change `media`.** `Satellite(Image)` declaring
   `media = "raster"` would break substitution with nothing to show for it —
   a query for images would quietly stop returning satellite scenes.
 - **The stored path must be the class chain.** Otherwise the string and the
   hierarchy drift, and the two answers to "is this an image" disagree.
+- **A subclass may not require less.** Its `Metadata` extends its parent's.
 
 The stored pair is a denormalisation of the hierarchy, not an independent
 fact.
@@ -641,21 +655,25 @@ ingested as plain images silently ruined a train/val split. A project
 written with the old `[data] kind` is refused with the command that
 rewrites it, rather than guessed at.
 
-### A fourth responsibility: canonical form
+### Canonical form is the catalog's
 
-A type also says what form its bytes are stored in. For images that is
-nothing — the default returns them untouched, and ingest reads no file at
-all for such a type, so a corpus is still hardlinked rather than copied. For
-text it is UTF-8, LF, NFC and no BOM.
+What form a sample's bytes are stored in decides what its checksum
+addresses, so it belongs to the catalog that stores them
+(`strata.catalog.canonical`). It is set per media: images have none, and
+ingest reads no file for them, so a corpus is still hardlinked rather than
+copied; text is UTF-8, LF, NFC and no BOM. A plugin type needing its own
+registers one under `strata.canonical_forms` by its type name, and the
+nearest registered form along the class chain wins over the media's.
 
-It sits here rather than anywhere else because it is a fact about the data,
-and it earns its place for a reason images never surfaced: a span annotation
-is a pair of character offsets, so the document a reviewer's browser
-rendered and the document a tokenizer reads have to be the same characters.
-A browser normalises line endings on its own. Measured on one prepared
+It earns its place for a reason images never surfaced: a span annotation is
+a pair of character offsets, so the document a reviewer's browser rendered
+and the document a tokenizer reads have to be the same characters. A
+browser normalises line endings on its own. Measured on one prepared
 corpus, 3.2% of documents carried CRLF, and a 144-document slice put 19
 spans on the wrong characters when their offsets were carried across
-unmapped.
+unmapped. So a preparer that ships spans writes its text canonical already,
+and a catalog refuses a candidate annotation on bytes it would rewrite
+rather than store offsets that address other characters.
 
 **Canonicalisation, and deliberately not normalisation.** The test is
 whether two independent implementations would produce identical bytes.
@@ -667,34 +685,39 @@ guessed for the same reason a merge refuses rather than resolves — a
 mojibake document ingests, renders as something plausible, and is annotated
 against characters that were never there.
 
-### The companion surface: preparers
+### Preparing a corpus: `prepare`
 
-A type says what the catalog holds;
-almost no corpus arrives that way. Mail arrives as `.eml` or as message
-JSON, frames arrive as video — and nothing in the catalog makes frames.
+A type says what a catalog takes; almost no corpus arrives that way. Mail
+arrives as `.eml` or as message JSON, frames arrive as video, and even a
+folder of pictures arrives without a word about what it is.
 
-A **preparer** converts a corpus into what a type stores, writes the files
-and an index of what it knew, and stops. `ingest` still catalogues. Keeping
-the two apart is what stops a converter becoming a second implementation of
-content addressing, grouping and collections.
+A **preparer** reads what a corpus arrives as, writes files a type admits
+and a prepared index of what it knew about each, and stops. A catalog
+ingests the index. Keeping the two apart is what stops a converter becoming
+a second implementation of content addressing, grouping and collections,
+and the index is the whole of what passes between them: `prepare` never
+imports `catalog`, nor the reverse.
 
-Two consequences worth stating.
+Three consequences worth stating.
 
-**Grouping becomes declared rather than inferred.** The frames type used to
-read the directory a frame sat in, which is a convention two pieces of code
-have to agree about. What extracted the frames *knows* they are one video,
-and says so in the index under `video`; the directory rule stays as the
-fallback for a corpus nobody prepared.
+**Grouping is declared, never inferred.** What extracted the frames *knows*
+they are one video, and says so under `video`; the frames type requires it.
+A folder of frames already extracted is declared by `frames-folder`, which
+takes each frame's directory as its video and refuses a frame sitting in the
+root rather than making it a group of one.
 
-**Determinism is the contract that matters.** A conversion that produces
+**A corpus already in shape is prepared in place.** The folder preparers
+carry each file across by hardlink; run over the data root itself, they
+write only the index.
+
+**Determinism is the contract that matters.** A preparer that produces
 different bytes on a second run re-checksums the corpus, and re-checksumming
 an annotated corpus does not lose the annotations — it detaches them, which
 is the quieter and worse failure. `PreparerContract` checks that, along with
-the output being admitted and already canonical for the type it claims to
-produce.
+the output meeting the type it declares, by the same check a catalog runs.
 
-They ship as their own distributions: a converter carries a mail parser or a
-video decoder, and a catalog should not.
+A preparer carrying a mail parser or a video decoder ships as its own
+distribution; `prepare` holds only the framework and the folder preparers.
 
 ## Costs, recorded deliberately
 

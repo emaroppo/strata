@@ -54,3 +54,4 @@ is one road on it, with the reason it goes that way.
 | [0037](0037-a-stage-is-keyed-on-everything-upstream.md) | A stage is keyed on everything upstream, and a record is never invalidated |
 | [0038](0038-a-manifest-need-not-come-from-a-catalog.md) | A manifest need not come from a catalog, and null means the producer did not say |
 | [0039](0039-a-schema-answers-which-classes-a-value-asserts.md) | A schema answers which classes a value asserts, and the catalog indexes nothing else |
+| [0040](0040-what-enters-a-catalog-is-declared-outside-it.md) | What enters a catalog is declared outside it, and a type's metadata is a contract |

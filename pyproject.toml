@@ -4,7 +4,7 @@
 # the package they extend.
 # Plugins are listed by the package they extend; a new grouping under
 # packages/plugins is a new line here.
-members = ["packages/*", "packages/plugins/catalog/*"]
+members = ["packages/*", "packages/plugins/prepare/*"]
 # The plugins directory itself is a grouping, not a package.
 exclude = ["packages/plugins"]
 
@@ -13,7 +13,8 @@ exclude = ["packages/plugins"]
 # these, and a package alone resolves from an index or from wheels built
 # beside it (see its ci.yml).
 [tool.uv.sources]
-strata-labels = { workspace = true }
+strata-contracts = { workspace = true }
+strata-prepare = { workspace = true }
 strata-common = { workspace = true }
 strata-catalog = { workspace = true }
 strata-modelling = { workspace = true }
@@ -39,9 +40,10 @@ dev = [
 # share test basenames with each other, so they run from their own
 # directories (uv run pytest packages/feature-store), as their CI does.
 testpaths = [
-    "packages/labels",
+    "packages/contracts",
     "packages/common",
     "packages/catalog",
+    "packages/prepare",
     "packages/modelling",
     "packages/project",
     "packages/labeller",
@@ -56,9 +58,10 @@ line-length = 100
 # tomllib as third-party and reorders every import block that uses it.
 target-version = "py313"
 src = [
-    "packages/labels",
+    "packages/contracts",
     "packages/common",
     "packages/catalog",
+    "packages/prepare",
     "packages/modelling",
     "packages/project",
     "packages/labeller",
@@ -66,7 +69,7 @@ src = [
     # Plugins. Listed for the same reason as the rest: without it ruff
     # reads their own namespace as third-party and reorders every import
     # block that mixes them with the packages they build on.
-    "packages/plugins/catalog/prepare-video",
+    "packages/plugins/prepare/prepare-video",
 ]
 
 [tool.ruff.lint]
@@ -84,14 +87,15 @@ select = ["E", "F", "I", "B", "SIM", "DTZ", "UP", "C4", "RUF"]
 # installed, as CI's extras job does, so an optional framework is a real
 # import rather than a missing one.
 include = [
-    "packages/labels/strata",
+    "packages/contracts/strata",
     "packages/common/strata",
     "packages/catalog/strata",
+    "packages/prepare/strata",
     "packages/modelling/strata",
     "packages/project/strata",
     "packages/labeller/strata",
     "packages/experiment/strata",
-    "packages/plugins/catalog/prepare-video/strata",
+    "packages/plugins/prepare/prepare-video/strata",
 ]
 pythonVersion = "3.13"
 venvPath = "."

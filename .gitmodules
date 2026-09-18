@@ -1,6 +1,6 @@
-[submodule "packages/labels"]
-	path = packages/labels
-	url = ../strata-labels.git
+[submodule "packages/contracts"]
+	path = packages/contracts
+	url = ../strata-contracts.git
 [submodule "packages/common"]
 	path = packages/common
 	url = ../strata-common.git
@@ -28,3 +28,6 @@
 [submodule "packages/post-process"]
 	path = packages/post-process
 	url = ../strata-post-process.git
+[submodule "packages/prepare"]
+	path = packages/prepare
+	url = ../strata-prepare.git
