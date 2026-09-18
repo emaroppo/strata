@@ -122,7 +122,10 @@ handle.
 
 ## Setup
 
+Needs `git` and [uv](https://docs.astral.sh/uv/), which fetches Python 3.13 itself:
+
 ```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh     # uv, if it is not installed
 git clone --recurse-submodules <this repository>
 uv sync --extra image        # or --extra text, or --extra all
 cp config.example.toml config.toml
@@ -138,7 +141,8 @@ job; a command reads the one `$STRATA_CONFIG` names, so a project directory
 anywhere on the machine uses it. Credentials come from the environment. The
 catalog and labeller READMEs have the rest; each host's unit and compose
 file is in its package, under `deploy/catalog-host` and
-`deploy/modelling-host`.
+`deploy/modelling-host`; the catalog README's "A catalog host" says how
+to set one up from nothing.
 
 ## Tests
 
