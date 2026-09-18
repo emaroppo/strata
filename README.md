@@ -15,6 +15,7 @@ and a project is a file that names the ones it uses.
 
 ```toml
 project = "cats-dogs"          # a project directory: catalog, label set, model
+name = "lr-sweep"              # what its trials are listed and recorded under
 
 [[stage]]
 use = "dataset"                # freeze what is labelled into a version
