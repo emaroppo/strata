@@ -8,7 +8,7 @@ months later.
 Records 1 to 17 were written on 2026-09-12 from the reasoning the code had
 carried in its docstrings since each decision was made; 18 to 39 on
 2026-09-14, from a pass over every docstring and comment for decisions no
-record yet stated. `roadmap.md` says when each was made. A
+record yet stated. A
 docstring now states what a function promises and, where a decision
 shaped it, names the record here. `architecture.md` is the map; a record
 is one road on it, with the reason it goes that way.

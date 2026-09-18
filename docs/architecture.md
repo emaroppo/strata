@@ -1,8 +1,7 @@
 # Architecture
 
 The map as built: what the packages are, what each owns, and the contracts
-between them. `orchestrator.md` holds the experiment file's design in full;
-`roadmap.md` is what is decided and not yet here, and `TODO.md` its tasks.
+between them. `orchestrator.md` holds the experiment file's design in full.
 Where a section says why something is the way it is, that is the reasoning
 that survived contact with real data; where the reasoning was a decision
 with a live alternative, it is an ADR in `adr/`.

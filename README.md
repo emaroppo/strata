@@ -118,7 +118,6 @@ handle.
 - [`docs/architecture.md`](docs/architecture.md): the map, and the rules for releasing the packages separately.
 - [`docs/adr/`](docs/adr/README.md): one file per decision, with what goes wrong under the alternative.
 - [`docs/orchestrator.md`](docs/orchestrator.md): the experiment file's design in full.
-- [`docs/roadmap.md`](docs/roadmap.md): how it was built, and what it cost.
 
 ## Setup
 

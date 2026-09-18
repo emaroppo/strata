@@ -29,7 +29,7 @@ config*.toml
 # given host fills them is that host's business.
 /scripts/secrets.sh
 # Design that has not been decided. Kept local, and nothing tracked points at
-# it: what gets decided there moves into docs/roadmap.md.
+# it: what gets decided there becomes an ADR or a section of docs/architecture.md.
 /docs/proposals.md
 # Working notes: reviews and drafts, not documentation.
 /notes/
@@ -45,3 +45,11 @@ __pycache__/
 .venv/
 projects/*
 # The packages are submodules; their own ignore files cover their trees.
+
+# Planning and handoff documents: kept locally, never published
+/TODO.md
+/docs/roadmap.md
+/docs/pick-up-here.md
+/docs/split.md
+/docs/prose-pass.md
+/NOTES-ruff.md
