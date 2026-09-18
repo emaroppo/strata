@@ -143,6 +143,27 @@ file is in its package, under `deploy/catalog-host` and
 `deploy/modelling-host`; the catalog README's "A catalog host" says how
 to set one up from nothing.
 
+## One package on its own
+
+The packages are not on PyPI. Each installs from its repository at a
+release tag, and each package's README has the exact line. One rule makes it
+longer than a plain `uv add`: uv applies a git source only to a package the
+project names directly, so a package's strata dependencies are named beside
+it, each with its own source. The catalog, which needs `contracts` and
+`common`:
+
+```bash
+g=git+https://github.com/emaroppo
+uv add "strata-catalog @ $g/strata-catalog@v0.1.0" \
+       "strata-contracts @ $g/strata-contracts@v0.1.0" \
+       "strata-common @ $g/strata-common@v0.1.0"
+uv add "strata-catalog[postgres,s3] @ $g/strata-catalog@v0.1.0"   # extras, once it is there
+```
+
+Leave one of them out and uv reports the requirements unsatisfiable, naming
+the package it could not find. A plugin sits in a subdirectory of
+`strata-plugins`: `$g/strata-plugins@v0.1.0#subdirectory=prepare/prepare-video`.
+
 ## Tests
 
 ```bash
