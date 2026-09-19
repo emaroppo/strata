@@ -76,17 +76,17 @@ what passes between them is a prepared index, defined in `contracts`.
 
 | package | what it is | depends on |
 |---|---|---|
-| [`strata-contracts`](packages/contracts/README.md) | what crosses a boundary: sample types and the prepared index going into a catalog, annotation values and schemas, the manifest a trainer is handed | pydantic, common |
-| [`strata-common`](packages/common/README.md) | migration plumbing, a service bootstrap, an entry-point resolver, the canonical form that gets hashed | nothing |
-| [`strata-catalog`](packages/catalog/README.md) | samples, storage, annotations, dataset versions; SQLite and files, or Postgres and a bucket | contracts, common |
-| [`strata-prepare`](packages/prepare/README.md) | raw data into a prepared corpus: preparers, the folder ones, the conformance suite | contracts, common |
-| [`strata-modelling`](packages/modelling/README.md) | train and predict; model plugins, runs, checkpoints, a prediction cache; the training service | contracts, common |
-| [`strata-project`](packages/project/README.md) | the job as a file: catalog, collections, label set, model; the host's settings | catalog, modelling |
-| [`strata-labeller`](packages/labeller/README.md) | the labelling loop, the review queue, and the Label Studio boundary | project, catalog, prepare, modelling |
-| [`strata-experiment`](packages/experiment/README.md) | an experiment as a file: stages, a grid, a ledger | project, catalog, modelling |
+| [`strata-contracts`](https://github.com/emaroppo/strata-contracts) | what crosses a boundary: sample types and the prepared index going into a catalog, annotation values and schemas, the manifest a trainer is handed | pydantic, common |
+| [`strata-common`](https://github.com/emaroppo/strata-common) | migration plumbing, a service bootstrap, an entry-point resolver, the canonical form that gets hashed | nothing |
+| [`strata-catalog`](https://github.com/emaroppo/strata-catalog) | samples, storage, annotations, dataset versions; SQLite and files, or Postgres and a bucket | contracts, common |
+| [`strata-prepare`](https://github.com/emaroppo/strata-prepare) | raw data into a prepared corpus: preparers, the folder ones, the conformance suite | contracts, common |
+| [`strata-modelling`](https://github.com/emaroppo/strata-modelling) | train and predict; model plugins, runs, checkpoints, a prediction cache; the training service | contracts, common |
+| [`strata-project`](https://github.com/emaroppo/strata-project) | the job as a file: catalog, collections, label set, model; the host's settings | catalog, modelling |
+| [`strata-labeller`](https://github.com/emaroppo/strata-labeller) | the labelling loop, the review queue, and the Label Studio boundary | project, catalog, prepare, modelling |
+| [`strata-experiment`](https://github.com/emaroppo/strata-experiment) | an experiment as a file: stages, a grid, a ledger | project, catalog, modelling |
 
 Plugins are not packages of the system but extensions of one: the
-first-party ones live in [`strata-plugins`](packages/plugins/README.md),
+first-party ones live in [`strata-plugins`](https://github.com/emaroppo/strata-plugins),
 one distribution per plugin under the package it extends (video into
 grouped frames, for `prepare`), and
 `strata-prepare-email`, mail into documents, is the emails demo project's
@@ -94,9 +94,9 @@ own plugin (`strata-demo-emails`, beside these repositories), an example of
 one written outside them.
 
 Two sister packages hold the same instrument's other half and are read the
-same way: [`strata-feature-store`](packages/feature-store/README.md),
+same way: [`strata-feature-store`](https://github.com/emaroppo/strata-feature-store),
 structured data with the same frozen versions, and
-[`strata-post-process`](packages/post-process/README.md), the
+[`strata-post-process`](https://github.com/emaroppo/strata-post-process), the
 transformations over it. Repositories of their own like the rest, held
 here the same way.
 
