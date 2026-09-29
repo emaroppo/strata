@@ -21,6 +21,7 @@ strata-modelling = { workspace = true }
 strata-project = { workspace = true }
 strata-labeller = { workspace = true }
 strata-experiment = { workspace = true }
+strata-evaluation = { workspace = true }
 strata-prepare-video = { workspace = true }
 strata-feature-store = { workspace = true }
 strata-post-process = { workspace = true }
@@ -40,10 +41,13 @@ dev = [
 # share test basenames with each other, so they run from their own
 # directories (uv run pytest packages/feature-store), as their CI does.
 testpaths = [
+    # The relations between packages, which no one package owns.
+    "tests",
     "packages/contracts",
     "packages/common",
     "packages/catalog",
     "packages/prepare",
+    "packages/evaluation",
     "packages/modelling",
     "packages/project",
     "packages/labeller",
@@ -62,6 +66,7 @@ src = [
     "packages/common",
     "packages/catalog",
     "packages/prepare",
+    "packages/evaluation",
     "packages/modelling",
     "packages/project",
     "packages/labeller",

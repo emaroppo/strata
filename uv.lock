@@ -18,6 +18,7 @@ members = [
     "strata-catalog",
     "strata-common",
     "strata-contracts",
+    "strata-evaluation",
     "strata-experiment",
     "strata-feature-store",
     "strata-labeller",
@@ -2213,6 +2214,31 @@ dev = [
 ]
 
 [[package]]
+name = "strata-evaluation"
+version = "0.1.0"
+source = { editable = "packages/evaluation" }
+dependencies = [
+    { name = "strata-contracts" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "strata-contracts", editable = "packages/contracts" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "ruff", specifier = ">=0.6" },
+]
+
+[[package]]
 name = "strata-experiment"
 version = "0.1.0"
 source = { editable = "packages/experiment" }
@@ -2357,6 +2383,7 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "strata-common", extra = ["migrations"] },
     { name = "strata-contracts" },
+    { name = "strata-evaluation" },
 ]
 
 [package.optional-dependencies]
@@ -2413,6 +2440,7 @@ requires-dist = [
     { name = "strata-common", extras = ["migrations"], editable = "packages/common" },
     { name = "strata-common", extras = ["service"], marker = "extra == 'service'", editable = "packages/common" },
     { name = "strata-contracts", editable = "packages/contracts" },
+    { name = "strata-evaluation", editable = "packages/evaluation" },
     { name = "strata-modelling", extras = ["image", "text"], marker = "extra == 'all'", editable = "packages/modelling" },
     { name = "timm", marker = "extra == 'image'", specifier = ">=1.0" },
     { name = "tokenizers", marker = "extra == 'text'", specifier = ">=0.22,<0.23" },

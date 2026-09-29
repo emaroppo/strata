@@ -18,9 +18,10 @@ That principle decides most of what follows.
 
 ## The packages
 
-Eight live under a `strata` PEP 420 namespace — `strata.contracts`,
-`strata.catalog`, `strata.prepare`, `strata.modelling`, `strata.project`,
-`strata.labeller`, `strata.common`, `strata.experiment` — distributed as
+Nine live under a `strata` PEP 420 namespace — `strata.contracts`,
+`strata.catalog`, `strata.prepare`, `strata.evaluation`, `strata.modelling`,
+`strata.project`, `strata.labeller`, `strata.common`, `strata.experiment` —
+distributed as
 `strata-contracts` and so on. Namespacing
 rather than bare top-level names because `catalog` and `contracts` collide
 with almost anything in a shared environment, and because another package
@@ -34,7 +35,8 @@ Short names are used below for readability.
 | `contracts` | what crosses a boundary: what an annotation *is* (value types, schema descriptors, the indexing contract); what enters a catalog (sample types, the metadata each requires, the prepared index); and the manifest a trainer is handed | `common` |
 | `catalog` | samples, storage, canonical form, grouping, annotations, datasets | `contracts` |
 | `prepare` | getting raw data into a prepared corpus: preparers, the folder ones, the conformance suite | `contracts`, `common` |
-| `modelling` | train and predict; model plugins; runs and checkpoints | `catalog`, `contracts` |
+| `evaluation` | how a prediction is scored against an answer: tasks, each reading one label type, the span geometry they share, and tallies | `contracts` |
+| `modelling` | train and predict; model plugins; runs and checkpoints; the `evaluate` stage, which scores through `evaluation` | `catalog`, `contracts`, `evaluation` |
 | `project` | the job as a file: catalog, collections, label set, model; the host's settings | `catalog`, `modelling`, `contracts` |
 | `labeller` | active learning, and the Label Studio adapter that feeds it | `project`, `catalog`, `prepare`, `modelling`, `contracts` |
 | `common` | what `catalog` and `modelling` both need and neither owns: migration plumbing, an engine factory, a service bootstrap, an entry-point resolver, the canonical form that gets hashed | — |
@@ -60,6 +62,13 @@ it declares no dependency
 of its own, its extras name what each module needs, and it never mentions
 a label, a sample or a run. It is not `contracts`, which every consumer already
 imports and which stays about what crosses between packages.
+
+`evaluation` sits on `contracts` alone. A score is a function of a
+prediction and an answer, so it needs no framework, store or model, and
+anything holding both can score them: the `evaluate` stage, a model's own
+validation loop, a notebook reading records. It is organised by task, not
+by label type: a task reads one label type and asks one question of it,
+and several tasks may read the same one.
 
 `labeller` is deliberately thin — active learning plus a UI adapter. The
 centre of gravity is the catalog. `project` is thinner still: the one
