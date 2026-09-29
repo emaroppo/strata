@@ -15,7 +15,7 @@ index is copied, not recomputed.
 Annotations are stored whole, as the value type serialises them (record 0006),
 and their shape is the label set's business (record 0014). Without a contract
 the catalog would have to understand each shape to query it, which is how a
-detector's boxes once read back as empty choices. With one, a new task type is
+detector's boxes once read back as empty choices. With one, a new label type is
 queryable the day it exists, from a single method on its schema, and the
 catalog has learned nothing about it. Reading `values` as class names is true
 only for classification; for spans they are objects that do not even compare,

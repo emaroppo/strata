@@ -42,7 +42,7 @@ because those decide whether two runs are asking the same question at all.
 
 ## Consequences
 
-- The headline metric is per task; a span project defaulting to
+- The headline metric is per label type; a span project defaulting to
   `val_accuracy` reported nothing for every run.
 - Span-level and box-level scoring in the stage are on the roadmap; until
   then the taggers score their own spans, from `predict`, and say so.

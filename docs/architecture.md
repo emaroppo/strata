@@ -139,9 +139,9 @@ storage format of a durable catalog: a vendor wire format in a permanent
 record, scrubbed of its volatile fields on the way in.
 
 **The indexing contract.** The catalog cannot index opaque JSON, but it does
-not need to understand every task type either. It needs each schema to
+not need to understand every label type either. It needs each schema to
 answer one question: *which classes does this annotation assert?* That is
-`classes_asserted` on the schema in `strata.contracts`. A new task type
+`classes_asserted` on the schema in `strata.contracts`. A new label type
 implements the contract and becomes queryable without the catalog changing.
 
 **A schema also declares what shape its values may take.** Spans were the
@@ -214,7 +214,7 @@ catalog.sample              id, location, offset, length, checksum, media,
                             subtype, metadata JSON, ingested_at, deleted_at
 catalog.sample_collection   sample_id, collection
 
-catalog.label_set           id, name, schema JSON (task type, classes, ...)
+catalog.label_set           id, name, schema JSON (label_type, classes, ...)
 
 catalog.annotation          sample_id, label_set_id, state, value JSON,
                             source, updated_at
@@ -333,7 +333,7 @@ No capability negotiation. A fetched capability list is stale by the time a
 job is submitted, so the request-time check is needed regardless; building
 both makes the list a cache that can only be wrong.
 
-So the check that a plugin is installed and handles this label set's task
+So the check that a plugin is installed and handles this label set's label type
 happens in the handler, on the side with the facts — the same handler
 in-process and behind HTTP — and a refusal comes back as a structured error
 the client renders, never a 500 with a traceback. The list is not used to

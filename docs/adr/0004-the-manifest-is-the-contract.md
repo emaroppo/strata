@@ -48,7 +48,7 @@ since naming one concrete type would say a model can only be trained on
 that kind. What a scoring pass returns carries the union of predictions:
 naming one concrete type there once refused every span and box prediction
 on the way out, the last place a value travels before the review queue is
-ranked. The conformance suite's table of what each task emits is not a
+ranked. The conformance suite's table of what each label type emits is not a
 plugin surface; a new label type is added to `labels` first.
 
 `labels` ships one example of every label type, and each package that

@@ -5,13 +5,13 @@
 ## The decision
 
 `project.toml` is the job: the catalog and collections it draws from, the
-label set it labels under with its task and classes, the sample type, and
+label set it labels under with its label type and classes, the sample type, and
 the model. It is read through `strata.project`, a package below both
 tools that use it. A tool keeps what is its own in a section the job
 carries without reading, `[label_studio]` for the labeller, and in state
 beside the file that is not part of a handoff. The labeller's view of a
 project is a subclass that reads its section and builds the Label Studio
-schema from the job: the task and classes are the job's, the media is the
+schema from the job: the label type and classes are the job's, the media is the
 sample type's, and a config of the project's own supplies control names
 and layout and has to agree with the job on the rest.
 
@@ -40,8 +40,8 @@ other.
 A project file is copied between machines and outlives the tool that
 collected its annotations (record 0013). With a Label Studio template
 name in the label section and classes read from a Label Studio XML, the
-job could not be stated without the tool. `[label_set] task` says what
-is annotated; the media it is annotated over is what the sample type
+job could not be stated without the tool. `[label_set] label_type` says what
+an annotation looks like; the media it is annotated over is what the sample type
 already says; the tool derives its template from the two. A config of
 the project's own used to be the source of the class list, and is now
 rendering only, checked against the job: an XML offering a class the
@@ -66,7 +66,7 @@ person's file as their own.
   and its record, not its data: a run names the dataset version and model
   version it came from, and those resolve in the catalog.
 - Span-only fields in `[label_set]` default to unset rather than false, so
-  setting one on another task is refused by name rather than ignored.
+  setting one on another label type is refused by name rather than ignored.
 - A model reference is anchored at the project root, because a run
   records it to read back when the directory it was relative to is gone,
   and a project's paths are absolute so nothing handed to a model or a

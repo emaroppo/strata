@@ -4,10 +4,10 @@
 
 ## The decision
 
-A label set's schema is stored data: the task, its classes, and rules over
+A label set's schema is stored data: its label type, its classes, and rules over
 them. For spans it declares two things about shape, `multi_label` and
 `overlapping`, both false by default and deliberately separate questions.
-A model declares what it needs — the task, any classes of its own, any
+A model declares what it needs — the label type, any classes of its own, any
 features, and through `requires_schema` any shape it cannot represent —
 and training refuses a mismatch before the round rather than during it.
 The classes come from the label set, which is authoritative; a project's
@@ -27,7 +27,7 @@ wrong way round, and the declaration is where the two are reconciled.
 
 ## What a Label Studio config can say about shape
 
-The valid media and task combinations are not their product: boxes only
+The valid media and label type combinations are not their product: boxes only
 make sense on images and character spans only on text, so a template
 exists for each pair that does. A project's own labeling config is read for
 `multi_label`, since what the config permits is what reviewers will produce
@@ -65,7 +65,7 @@ comes before the expensive part.
 
 ## Why the refusal is before the round
 
-A model pointed at the wrong task, or missing a class it emits, or a
+A model pointed at the wrong label type, or missing a class it emits, or a
 feature nobody supplies, or a shape it cannot hold, would otherwise be
 discovered by training on a projection of the data and reporting a number
 for it. Each of these is caught on the side with the facts, when the
@@ -131,9 +131,9 @@ visible failure rather than a surprising one.
 - An empty class list is allowed — a label set exists before anyone has
   decided what is in it — and validates nothing until classes are declared.
 - The schema does not say what a sample is made of. Classifying a
-  photograph and classifying a document are the same task; the media is
+  photograph and classifying a document are the same label type; the media is
   the catalog's business, on the sample.
 - A label set's schema is read back through a discriminator, so a catalog
   can hold boxes it can also hand back. An annotation is read the same way:
-  read as one task's value, a boxes annotation parses without complaint
+  read as one label type's value, a boxes annotation parses without complaint
   into an empty choices value, and the catalog forgets what a person said.

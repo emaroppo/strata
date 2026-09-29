@@ -50,7 +50,7 @@ its properties.
   are what the model saw.
 - It holds whatever a model produced — choices, spans, boxes — and reads
   it back through the discriminator. Pinning it to one type would make a
-  cache that quietly refuses, or mangles, every task type but the first.
+  cache that quietly refuses, or mangles, every label type but the first.
 - The training core returns predictions and never writes them; persisting
   is the caller's business, or a catalog dependency comes back into the
   core.
