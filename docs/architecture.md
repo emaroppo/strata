@@ -35,7 +35,7 @@ Short names are used below for readability.
 | `contracts` | what crosses a boundary: what an annotation *is* (value types, schema descriptors, the indexing contract); what enters a catalog (sample types, the metadata each requires, the prepared index); and the manifest a trainer is handed | `common` |
 | `catalog` | samples, storage, canonical form, grouping, annotations, datasets | `contracts` |
 | `prepare` | getting raw data into a prepared corpus: preparers, the folder ones, the conformance suite | `contracts`, `common` |
-| `evaluation` | how a prediction is scored against an answer: tasks, each reading one label type, the span geometry they share, and tallies | `contracts` |
+| `evaluation` | how a prediction is scored against an answer: tasks, each reading one label type, the span geometry they share, and tallies; tasks and failure modes are plugins, and a score carries the identity of the code that produced it | `contracts`, `common` |
 | `modelling` | train and predict; model plugins; runs and checkpoints; the `evaluate` stage, which scores through `evaluation` | `catalog`, `contracts`, `evaluation` |
 | `project` | the job as a file: catalog, collections, label set, model; the host's settings | `catalog`, `modelling`, `contracts` |
 | `labeller` | active learning, and the Label Studio adapter that feeds it | `project`, `catalog`, `prepare`, `modelling`, `contracts` |
@@ -63,7 +63,8 @@ of its own, its extras name what each module needs, and it never mentions
 a label, a sample or a run. It is not `contracts`, which every consumer already
 imports and which stays about what crosses between packages.
 
-`evaluation` sits on `contracts` alone. A score is a function of a
+`evaluation` sits on `contracts`, and on `common` for the entry-point
+resolver its plugins are found through. A score is a function of a
 prediction and an answer, so it needs no framework, store or model, and
 anything holding both can score them: the `evaluate` stage, a model's own
 validation loop, a notebook reading records. It is organised by task, not

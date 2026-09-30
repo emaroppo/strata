@@ -34,9 +34,9 @@ ALLOWED = {
     # Fills a catalog without knowing one: what passes between them is the
     # prepared index, which contracts defines (docs/adr/0040).
     "prepare": {"contracts", "common"},
-    # A score is a function of a prediction and an answer: nothing but the
-    # values being scored.
-    "evaluation": {"contracts"},
+    # A score is a function of a prediction and an answer: the values being
+    # scored, and the entry-point resolver its plugins are found through.
+    "evaluation": {"contracts", "common"},
     "modelling": {"contracts", "catalog", "common", "evaluation"},
     # The job: the one file the two tools above it both read (docs/adr/0016).
     "project": {"contracts", "catalog", "modelling"},

@@ -1,6 +1,7 @@
 # 35. Evaluation is one implementation, and a model's own numbers are its own
 
-**Status:** accepted
+**Status:** accepted; "one implementation" amended by record 0042 to one
+implementation per identity
 
 ## The decision
 
@@ -44,5 +45,9 @@ because those decide whether two runs are asking the same question at all.
 
 - The headline metric is per label type; a span project defaulting to
   `val_accuracy` reported nothing for every run.
-- Span-level and box-level scoring in the stage are on the roadmap; until
-  then the taggers score their own spans, from `predict`, and say so.
+- Spans are scored in the stage, by strata-evaluation's tasks: `entities`
+  as decided above, and `mask`, which asks what anonymisation needs, one
+  metric per failure mode. The tagger's own validation numbers come from
+  the same `entities` code. Box-level scoring is still on the roadmap.
+- Which code scored a number is recorded with it, since tasks and failure
+  modes can now come from a project's own file (record 0042).

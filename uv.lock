@@ -2218,6 +2218,7 @@ name = "strata-evaluation"
 version = "0.1.0"
 source = { editable = "packages/evaluation" }
 dependencies = [
+    { name = "strata-common" },
     { name = "strata-contracts" },
 ]
 
@@ -2229,7 +2230,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "strata-contracts", editable = "packages/contracts" }]
+requires-dist = [
+    { name = "strata-common", editable = "packages/common" },
+    { name = "strata-contracts", editable = "packages/contracts" },
+]
 
 [package.metadata.requires-dev]
 dev = [

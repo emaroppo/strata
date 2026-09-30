@@ -56,3 +56,4 @@ is one road on it, with the reason it goes that way.
 | [0039](0039-a-schema-answers-which-classes-a-value-asserts.md) | A schema answers which classes a value asserts, and the catalog indexes nothing else |
 | [0040](0040-what-enters-a-catalog-is-declared-outside-it.md) | What enters a catalog is declared outside it, and a type's metadata is a contract |
 | [0041](0041-a-label-type-is-what-an-annotation-looks-like.md) | A label type is what an annotation looks like; a task is what it is for |
+| [0042](0042-metrics-are-a-plugin-surface-and-a-number-carries-its-code.md) | Metrics are a plugin surface, and a number carries the identity of the code that produced it |

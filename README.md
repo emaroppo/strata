@@ -80,7 +80,7 @@ what passes between them is a prepared index, defined in `contracts`.
 | [`strata-common`](https://github.com/emaroppo/strata-common) | migration plumbing, a service bootstrap, an entry-point resolver, the canonical form that gets hashed | nothing |
 | [`strata-catalog`](https://github.com/emaroppo/strata-catalog) | samples, storage, annotations, dataset versions; SQLite and files, or Postgres and a bucket | contracts, common |
 | [`strata-prepare`](https://github.com/emaroppo/strata-prepare) | raw data into a prepared corpus: preparers, the folder ones, the conformance suite | contracts, common |
-| [`strata-evaluation`](https://github.com/emaroppo/strata-evaluation) | how a prediction is scored against an answer: tasks over a label type, the span geometry they share, and tallies | contracts |
+| [`strata-evaluation`](https://github.com/emaroppo/strata-evaluation) | how a prediction is scored against an answer: tasks over a label type, the span geometry they share, and tallies; tasks and failure modes are plugins, and a score carries the identity of its code | contracts, common |
 | [`strata-modelling`](https://github.com/emaroppo/strata-modelling) | train and predict; model plugins, runs, checkpoints, a prediction cache; the training service | contracts, common, evaluation |
 | [`strata-project`](https://github.com/emaroppo/strata-project) | the job as a file: catalog, collections, label set, model; the host's settings | catalog, modelling |
 | [`strata-labeller`](https://github.com/emaroppo/strata-labeller) | the labelling loop, the review queue, and the Label Studio boundary | project, catalog, prepare, modelling |
