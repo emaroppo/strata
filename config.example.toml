@@ -20,6 +20,14 @@ url = "http://localhost:8080"
 # used while Label Studio reads files off a mount; see serve_url below.
 local_storage_path = "/label-studio/data/images"
 
+# A catalog labelled on an instance of its own, e.g. a shared catalog's
+# Label Studio beside its blob server, while local catalogs keep the one
+# above. Keys above are shared; the API key is the instance's own, from
+# $LABEL_STUDIO_API_KEY_<CATALOG> and never the one above. docs/adr/0044
+#
+#   [label_studio.main]
+#   url = "http://catalog-host:8090"
+
 # Where the catalog lives. Which label set inside it a project annotates
 # against is that project's business, in its project.toml.
 [catalog]
@@ -94,9 +102,17 @@ url = ""
 #   [modelling.gx10]
 #   url = "http://gx10:8082"
 #
-# A project trains on the one its [model] host names, else the default;
-# train, push and models take --host to say otherwise for one command. Runs
-# live on the host that trained them, so push asks the same one. Each
-# host's token comes from $STRATA_MODELLING_TOKEN_<NAME>
+# A project trains on the one its [model] host names, else its catalog's,
+# else the default; train, push and models take --host to say otherwise for
+# one command. A host is a catalog's default by listing it:
+#
+#   [modelling.gx10]
+#   url = "http://gx10:8082"
+#   default_for = ["main"]
+#
+# which is how a laptop sends a shared catalog's rounds to the GPU and
+# trains a local one itself: a table with no url, [modelling.here], is this
+# machine. Runs live on the host that trained them, so push asks the same
+# one. Each host's token comes from $STRATA_MODELLING_TOKEN_<NAME>
 # ($STRATA_MODELLING_TOKEN_GX10), else $STRATA_MODELLING_TOKEN.
 # See docs/adr/0043.

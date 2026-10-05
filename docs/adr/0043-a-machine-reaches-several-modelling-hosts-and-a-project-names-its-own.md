@@ -28,6 +28,18 @@ is not the one just trained. Nothing raises. So which host holds a job's
 runs is part of the job, as which catalog it draws from is, and it travels
 in `project.toml`. Where each host *is* stays in `config.toml`.
 
+## Why a catalog can name its default host
+
+A host trains only from a catalog it can read, and refuses a round from
+any other (record 0007). So on a machine that describes both a shared
+catalog and a local one, no single default is right: the GPU host for the
+first, this machine for the second, which no host elsewhere can read.
+`default_for = ["<catalog>"]` in a `[modelling.<name>]` table makes that
+host the default for projects on those catalogs. The order is `--host`,
+then the project's `[model] host`, then its catalog's, then the machine's
+`default`. One host per catalog, and a catalog the machine does not
+describe is refused, since either would otherwise be resolved by guessing.
+
 ## Why --host as well
 
 A second host is also for trying a model somewhere else, or for training
