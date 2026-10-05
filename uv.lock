@@ -2409,7 +2409,7 @@ image = [
 ]
 service = [
     { name = "fastapi" },
-    { name = "strata-catalog", extra = ["s3"] },
+    { name = "strata-catalog", extra = ["postgres", "s3"] },
     { name = "strata-common", extra = ["service"] },
     { name = "uvicorn" },
 ]
@@ -2440,7 +2440,7 @@ requires-dist = [
     { name = "rich", marker = "extra == 'image'", specifier = ">=13.0" },
     { name = "rich", marker = "extra == 'text'", specifier = ">=13.0" },
     { name = "sqlalchemy", specifier = ">=2.0" },
-    { name = "strata-catalog", extras = ["s3"], marker = "extra == 'service'", editable = "packages/catalog" },
+    { name = "strata-catalog", extras = ["s3", "postgres"], marker = "extra == 'service'", editable = "packages/catalog" },
     { name = "strata-common", extras = ["migrations"], editable = "packages/common" },
     { name = "strata-common", extras = ["service"], marker = "extra == 'service'", editable = "packages/common" },
     { name = "strata-contracts", editable = "packages/contracts" },
