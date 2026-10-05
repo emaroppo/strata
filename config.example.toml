@@ -81,3 +81,22 @@ serve_url = ""
 # Authorised with $STRATA_MODELLING_TOKEN, matching that host's own.
 [modelling]
 url = ""
+
+# More than one modelling host, if you have them, as named tables with a
+# default, the way [catalog] does it:
+#
+#   [modelling]
+#   default = "gpu"
+#
+#   [modelling.gpu]
+#   url = "http://gpu-host:8082"
+#
+#   [modelling.gx10]
+#   url = "http://gx10:8082"
+#
+# A project trains on the one its [model] host names, else the default;
+# train, push and models take --host to say otherwise for one command. Runs
+# live on the host that trained them, so push asks the same one. Each
+# host's token comes from $STRATA_MODELLING_TOKEN_<NAME>
+# ($STRATA_MODELLING_TOKEN_GX10), else $STRATA_MODELLING_TOKEN.
+# See docs/adr/0043.
