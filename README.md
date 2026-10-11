@@ -102,10 +102,16 @@ transformations over it. Repositories of their own like the rest, held
 here the same way.
 
 It runs on one machine with nothing installed but Python, and scales out
-to a catalog on one host, object storage on another and a GPU on a third,
-without a consumer noticing the difference. Images and text documents are
-both supported, for whole-sample classification, bounding boxes or
-character spans. Every corpus is prepared before a catalog takes it: mail
+to a catalog on one host, object storage on another and training on GPU
+hosts elsewhere, without a consumer noticing the difference. One machine
+can reach several catalogs and several modelling hosts: a project names
+the host that trains it, or its catalog does, and a catalog can be
+labelled on a Label Studio of its own beside its blobs, so a shared
+catalog's queue is the same queue from every machine while a local one
+works with no network. Images and text documents are both supported, for
+whole-sample classification, bounding boxes or character spans; a span
+prediction can be scored as entities found, or as an anonymisation, one
+number per way a masked document can be wrong. Every corpus is prepared before a catalog takes it: mail
 or video is converted by a preparer, and a folder already in shape is
 indexed where it sits. Two limits up front: no
 detection baseline ships, so a bbox project brings its own model; and the
@@ -140,8 +146,9 @@ with `git add packages/<name>` and a commit of its own. The base install carries
 job; a command reads the one `$STRATA_CONFIG` names, so a project directory
 anywhere on the machine uses it. Credentials come from the environment. The
 catalog and labeller READMEs have the rest; each host's unit and compose
-file is in its package, under `deploy/catalog-host` and
-`deploy/modelling-host`; the catalog README's "A catalog host" says how
+file is in its package, under `deploy/catalog-host`,
+`deploy/modelling-host` and, for a shared catalog's Label Studio,
+`deploy/label-studio`; the catalog README's "A catalog host" says how
 to set one up from nothing.
 
 ## One package on its own
