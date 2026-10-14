@@ -5,6 +5,14 @@ on:
     branches: [main]
   pull_request:
 
+# The lock fixes every package but not the interpreter, and uv otherwise
+# takes the newest Python, whose wheels (psycopg-binary, torch) arrive
+# months after its release. 3.13 is the oldest the packages support and
+# what pyright checks. Set here rather than in .python-version, which
+# pyenv reads too.
+env:
+  UV_PYTHON: "3.13"
+
 jobs:
   lint:
     runs-on: ubuntu-latest
