@@ -57,3 +57,6 @@ is one road on it, with the reason it goes that way.
 | [0040](0040-what-enters-a-catalog-is-declared-outside-it.md) | What enters a catalog is declared outside it, and a type's metadata is a contract |
 | [0041](0041-a-label-type-is-what-an-annotation-looks-like.md) | A label type is what an annotation looks like; a task is what it is for |
 | [0042](0042-metrics-are-a-plugin-surface-and-a-number-carries-its-code.md) | Metrics are a plugin surface, and a number carries the identity of the code that produced it |
+| [0043](0043-a-machine-reaches-several-modelling-hosts-and-a-project-names-its-own.md) | A machine reaches several modelling hosts, and a project names its own |
+| [0044](0044-a-catalog-can-be-labelled-on-a-label-studio-of-its-own.md) | A catalog can be labelled on a Label Studio of its own |
+| [0045](0045-a-sample-says-what-it-was-made-from.md) | A sample says what it was made from, and what it was made from is kept whatever it is *(proposed)* |
