@@ -30,6 +30,20 @@ the environment. Credentials are out of `repr`, since a config printed while
 troubleshooting gets pasted into chats. Flat `[catalog]` keys layer under the
 named tables so an endpoint is stated once.
 
+## Why a catalog reads its own credentials first
+
+A named catalog takes `$STRATA_BLOB_SECRET_ALT` for `[catalog.alt]`
+before `$STRATA_BLOB_SECRET`, and the same for the two S3 keys: the variable
+suffixed with its name, the way a modelling host's token is, then the shared
+one. With only the shared names, every catalog a shell describes signs and
+reads with the same values, so two catalogs kept apart on purpose — their own
+bucket, their own key, their own blob server — are one secret apart from each
+other again, and labelling one means re-exporting the other's secret by hand.
+A catalog with none of its own takes the shared one, which keeps a host with
+one catalog as it was; a server it does not belong to then refuses its URLs,
+and a key it does not hold is refused by the bucket. The flat `[catalog]` has
+no name to suffix and reads only the shared ones.
+
 ## Why a service refuses to start
 
 Without a signing secret the blob server would serve the corpus to anyone who

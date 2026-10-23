@@ -67,14 +67,19 @@ serve_url = ""
 #
 #   [catalog]
 #   s3_endpoint = "http://catalog-host:3900"
-#   default = "images"
+#   default = "main"
 #
-#   [catalog.images]
+#   [catalog.main]
 #   root = "catalog"
 #
-#   [catalog.text]
-#   root = "text-catalog"
-#   s3_bucket = "text"
+#   [catalog.alt]
+#   root = "alt-catalog"
+#   s3_bucket = "alt"
+#
+# Each named catalog reads its credentials suffixed with its name first —
+# $STRATA_BLOB_SECRET_ALT, $STRATA_S3_ACCESS_KEY_ALT for [catalog.alt] —
+# and the unsuffixed ones otherwise, so a catalog in a bucket of its own
+# need not share a key with the others.
 #
 # A project says which it draws from in its own [catalog] name; commands
 # with no project take --catalog. 'strata-catalog list' lists them.
