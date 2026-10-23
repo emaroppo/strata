@@ -1,6 +1,6 @@
 # 45. A sample says what it was made from, and what it was made from is kept
 
-**Status:** proposed, revised once (see Revisions); amends records 0010
+**Status:** proposed, revised twice (see Revisions); amends records 0010
 and 0040, extends record 0022.
 How a preparation is declared is record 0046, where it runs is record
 0047, and what counts as an answer is record 0048.
@@ -264,7 +264,9 @@ enough to verify a run:
   did not.
 - **That nothing was lost.** Inputs are counted by checksum: the
   distinct checksums the run was given equal those with at least one
-  origin row plus those that produced nothing. The run counts the second
+  origin row, plus those an earlier run with the same chain had already
+  prepared (and so were not run again), plus those that produced
+  nothing. The run counts the second
   group itself as it goes, under the stage that left the input empty,
   rather than deriving it by subtraction, which would make the equation
   true by definition. A crash, or an input lost without a trace, breaks
@@ -333,8 +335,11 @@ attempt shows in the history.
 
 Only **a different spec over files another run already prepared** needs a
 statement. A changed rule file, or a multipart chain over files a single
-run prepared, are the cases. So such a spec states the run it
-**continues**. For each input both runs prepared, the continuing run's
+run prepared, are the cases. So such a run states the run it
+**continues** (`--continues <run>`), and continues the whole line of
+runs behind it. The statement belongs to the run, not to the spec: a
+spec says what a chain does, and naming a run in it would make the same
+chain hash differently each time it continued another. For each input both runs prepared, the continuing run's
 samples are current and the earlier run's are not. For each input only
 the earlier run prepared, its samples stay current. A run in this case
 that states nothing is refused before it writes, and the refusal names
@@ -410,8 +415,11 @@ one it trained against, without either store reading the other.
 
 ## Consequences
 
-- **New tables:** `raw`, `run` and `origin`, with the `run_id` on
-  `annotation` that record 0048 adds. They come in one alembic migration
+- **New tables:** `raw`, `run`, `run_input` (one row per distinct
+  checksum a run was given, since a list can run to hundreds of thousands)
+  and `origin`, whose input is a raw checksum or a sample's. The run row
+  records the chain's identity and the run it continues. The `run_id` on
+  `annotation` that record 0048 adds comes in the same migration. They come in one alembic migration
   for both dialects
   (record 0021). A store at the old head is refused, not upgraded in
   passing (record 0018).
@@ -461,3 +469,11 @@ one it trained against, without either store reading the other.
   catalog, with the same list a prepare run takes. Nothing else changes: raw rows are
   still append-only, a name still means one set of bytes, and ingesting
   more later adds rows.
+- **A run, not its spec, names the run it continues (revised while it
+  was built).** This record said a spec states the run it continues.
+  Building it showed the cost: the spec's hash and the chain's identity
+  would change with the run named, so one chain would look like several.
+  The spec says what the chain does, and the run says what it replaces.
+  The count equation gains the inputs skipped as already prepared, which
+  the first draft had no name for, and the new tables are listed as
+  built.
