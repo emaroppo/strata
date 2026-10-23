@@ -1,6 +1,7 @@
 # 45. A sample says what it was made from, and what it was made from is kept
 
-**Status:** proposed; amends records 0010 and 0040, extends record 0022.
+**Status:** proposed, revised once (see Revisions); amends records 0010
+and 0040, extends record 0022.
 How a preparation is declared is record 0046, where it runs is record
 0047, and what counts as an answer is record 0048.
 
@@ -94,11 +95,22 @@ again.
 ## Why raw files are kept, and kept as rows of their own
 
 A corpus can be prepared again only if the files it came from outlive
-the directory they arrived in. So every file is ingested, not only the
-ones a current preparation uses. All 517,401 files of the Enron maildir
-go in, even though phishnet uses about thirty thousand. A later
-selection is then a new list of files, not another ingest. A raw file can also be
-prepared by several projects, into different samples.
+the directory they arrived in. So the files a preparation uses are
+ingested, and the catalog keeps them. Which files to ingest is chosen
+outside the catalog, as which to prepare is: `strata-catalog ingest`
+takes the same kind of list a prepare run does (`--files`), and without
+one it ingests everything under its root. Ingesting more later is
+another ingest that adds rows, and a name it already holds with the
+same bytes is skipped. A prepare run handed a name nobody ingested is
+refused, so a file left out cannot be prepared by accident.
+
+Phishnet ingests the Enron maildir files its single messages come from,
+about thirty thousand of 517,401, and adds the multipart and forwarded
+files when it prepares those. The maildir is a public corpus, kept on
+disk and downloadable again. A source with no other copy is ingested
+whole: phishnet's Podesta mail survives only as Mongo documents, so
+every exported document goes in. A raw file can also be prepared by
+several projects, into different samples.
 
 A raw row is not a sample. A sample is something strata can label: its
 type admits it, holds it to a `Metadata` contract (record 0040), and
@@ -432,3 +444,17 @@ one it trained against, without either store reading the other.
   one checksum-to-location row, `repack` would update a single row.
 - **When to port `prepare-video` and the folder preparers** to stages.
   `Frames.video` stays required until they move.
+
+## Revisions
+
+- **Ingest is handed its files, as a prepare run is (revised after the
+  first commit).** This record said every file is ingested, not only
+  those a preparation uses, and gave the whole Enron maildir as the
+  example. The user chose to ingest only the Enron files phishnet
+  prepares, for now. Keeping every file guards against a source being
+  lost, and that risk differs by corpus: the maildir is public and kept
+  on disk, while the Podesta export has no other copy. So which files
+  are kept is a choice made per corpus, outside the catalog, with the
+  same list a prepare run takes. Nothing else changes: raw rows are
+  still append-only, a name still means one set of bytes, and ingesting
+  more later adds rows.
