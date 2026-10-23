@@ -30,9 +30,12 @@ ALLOWED = {
     # resolver; nothing else of it (docs/adr/0040).
     "contracts": {"common"},
     "common": set(),
-    "catalog": {"contracts", "common"},
+    # Runs the prepare engine over its raw files; the engine never knows it
+    # (docs/adr/0047).
+    "catalog": {"contracts", "common", "prepare"},
     # Fills a catalog without knowing one: what passes between them is the
-    # prepared index, which contracts defines (docs/adr/0040).
+    # prepared index, which contracts defines (docs/adr/0040), or the
+    # chain's inputs and outputs (docs/adr/0047).
     "prepare": {"contracts", "common"},
     # A score is a function of a prediction and an answer: the values being
     # scored, and the entry-point resolver its plugins are found through.

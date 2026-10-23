@@ -2212,6 +2212,7 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "strata-common", extra = ["migrations"] },
     { name = "strata-contracts" },
+    { name = "strata-prepare" },
 ]
 
 [package.optional-dependencies]
@@ -2253,6 +2254,7 @@ requires-dist = [
     { name = "strata-common", extras = ["migrations"], editable = "packages/common" },
     { name = "strata-common", extras = ["service"], marker = "extra == 'serve'", editable = "packages/common" },
     { name = "strata-contracts", editable = "packages/contracts" },
+    { name = "strata-prepare", editable = "packages/prepare" },
     { name = "uvicorn", marker = "extra == 'serve'", specifier = ">=0.29" },
 ]
 provides-extras = ["s3", "serve", "postgres", "all"]
