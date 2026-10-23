@@ -1,6 +1,6 @@
 # 45. A sample says what it was made from, and what it was made from is kept
 
-**Status:** proposed, revised twice (see Revisions); amends records 0010
+**Status:** proposed, revised three times (see Revisions); amends records 0010
 and 0040, extends record 0022.
 How a preparation is declared is record 0046, where it runs is record
 0047, and what counts as an answer is record 0048.
@@ -477,3 +477,15 @@ one it trained against, without either store reading the other.
   The count equation gains the inputs skipped as already prepared, which
   the first draft had no name for, and the new tables are listed as
   built.
+- **The remap is part of the import run, and answers travel by file
+  (revised while it was built).** This record had a remap run of its
+  own carry spans to a sample whose bytes changed. Built, it is one
+  import run: `export-answers` writes a label set's answers by checksum,
+  with every row of their history, and `import-answers` reads that file,
+  matching by checksum or through a pairs file of old and new checksums.
+  One run keeps the answer, its history and its remapped spans in one
+  transaction, so a sample is never left with its history moved and its
+  answer not. A file is also the only way between catalogs at different
+  revisions, since a store at an old head is refused (record 0018).
+  Answers on removed samples stay behind, as everything a removal
+  touches does.
