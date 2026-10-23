@@ -106,11 +106,12 @@ refused, so a file left out cannot be prepared by accident.
 
 Phishnet ingests the Enron maildir files its single messages come from,
 about thirty thousand of 517,401, and adds the multipart and forwarded
-files when it prepares those. The maildir is a public corpus, kept on
-disk and downloadable again. A source with no other copy is ingested
-whole: phishnet's Podesta mail survives only as Mongo documents, so
-every exported document goes in. A raw file can also be prepared by
-several projects, into different samples.
+files when it prepares those. Its Podesta mail, which survives only as
+Mongo documents, is exported and ingested the same way: the single
+messages now, the multipart and forwarded ones when a message model can
+hold them. Until then those have no copy in the catalog, and the Mongo
+dump is the only one. A raw file can also be prepared by several
+projects, into different samples.
 
 A raw row is not a sample. A sample is something strata can label: its
 type admits it, holds it to a `Metadata` contract (record 0040), and
@@ -450,11 +451,13 @@ one it trained against, without either store reading the other.
 - **Ingest is handed its files, as a prepare run is (revised after the
   first commit).** This record said every file is ingested, not only
   those a preparation uses, and gave the whole Enron maildir as the
-  example. The user chose to ingest only the Enron files phishnet
-  prepares, for now. Keeping every file guards against a source being
-  lost, and that risk differs by corpus: the maildir is public and kept
-  on disk, while the Podesta export has no other copy. So which files
-  are kept is a choice made per corpus, outside the catalog, with the
-  same list a prepare run takes. Nothing else changes: raw rows are
+  example. The user chose to ingest only what phishnet prepares, for
+  now: the Enron files and the Podesta documents its single messages
+  come from. Multipart and forwarded messages wait for a change to the
+  message model. Keeping every file guards against a source being lost,
+  and that risk differs by corpus: the maildir is public and kept on
+  disk, while the rest of the Podesta export stays only in the Mongo
+  dump. So which files are kept is a choice made per corpus, outside the
+  catalog, with the same list a prepare run takes. Nothing else changes: raw rows are
   still append-only, a name still means one set of bytes, and ingesting
   more later adds rows.
