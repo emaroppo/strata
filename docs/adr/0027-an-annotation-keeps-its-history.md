@@ -1,6 +1,7 @@
 # 27. An annotation keeps its history, and a batch follows its answer
 
-**Status:** accepted
+**Status:** accepted; an annotation gains the run that wrote it, by
+record 0048 (proposed)
 
 ## The decision
 
@@ -40,3 +41,10 @@ are separate.
   second.
 - A skip parks a sample with no class yet, which is where to look for examples
   after adding one; a cancelled annotation in Label Studio reads as a skip.
+
+## Amendments
+
+- **An annotation written by a run carries the run's id (record 0048,
+  proposed).** A judge's verdict or an imported answer is only as good
+  as the process behind it, so that process is recorded on the row.
+  `batch` keeps the meaning this record gave it.

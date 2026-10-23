@@ -1,6 +1,7 @@
 # 10. A sample type is a plugin, and canonical form is not normalisation
 
-**Status:** accepted
+**Status:** accepted; its provenance half amended by record 0045
+(proposed)
 
 ## The decision
 
@@ -103,3 +104,10 @@ it as the catalog stores it.
   collection holding other media or subtypes is warned about rather than
   refused, because one catalog holding standalone images and video frames
   at once was the point of recording grouping per sample.
+
+## Amendments
+
+- **A canonicalised text's original is a raw row, not a metadata key
+  (record 0045, proposed).** `source_checksum` and `canonicalised` lived
+  in metadata, which the next ingest replaces wholesale. So the original
+  is kept as a raw row and linked as the canonical text's origin.

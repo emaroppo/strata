@@ -1,6 +1,6 @@
 # 22. A collection is where a sample came from, and every query names the ones it draws from
 
-**Status:** accepted
+**Status:** accepted; amended and extended by record 0050 (proposed)
 
 ## The decision
 
@@ -39,3 +39,18 @@ the catalog keeps them apart.
   jobs' data is never offered to every job.
 - Samples in no collection are reachable only through the marker, which is what
   keeps an accidental ingest out of every project's queue.
+
+## Amendments
+
+- **A membership row has an id and a time (record 0050, proposed).**
+  Running a version's selection spec again needs to know which
+  collections a sample was in when it was frozen. Collections are only
+  ever added, so the rows in id order are the whole history.
+
+- **A selection spec need not name its collections (record 0050,
+  proposed).** It names its sample types, which are already a scope,
+  and its collections only if it wants them. The rule stood because a
+  queue once filled with another project's data unnoticed. A spec's
+  scope is written in it and recorded on the version, and the freeze
+  counts its candidates by collection, so a wider selection is visible
+  rather than silent. Every other query still names its collections.

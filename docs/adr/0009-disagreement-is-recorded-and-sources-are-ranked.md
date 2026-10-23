@@ -1,6 +1,6 @@
 # 9. Disagreement is recorded, sources are ranked, and unlabelled is the absence of a row
 
-**Status:** accepted
+**Status:** accepted; `model` defined by record 0048 (proposed)
 
 ## The decision
 
@@ -77,3 +77,12 @@ merge than to find afterwards.
 - Two people labelling the same sample on two machines is last-write-wins
   until their answers meet in a merge. Adequate for one person; a real gap
   the day it is two.
+
+## Amendments
+
+- **`model` is a judge (record 0048, proposed).** This record ranked
+  `model` lowest without saying what it was, and nothing wrote it. Read
+  as a model's predictions, it would empty the queue of every sample a
+  model had seen, and store each prediction twice. So it is defined as a
+  model's verdict on what was predicted, which fits this record's idea
+  of an answer.

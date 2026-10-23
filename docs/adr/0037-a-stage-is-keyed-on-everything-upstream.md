@@ -1,6 +1,7 @@
 # 37. A stage is keyed on everything upstream, and a record is never invalidated
 
-**Status:** accepted
+**Status:** accepted; preparation's stages depart from the table, by
+record 0046 (proposed)
 
 ## The decision
 
@@ -65,3 +66,11 @@ exactly what can run and nothing shells out to a command.
   file naming another model than the project's starts from nothing, since the
   project's parameters were written for its own.
 - A reused record and a fresh one are the same object downstream.
+
+## Amendments
+
+- **Preparation's stages are plugins, not a table (record 0046,
+  proposed).** The table still holds for experiment stages.
+  Preparation's stages already have implementations outside strata
+  (`prepare-email`, `prepare-video`, project packages), and a table
+  inside strata could not list them.

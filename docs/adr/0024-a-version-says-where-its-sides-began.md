@@ -1,6 +1,6 @@
 # 24. A version says where its sides began, and records the split it was given
 
-**Status:** accepted
+**Status:** accepted; amended by record 0050 (proposed)
 
 ## The decision
 
@@ -71,3 +71,10 @@ not. Achieved ratios are recorded beside the asked-for ones.
   for the modelling host, so both write the same thing.
 - An experiment uses the project's grouping unless the file says otherwise,
   including none: a study may split what the project keeps together.
+
+## Amendments
+
+- **Identical also means the same selection spec (record 0050,
+  proposed).** Two specs that select the same members today are still
+  two selections, and they diverge once more samples are labelled. A
+  version reused for the other spec would record the wrong one.

@@ -59,4 +59,9 @@ is one road on it, with the reason it goes that way.
 | [0042](0042-metrics-are-a-plugin-surface-and-a-number-carries-its-code.md) | Metrics are a plugin surface, and a number carries the identity of the code that produced it |
 | [0043](0043-a-machine-reaches-several-modelling-hosts-and-a-project-names-its-own.md) | A machine reaches several modelling hosts, and a project names its own |
 | [0044](0044-a-catalog-can-be-labelled-on-a-label-studio-of-its-own.md) | A catalog can be labelled on a Label Studio of its own |
-| [0045](0045-a-sample-says-what-it-was-made-from.md) | A sample says what it was made from, and what it was made from is kept whatever it is *(proposed)* |
+| [0045](0045-a-sample-says-what-it-was-made-from.md) | A sample says what it was made from, and what it was made from is kept *(proposed)* |
+| [0046](0046-preparation-is-a-chain-of-stages.md) | Preparation is a chain of stages, declared in a spec *(proposed)* |
+| [0047](0047-the-catalog-runs-the-prepare-engine.md) | The catalog runs the prepare engine, and prepare never imports the catalog *(proposed)* |
+| [0048](0048-a-prediction-is-not-an-annotation-and-model-is-a-judge.md) | A prediction is not an annotation, and the `model` source is a judge *(proposed)* |
+| [0049](0049-a-samples-metadata-is-combined-from-its-origins.md) | A sample's metadata is combined from its origins, and a type computes what its bytes say *(proposed)* |
+| [0050](0050-a-version-records-the-spec-that-selected-it.md) | A dataset version records the spec that selected it, and the spec can be run again *(proposed)* |

@@ -1,6 +1,7 @@
 # 40. What enters a catalog is declared outside it, and a type's metadata is a contract
 
-**Status:** accepted
+**Status:** accepted; amended by records 0045, 0046, 0047 and 0049
+(proposed)
 
 ## The decision
 
@@ -89,3 +90,27 @@ it. Record 0033's suite gains the check a catalog runs.
 - `strata-catalog preparers` became `strata-prepare preparers`, and
   `strata-catalog types` now says what each type requires and whether it is
   stored canonical.
+
+## Amendments
+
+- **Raw files enter by an ingest of their own, and samples by prepare
+  runs over them (record 0045, proposed).** A prepared corpus left its
+  raw files outside the catalog, where they could be lost, as phishnet's
+  Podesta mail was. The declaring this record asks for is kept, and the
+  spec now does it.
+- **The list of files a run is given, not the extension, selects what
+  is prepared (record 0045, proposed).** Every Enron maildir file is
+  named like `inbox/6.`, which has no suffix.
+- **A preparer is a chain of stages (record 0046, proposed).** One
+  opaque `prepare()` could not be checked step by step, and its rules
+  were in no record.
+- **The catalog imports `strata-prepare`, and prepare never imports the
+  catalog (record 0047, proposed).** The cost this record named, a
+  preparer needing a database driver, runs one way only, and it is still
+  kept away. Ingest and prepare are now the catalog's operations, so the
+  catalog runs the engine.
+- **A sample's metadata is combined from its origins, and the contract
+  is checked against each origin's facts (record 0049, proposed).** One
+  sample can now have several occurrences, and a single value per sample
+  would overwrite one with another. Facts that depend only on the bytes
+  are computed by the type, as canonical form is.

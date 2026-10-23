@@ -1,6 +1,7 @@
 # 33. A plugin's promise is an executable suite it runs itself: models, preparers, sample types
 
-**Status:** accepted
+**Status:** accepted; the contract checks a chain under its spec, by
+record 0046 (proposed)
 
 ## The decision
 
@@ -57,3 +58,11 @@ a re-prepared corpus from re-checksumming.
   source kept, and no condition for lifting it has been decided.
 - The union of prediction types is not a plugin surface: a new label type goes
   into `labels` first, and every layer reads it through the union (record 0004).
+
+## Amendments
+
+- **The contract checks a chain of stages, and the spec is inside the
+  determinism it checks (record 0046, proposed).** A chain's output
+  depends on its parameters and rule files as well as its source. So
+  "the same source gives the same bytes" becomes "the same input under
+  the same spec gives the same bytes".

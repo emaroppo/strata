@@ -1,6 +1,6 @@
 # 3. A dataset version is frozen, its sides inherited, its identity its answers
 
-**Status:** accepted
+**Status:** accepted; amended by record 0050 (proposed)
 
 ## The decision
 
@@ -64,3 +64,12 @@ than assumed, and a caller who asked for 20% can find out it got 50%.
   lineage begins and ends).
 - The materialised directory is self-contained (record 0004), so a run
   resolves back to the exact samples and answers behind it by version.
+
+## Amendments
+
+- **The selection behind the rows is recorded, and can be run again
+  (record 0050, proposed).** A version is still its rows, and a round
+  still trains on them. But a freeze now has to leave samples out by a
+  rule, such as HTML or length, and a version that cannot say which rule
+  it applied does not say what it holds. So the spec that chose the rows
+  is stored with a watermark, and `verify` runs it again to check them.

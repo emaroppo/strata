@@ -1,6 +1,6 @@
 # 39. A schema answers which classes a value asserts, and the catalog indexes nothing else
 
-**Status:** accepted
+**Status:** accepted; extended by record 0050 (proposed)
 
 ## The decision
 
@@ -32,3 +32,11 @@ which is exactly the knowledge the contract keeps out of the catalog.
   `stats` double as a check that indexing did its job.
 - Which classes a value asserts is also how a pull refuses undeclared labels
   before writing, and how a label set is widened by the classes in use.
+
+## Amendments
+
+- **The class index is kept for every answer, not only the current one
+  (record 0050, proposed).** It was rewritten on each write, so the
+  classes a superseded answer asserted were gone. Running a version's
+  selection spec again needs them as they stood when it was frozen. The
+  index is derived exactly as before, and keyed by the annotation row.
