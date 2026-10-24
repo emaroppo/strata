@@ -78,7 +78,7 @@ runs the prepare engine over its own raw files.
 | package | what it is | depends on |
 |---|---|---|
 | [`strata-contracts`](https://github.com/emaroppo/strata-contracts) | what crosses a boundary: sample types and the prepared index going into a catalog, annotation values and schemas, the manifest a trainer is handed | pydantic, common |
-| [`strata-common`](https://github.com/emaroppo/strata-common) | migration plumbing, a service bootstrap, an entry-point resolver, the canonical form that gets hashed | nothing |
+| [`strata-common`](https://github.com/emaroppo/strata-common) | migration plumbing, a service bootstrap, an entry-point resolver, the canonical form that gets hashed, what every command line shares | nothing |
 | [`strata-catalog`](https://github.com/emaroppo/strata-catalog) | samples, storage, annotations, dataset versions; SQLite and files, or Postgres and a bucket | contracts, common, prepare |
 | [`strata-prepare`](https://github.com/emaroppo/strata-prepare) | raw data into a prepared corpus: preparers, the folder ones, the conformance suite | contracts, common |
 | [`strata-evaluation`](https://github.com/emaroppo/strata-evaluation) | how a prediction is scored against an answer: tasks over a label type, the span geometry they share, and tallies; tasks and failure modes are plugins, and a score carries the identity of its code | contracts, common |

@@ -53,3 +53,22 @@ travels into chats and issues and the index URL carries the password.
   service imports.
 - The modelling client and command follow the same rule for the same reason
   (record 0007).
+
+## Amendments
+
+- **The shared pieces are one implementation, in `strata.common.cli`.**
+  Four commands each wrote their own JSON emitter and their own
+  error-to-exit path, and they drifted: one lacked `default=str`, one
+  swallowed `ValueError`, and the labeller printed refusals to stdout, into
+  the JSON a program was reading. `emit` and `print_json` print the record
+  whole on stdout; `run` and `exit_on` print a refusal on stderr and exit 1,
+  and always also refuse a `Refused` and a store behind the code
+  (`strata.common.errors`, record 0018), so a schema message written for a
+  person is never a traceback. The labeller may not import `common` and
+  matches the behaviour locally; it is also the one command built on typer
+  and rich, which this record's "standard library only" did not state as
+  an exception and now does, for the review queue's tables and progress.
+- **Every command resolves the host file the same way**: `--config`, else
+  `$STRATA_CONFIG`, else `./config.toml`, through
+  `strata.catalog.config.settings_path`, which the catalog's own commands
+  and its migrate tool had not been using (record 0019).

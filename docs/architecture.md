@@ -39,7 +39,7 @@ Short names are used below for readability.
 | `modelling` | train and predict; model plugins; runs and checkpoints; the `evaluate` stage, which scores through `evaluation` | `contracts`, `common`, `evaluation`; `catalog` behind the `service` extra |
 | `project` | the job as a file: catalog, collections, label set, model; the host's settings | `catalog`, `modelling`, `contracts` |
 | `labeller` | active learning, and the Label Studio adapter that feeds it | `project`, `catalog`, `prepare`, `modelling`, `contracts` |
-| `common` | what `catalog` and `modelling` both need and neither owns: migration plumbing, an engine factory, a service bootstrap, an entry-point resolver, the canonical form that gets hashed | — |
+| `common` | what two packages need and neither owns: migration plumbing, an engine factory, a service bootstrap, an entry-point resolver, the canonical form that gets hashed, and the command line's shared pieces | — |
 | `experiment` | an experiment as a file: stages from a config, a grid over them, a ledger of what ran | `project`, `catalog`, `modelling`, `contracts`, `common` |
 
 Acyclic, with `common` as the leaf, `contracts` over it, and the two tools at the
@@ -59,7 +59,9 @@ depends on `prepare`, and nothing depends on them.
 `strata-common` sits under `catalog` and `modelling`, holding what both
 need and neither owns — running a migration chain from an installed wheel,
 starting a service from the environment, resolving a name through an
-entry-point group, the canonical form that gets hashed — and nothing else:
+entry-point group, the canonical form that gets hashed, and the pieces
+every command line shares: how a record is emitted and how a refusal
+becomes an exit (`docs/adr/0030`) — and nothing else:
 it declares no dependency
 of its own, its extras name what each module needs, and it never mentions
 a label, a sample or a run. It is not `contracts`, which every consumer already
