@@ -111,9 +111,12 @@ version says about grouping.
   list, since a list is chosen within one type in practice.
   `strata-catalog lists put` takes it. The migration fills it where
   every member found resolves to one type; a list whose members the
-  catalog does not hold yet (record 0051 allows that) stays untyped, and
-  resolves on the checksum alone where that is unambiguous. A list that
-  names several types is a later extension.
+  catalog does not hold yet (record 0051 allows that) stays untyped. An
+  untyped list matches every sample holding a checksum it names, of
+  whatever type: as a given split, that is what keeping the same bytes on
+  one side asks anyway, and as a selection, the spec already names the
+  types it selects. A list that names several types is a later
+  extension.
 - **Ingesting known bytes as another type makes a new sample.** Until
   now, ingesting bytes already catalogued under a different subtype
   rewrote the existing row's subtype. Under this record that would turn
@@ -129,4 +132,7 @@ version says about grouping.
   as an unknown checksum is now.
 - **`ManifestSample` gains `type`,** written by every catalog from now
   on.
+- **Removing by checksum takes the type.** `strata-catalog remove
+  --checksum` matching several types is refused unless `--type` names
+  one, since tombstoning both would remove a sample nobody named.
 - **Record 0001 is marked amended,** with this record's reasoning.
