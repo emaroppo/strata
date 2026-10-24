@@ -52,8 +52,12 @@ share a checksum. Two exceptions are tolerated rather than migrated:
 
 - **A Label Studio task pushed before this record.** Its data holds a
   checksum and nothing else. It resolves while one live sample has that
-  checksum, and is refused with the task id once there are two. Pushing
-  again gives it the type.
+  checksum, and is refused with the task id once there are two.
+  `relink` writes the type into every old task it can resolve, so
+  running it before a second type arrives protects them all. A push
+  never changes an existing task: an old task that is already ambiguous
+  stays in Label Studio, reported each time, and a push makes a new
+  typed task for its sample if that one is still waiting for review.
 - **A manifest written before this record.** `ManifestSample` gains a
   `type` defaulting to null. A reader matching an old manifest against a
   catalog matches on the checksum where it is unambiguous and refuses
@@ -78,8 +82,14 @@ names its checksum, whether a sample of any type or a raw file.
   locates them.
 - **Predictions.** A prediction is a function of the checksum, the run
   and the feature digest (record 0006). The same bytes give the same
-  prediction whatever the type, and the feature digest already covers
-  whatever metadata a model reads.
+  prediction whatever the type, and the feature digest covers whatever
+  metadata a model reads, one sample at a time.
+
+  **A known limit:** the prediction cache and a remote scoring request
+  take one set of features per checksum. Two samples with the same
+  bytes in one review queue, whose features differ, cannot both be
+  scored. The second is held out of the queue and reported. Lifting it
+  means modelling accepting several feature sets per checksum.
 - **Materialised files.** A version holding both rows of one checksum
   writes one file, which both manifest entries point to.
 

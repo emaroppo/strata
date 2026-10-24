@@ -142,24 +142,43 @@ run's last. A generation record names it by name as well as by digest
 
 ## How a generator is evaluated
 
-A generated body is not wrong for differing from the real one. Many
-bodies fit one subject. So a generator is scored on what its outputs
-are, not on matching an answer. The evaluate stage generates one output
-for each validation sample's input, and scores the outputs.
+The evaluate stage generates one output for each validation sample's
+input, including any input samples, and hands the task three things:
+the outputs, the validation targets, and the training targets.
 
-A **`generation` task** in strata-evaluation holds what any text
-generator is scored on:
+**The task is chosen by the output's media.** What can be measured
+depends on what the output is, so there is a generation task per media,
+picked from the media of the type the model `trains_on`. Each asks the
+same questions in its media's own terms:
+
+- **Memorisation:** how close is each output to the nearest training
+  target?
+- **Diversity:** how different are the outputs from one another?
+- **Agreement with the target,** only where that is meaningful. For
+  open-ended writing it is not: many bodies fit one subject, and a good
+  one can share nothing with the real one. For a summary or a
+  translation it is. So a project turns it on; it is off by default.
+
+What is specific to one project, such as whether an output honoured its
+conditions, is a metrics plugin (record 0042), whatever the media.
+
+**`text-generation`** is the one built now, in strata-evaluation:
 
 - **ended:** the share that stopped on their own rather than at the
   token limit;
-- **distinct 1-, 2- and 3-grams** across outputs;
-- **the longest run of words** shared with any training body, as a
-  median, a 90th percentile and a maximum (memorisation).
+- **distinct 1-, 2- and 3-grams** across outputs (diversity);
+- **the longest run of words** shared with any training target, as a
+  median, a 90th percentile and a maximum (memorisation);
+- **chrF against the validation target,** when turned on.
 
-A project's own checks are a metrics plugin (record 0042). Phishnet's
-know its placeholder format, so they live in strata-phishnet: flags
-honoured, placeholders valid, and attachment prose without an
-`[ATTACHMENT_n]`.
+An **`image-generation`** task would measure the same three questions
+with an image similarity, such as a perceptual hash or an embedding
+distance. It is designed when an image generator exists, not here,
+since the right similarity depends on what the images are for.
+
+Phishnet's checks know its placeholder format, so they are a metrics
+plugin in strata-phishnet: flags honoured, placeholders valid, and
+attachment prose without an `[ATTACHMENT_n]`.
 
 The outputs made for scoring stay in the evaluation result. Judging
 some of them means a generate run, which puts them in the catalog as
@@ -205,8 +224,9 @@ only a GPU host needs them.
   checkpoint in the prediction key, in one migration; the `text-sft`
   baseline under the `sft` extra.
 - **Every existing model's base class becomes `LabelModel`.**
-- **strata-evaluation:** the `generation` task. The task contract
-  accepts a task that reads generated outputs rather than a label type.
+- **strata-evaluation:** the `text-generation` task. The task contract
+  accepts a task that reads generated outputs for a media, rather than
+  a label type.
 - **strata-experiment:** the evaluate stage scores every checkpoint of
   a run.
 - **strata-catalog:** a freeze over an SFT type writes its input fields
