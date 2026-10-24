@@ -108,11 +108,14 @@ comes with the base model, which the run also records.
 
 **Generating returns outputs and writes nothing.** A generate request
 names the run and the checkpoint, and gives the inputs, the settings
-and the seeds. It returns each text, whether it ended on its own or at
-the token limit, the digest of the settings that made it, and its seed.
-Modelling never sees the catalog (record 0004). The caller commits the
-outputs as a generate run (record 0053), taking the template and system
-prompt from the training run.
+and the seeds. An input is values, and may also name samples by role,
+passed as paths, as predict is given them: the text to summarise, the
+images to combine. It returns each output, whether it ended on its own
+or at the token limit, the digest of the settings that made it, and its
+seed. Modelling never sees the catalog (record 0004). The caller knows
+which samples it passed, so it commits the outputs as a generate run
+(record 0053), with an origin row per input sample and its role, taking
+the template and system prompt from the training run.
 
 ## Why a run keeps every checkpoint
 

@@ -22,8 +22,11 @@ text templates and every text model work on these samples unchanged. A
 SFTExample)` later is the same pattern.
 
 **A generated sample** arrives only through a **generate** run. It has
-no origin row, since nothing it was made from is a sample or a raw file.
-It has a **generation record** instead, one per generate run that
+an origin row for each sample whose bytes the model was given, such as
+the text a summary was made from, or the content and style images of a
+style transfer. Each row says the **role** the sample filled (`text`,
+`content`, `style`). A LoRA writing from a subject alone has none. Every
+generated sample has a **generation record**, one per generate run that
 produced it:
 
 - the generate run;
@@ -66,29 +69,42 @@ media could be registered and picked on its own, and would mean
 nothing. The mixin holds what the catalog checks:
 
 - **`GeneratedMedia`:** a sample of the type arrives only through a
-  generate run, and has a generation record. A generate run writes only
-  such types. Any other run that offers one is refused.
+  generate run, and has a generation record, with an origin row per
+  input sample. A generate run writes only such types. Any other run
+  that offers one is refused.
 - **`SFTExample`:** the bytes are the target, and the type's
   `Metadata` names the input fields, required on every origin.
 
-## Why a generated sample has no origin, and what anchors it instead
+## What a generated sample's origins are, and what anchors the rest
 
 An origin row names an input the sample was made from: a raw file or a
-sample (record 0045). A LoRA's output is made by a model, given a
-prompt. Its inputs are the checkpoint, the template, the settings and
-the values in the prompt. None of these is a sample, and forcing them
-into origin rows would make every reader of origins handle inputs that
-are not data. So the generation record is a table of its own, keyed by
-sample and run like an origin.
+sample (record 0045). A generated sample can be made from samples, and
+then that is lineage like any other. A summary was made from its text,
+and a style transfer from two images. So each sample the model was
+given is an origin row, and the generate run is the run that made it.
+A query for what was made from a text then finds its summaries, the
+same way it finds anything derived from it.
+
+One model can take several samples in different parts, so an origin
+row gains a `role`: the input it filled, named as the model names its
+inputs. It is null for origins written by ingest, prepare and derive
+runs, whose inputs have no parts. The role is part of the row's
+uniqueness, since one sample can fill two roles in one run.
+
+The rest of what made a generated sample is not data. The checkpoint,
+the template, the settings and the values in the prompt are not
+samples, and forcing them into origin rows would make every reader of
+origins handle inputs that are not data. So the generation record is a
+table of its own, keyed by sample and run like an origin.
 
 The template, the system prompt and the settings are named per sample,
 not only per run. One run can sweep a setting, such as temperature, and
 each sample still says which variant made it.
 
-A prompt value taken from a stored sample, such as a real message's
-subject, is recorded with the values as a reference to that sample, by
-checksum and type. It is not a hop in the lineage: the output was not
-made from that message.
+A prompt value copied out of a stored sample's metadata, such as a real
+message's subject, is different. The model was given the value, not the
+sample. It is recorded with the values as a reference to that sample,
+by checksum and type, and is not an origin.
 
 The model was trained with a template and a system prompt, which the
 training run records as its parameters. A generate run takes them from
@@ -198,8 +214,9 @@ model's output stay separate questions.
 - **The catalog gains run kinds `generate` and `derive`, and a
   `generation` table:** sample, run, model host and run id, checkpoint
   digest, template, system prompt and settings digests, values, seed.
+- **An origin row gains a nullable `role`,** part of its uniqueness.
 - **A command commits each kind of run:** a directory of outputs, with
-  their origins or generation records and the run's spec, checked and
+  their origins, generation records and the run's spec, checked and
   committed in one transaction.
 - **strata-phishnet registers `PhishNetEmail` and `PhishNetSFT` as
   sample types.** Any host that writes them to `main` has it installed.
