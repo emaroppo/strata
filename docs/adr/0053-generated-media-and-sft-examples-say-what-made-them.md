@@ -149,12 +149,22 @@ origins. Each origin keeps its own subject, and the sample's combined
 metadata shows the first (record 0049). Nothing is lost in storage.
 
 A materialised sample carries one input, never several. A freeze over
-an SFT type compares each sample's input fields across its origins. A
-sample whose origins disagree is left out, and counted under a reason
-(record 0036), so a version records what it dropped. The type decides
-what disagreeing means: `PhishNetSFT` compares subjects with whitespace
-folded, so a re-wrapped subject is not a dispute. This is what
-phishnet's SFT export does today.
+an SFT type compares each sample's input fields across its origins. The
+type decides what disagreeing means: `PhishNetSFT` compares subjects
+with whitespace folded, so a re-wrapped subject is not a dispute. What
+happens to a sample whose origins disagree is the freeze's choice,
+`disagreeing_inputs`:
+
+- **`drop`, the default:** the sample is left out. This is what
+  phishnet's SFT export does today.
+- **`first`:** the sample is kept with its first origin's input, the
+  same one its combined metadata shows (record 0049).
+
+Either way the samples are counted under a reason (record 0036): left
+out, or kept with one of several inputs. The choice is recorded on the
+version and is part of what makes two versions identical, as a given
+split is (record 0024), since the same spec frozen both ways trains on
+different examples.
 
 ## Why a derive run, and not a prepare run
 
@@ -222,6 +232,8 @@ model's output stay separate questions.
   digest, template, system prompt and settings digests, values, seed.
 - **An origin row gains a nullable `role`, part of its uniqueness, and
   a nullable `position`** within the role.
+- **A freeze over an SFT type takes `disagreeing_inputs`,** `drop` by
+  default or `first`, recorded on the version.
 - **A command commits each kind of run:** a directory of outputs, with
   their origins, generation records and the run's spec, checked and
   committed in one transaction.
