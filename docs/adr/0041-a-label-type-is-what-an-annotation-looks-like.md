@@ -1,6 +1,6 @@
 # 41. A label type is what an annotation looks like; a task is what it is for
 
-**Status:** accepted
+**Status:** accepted; amended by record 0054 (proposed)
 
 ## The decision
 
@@ -48,3 +48,10 @@ case where refusing matters most: without it, a plugin still declaring
   takes `--label-type`.
 - The `evaluate` stage and `strata-evaluation` are organised by task, each
   task naming the label type it reads.
+
+## Amendments
+
+- **`label_type` is a `LabelModel`'s (record 0054, proposed).** A
+  `MediaModel` learns from samples, not a label set, and names the
+  sample type it trains on instead. The label set on its dataset only
+  chose the samples.

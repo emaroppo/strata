@@ -28,7 +28,7 @@ produced it:
 
 - the generate run;
 - the model run that generated it, by its host and run id, and the
-  checkpoint's digest;
+  checkpoint, by name and digest (record 0054);
 - the prompt template's, system prompt's and generation settings'
   digests;
 - the values filled into the template;

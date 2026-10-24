@@ -1,6 +1,6 @@
 # 5. A run is a chain in a database, with an id that needs no coordination
 
-**Status:** accepted
+**Status:** accepted; amended by record 0054 (proposed)
 
 ## The decision
 
@@ -120,3 +120,11 @@ the full id is what everything keys on and what a merge needs.
   large half by orders of magnitude, and a run whose checkpoint did not
   come has its column cleared rather than left pointing at a file on
   another machine.
+
+## Amendments
+
+- **A run keeps every checkpoint its model saved (record 0054,
+  proposed).** A LoRA's best epoch is found by evaluating each one, and
+  a run per epoch count would train the same first epochs again and
+  again. A run's checkpoints are rows in a `checkpoint` table; a model
+  that saves once still has one.

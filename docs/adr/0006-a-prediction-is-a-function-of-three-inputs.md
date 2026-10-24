@@ -1,6 +1,6 @@
 # 6. A prediction is a function of three inputs, and nothing is ever invalidated
 
-**Status:** accepted
+**Status:** accepted; amended by record 0054 (proposed)
 
 ## The decision
 
@@ -64,3 +64,10 @@ its properties.
 - When spans went from one `label` to a list of `labels`, the cache was
   rewritten to follow, so a cached answer keeps reading under the one form
   the value type accepts and nothing computed was thrown away.
+
+## Amendments
+
+- **The key gains the checkpoint (record 0054, proposed).** A run can
+  now keep several checkpoints, so the run alone no longer fixes the
+  weights. With the checkpoint in the key, a prediction is still a
+  function of fixed weights and fixed bytes, and still never stale.

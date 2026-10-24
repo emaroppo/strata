@@ -68,3 +68,4 @@ is one road on it, with the reason it goes that way.
 | [0051](0051-a-given-split-can-name-lists.md) | A given split can name lists, so a split carried from elsewhere is reproduced *(proposed)* |
 | [0052](0052-a-sample-is-its-bytes-and-its-type.md) | A sample is its bytes and its type *(proposed)* |
 | [0053](0053-generated-media-and-sft-examples-say-what-made-them.md) | Generated media and SFT examples are types, and each says what made it *(proposed)* |
+| [0054](0054-a-model-makes-labels-or-media-and-a-run-keeps-every-checkpoint.md) | A model makes labels or media, and a run keeps every checkpoint it saved *(proposed)* |
