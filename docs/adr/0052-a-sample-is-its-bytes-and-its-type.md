@@ -97,10 +97,20 @@ version says about grouping.
 
 - **`sample`'s unique constraint becomes `(checksum, media, subtype)`,**
   in a migration. `ix_sample_subtype` already covers the lookup by type.
-- **`list_member` gains `media` and `subtype`,** filled by the migration.
-  `strata-catalog lists put` takes the type for the whole list, since a
-  list is chosen within one type in practice. A list file that names
-  both is a later extension.
+- **A list version gains `media` and `subtype`,** one type for the whole
+  list, since a list is chosen within one type in practice.
+  `strata-catalog lists put` takes it. The migration fills it where
+  every member found resolves to one type; a list whose members the
+  catalog does not hold yet (record 0051 allows that) stays untyped, and
+  resolves on the checksum alone where that is unambiguous. A list that
+  names several types is a later extension.
+- **Ingesting known bytes as another type makes a new sample.** Until
+  now, ingesting bytes already catalogued under a different subtype
+  rewrote the existing row's subtype. Under this record that would turn
+  one sample into another, so it is a second sample over the same blob
+  instead. Ingesting under the same type still updates the row's
+  metadata, as before. The new row reuses the stored blob, looked up
+  from any sample or raw row with that checksum.
 - **`by_checksum` takes the type.** Its callers are the blob server,
   which doesn't need it (any row will do), the answer merge, and the
   Label Studio sync, which reads it from the task.
