@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Weekly, so the sft job also runs when nothing that gates it changed.
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
 
 # The lock fixes every package but not the interpreter, and uv otherwise
 # takes the newest Python, whose wheels (psycopg-binary, torch) arrive
@@ -72,9 +76,10 @@ jobs:
         env:
           STRATA_TEST_DB: postgresql+psycopg://strata:strata@localhost:5432/strata
 
-  # Split out because the extras pull several GB of wheels.
+  # Split out because the extras pull several GB of wheels. Every extra
+  # but modelling's sft, which is several GB more and has its own job.
   tests-extras:
-    name: tests (--extra all)
+    name: tests (every extra but sft)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -83,7 +88,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-      - run: uv sync --all-packages --extra all --group dev
+      - run: uv sync --all-packages --extra s3 --extra serve --extra postgres --extra image --extra text --extra gliner --group dev
       - run: uv run --no-sync python -c "import strata.modelling.baselines.image"
       - run: uv run --no-sync python -c "import strata.modelling.baselines.text"
       - run: uv run --no-sync pytest -q
@@ -91,3 +96,46 @@ jobs:
       # a real import rather than a missing one.
       - run: uv run --no-sync pyright
 
+  # Whether anything the sft job covers changed. A package is a submodule
+  # here, so a bump of modelling or contracts is as fine as it gets.
+  changes:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      sft: ${{ steps.filter.outputs.sft }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            sft:
+              - "packages/modelling"
+              - "packages/contracts"
+              - "uv.lock"
+              - "pyproject.toml"
+              - ".github/**"
+
+  # modelling's text-sft baseline with unsloth and its kin installed, so its
+  # imports are real ones. Only when something it depends on changed,
+  # weekly, or by hand. No GPU here: the real-model test skips.
+  # docs/adr/0054
+  tests-sft:
+    name: tests (--extra sft)
+    needs: changes
+    if: >-
+      always() && (github.event_name == 'schedule'
+      || github.event_name == 'workflow_dispatch'
+      || needs.changes.outputs.sft == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-packages --extra sft --group dev
+      - run: uv run --no-sync python -c "import strata.modelling.baselines.text.sft"
+      - run: uv run --no-sync pytest -q packages/modelling/tests/test_text_sft.py
+      - run: uv run --no-sync pyright packages/modelling/strata/modelling/baselines/text/sft.py packages/modelling/strata/modelling/baselines/text/sft_data.py
