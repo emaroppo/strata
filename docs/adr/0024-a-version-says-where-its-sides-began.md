@@ -1,6 +1,6 @@
 # 24. A version says where its sides began, and records the split it was given
 
-**Status:** accepted; amended by record 0050 (proposed)
+**Status:** accepted; amended by records 0050 and 0051 (proposed)
 
 ## The decision
 
@@ -78,3 +78,8 @@ not. Achieved ratios are recorded beside the asked-for ones.
   proposed).** Two specs that select the same members today are still
   two selections, and they diverge once more samples are labelled. A
   version reused for the other spec would record the wrong one.
+- **A given split can also name lists (record 0051, proposed).** A split
+  decided after ingest, such as another catalog's version carried over,
+  has no metadata key to be read off. Lists by `name@version` fix their
+  members' sides under the same rules as a key's values, and a split by
+  key alone is recorded as before.

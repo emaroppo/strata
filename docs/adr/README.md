@@ -65,3 +65,4 @@ is one road on it, with the reason it goes that way.
 | [0048](0048-a-prediction-is-not-an-annotation-and-model-is-a-judge.md) | A prediction is not an annotation, and the `model` source is a judge *(proposed)* |
 | [0049](0049-a-samples-metadata-is-combined-from-its-origins.md) | A sample's metadata is combined from its origins, and a type computes what its bytes say *(proposed)* |
 | [0050](0050-a-version-records-the-spec-that-selected-it.md) | A dataset version records the spec that selected it, and the spec can be run again *(proposed)* |
+| [0051](0051-a-given-split-can-name-lists.md) | A given split can name lists, so a split carried from elsewhere is reproduced *(proposed)* |
