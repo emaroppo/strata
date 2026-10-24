@@ -66,3 +66,5 @@ is one road on it, with the reason it goes that way.
 | [0049](0049-a-samples-metadata-is-combined-from-its-origins.md) | A sample's metadata is combined from its origins, and a type computes what its bytes say *(proposed)* |
 | [0050](0050-a-version-records-the-spec-that-selected-it.md) | A dataset version records the spec that selected it, and the spec can be run again *(proposed)* |
 | [0051](0051-a-given-split-can-name-lists.md) | A given split can name lists, so a split carried from elsewhere is reproduced *(proposed)* |
+| [0052](0052-a-sample-is-its-bytes-and-its-type.md) | A sample is its bytes and its type *(proposed)* |
+| [0053](0053-generated-media-and-sft-examples-say-what-made-them.md) | Generated media and SFT examples are types, and each says what made it *(proposed)* |

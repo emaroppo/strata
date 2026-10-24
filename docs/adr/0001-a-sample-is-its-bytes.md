@@ -1,6 +1,6 @@
 # 1. A sample is its bytes: every reference that must survive a move is a checksum
 
-**Status:** accepted
+**Status:** accepted; amended by record 0052 (proposed)
 
 ## The decision
 
@@ -55,3 +55,13 @@ which is what keeps a review queue fast over a LAN.
   where it came from. A frozen row hashes every field it compares, and a
   dict cannot be hashed, so a row carrying metadata could otherwise not be
   put in a set at all.
+
+## Amendments
+
+- **A sample is its bytes and its type (record 0052, proposed).** An SFT
+  example's bytes are only its target, so a training example and a
+  model output that reproduces it can be the same bytes, and they are
+  different samples. Identity becomes the checksum and the type, and
+  every reference names both. The bytes are still stored once, and the
+  reasons above, surviving a move and meaning the same in every
+  catalog, still hold.
