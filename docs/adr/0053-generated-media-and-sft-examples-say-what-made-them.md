@@ -85,11 +85,17 @@ given is an origin row, and the generate run is the run that made it.
 A query for what was made from a text then finds its summaries, the
 same way it finds anything derived from it.
 
-One model can take several samples in different parts, so an origin
-row gains a `role`: the input it filled, named as the model names its
-inputs. It is null for origins written by ingest, prepare and derive
+A generation can take any number of samples, in different parts, so an
+origin row gains a `role`: the input it filled, named as the model
+names its inputs. Several samples can fill one role, such as three
+reference images under `style`. Where their order matters, as with
+references numbered in a prompt, the row's `position` says which one it
+was. Both are null for origins written by ingest, prepare and derive
 runs, whose inputs have no parts. The role is part of the row's
 uniqueness, since one sample can fill two roles in one run.
+
+Prompt values copied out of samples, below, can likewise name any
+number of samples.
 
 The rest of what made a generated sample is not data. The checkpoint,
 the template, the settings and the values in the prompt are not
@@ -214,7 +220,8 @@ model's output stay separate questions.
 - **The catalog gains run kinds `generate` and `derive`, and a
   `generation` table:** sample, run, model host and run id, checkpoint
   digest, template, system prompt and settings digests, values, seed.
-- **An origin row gains a nullable `role`,** part of its uniqueness.
+- **An origin row gains a nullable `role`, part of its uniqueness, and
+  a nullable `position`** within the role.
 - **A command commits each kind of run:** a directory of outputs, with
   their origins, generation records and the run's spec, checked and
   committed in one transaction.
