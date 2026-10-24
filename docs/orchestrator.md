@@ -77,8 +77,8 @@ on = "holdout"
 Rules, all of which exist so that the file hashes:
 
 - **TOML is what a person edits; canonical JSON is what is hashed.** The
-  canonical form is `strata.common.canonical`, with the rules
-  `post-process` and `feature-store` already use and re-declare: sorted
+  canonical form is `strata.common.canonical`, the one implementation
+  `post-process` and `feature-store` import too (`docs/adr/0017`): sorted
   keys, fixed separators, defaults materialised, sets and NaN refused, a
   schema version inside the payload. The experiment's id is the hash of
   its canonical form.

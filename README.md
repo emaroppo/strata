@@ -71,14 +71,15 @@ with its README, its CI and its history, held here as submodules so one
 checkout carries the whole system. The dependency graph is acyclic and
 enforced by the build: `common` is the leaf and `contracts` sits on it,
 `labeller` and `experiment` are peers at the top over the job they share,
-and the catalog and the preparers that fill it never import each other —
-what passes between them is a prepared index, defined in `contracts`.
+and the preparers that fill the catalog never import it — what passes
+between them is a prepared index, defined in `contracts`, and the catalog
+runs the prepare engine over its own raw files.
 
 | package | what it is | depends on |
 |---|---|---|
 | [`strata-contracts`](https://github.com/emaroppo/strata-contracts) | what crosses a boundary: sample types and the prepared index going into a catalog, annotation values and schemas, the manifest a trainer is handed | pydantic, common |
 | [`strata-common`](https://github.com/emaroppo/strata-common) | migration plumbing, a service bootstrap, an entry-point resolver, the canonical form that gets hashed | nothing |
-| [`strata-catalog`](https://github.com/emaroppo/strata-catalog) | samples, storage, annotations, dataset versions; SQLite and files, or Postgres and a bucket | contracts, common |
+| [`strata-catalog`](https://github.com/emaroppo/strata-catalog) | samples, storage, annotations, dataset versions; SQLite and files, or Postgres and a bucket | contracts, common, prepare |
 | [`strata-prepare`](https://github.com/emaroppo/strata-prepare) | raw data into a prepared corpus: preparers, the folder ones, the conformance suite | contracts, common |
 | [`strata-evaluation`](https://github.com/emaroppo/strata-evaluation) | how a prediction is scored against an answer: tasks over a label type, the span geometry they share, and tallies; tasks and failure modes are plugins, and a score carries the identity of its code | contracts, common |
 | [`strata-modelling`](https://github.com/emaroppo/strata-modelling) | train and predict; model plugins, runs, checkpoints, a prediction cache; the training service | contracts, common, evaluation |
@@ -157,14 +158,15 @@ The packages are not on PyPI. Each installs from its repository at a
 release tag, and each package's README has the exact line. One rule makes it
 longer than a plain `uv add`: uv applies a git source only to a package the
 project names directly, so a package's strata dependencies are named beside
-it, each with its own source. The catalog, which needs `contracts` and
-`common`:
+it, each with its own source. The catalog, which needs `contracts`,
+`common` and `prepare`:
 
 ```bash
 g=git+https://github.com/emaroppo
 uv add "strata-catalog @ $g/strata-catalog@v0.1.0" \
        "strata-contracts @ $g/strata-contracts@v0.1.0" \
-       "strata-common @ $g/strata-common@v0.1.0"
+       "strata-common @ $g/strata-common@v0.1.0" \
+       "strata-prepare @ $g/strata-prepare@v0.1.0"
 uv add "strata-catalog[postgres,s3] @ $g/strata-catalog@v0.1.0"   # extras, once it is there
 ```
 

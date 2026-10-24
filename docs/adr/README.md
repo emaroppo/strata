@@ -11,7 +11,8 @@ carried in its docstrings since each decision was made; 18 to 39 on
 record yet stated. A
 docstring now states what a function promises and, where a decision
 shaped it, names the record here. `architecture.md` is the map; a record
-is one road on it, with the reason it goes that way.
+is one road on it, with the reason it goes that way. Records written
+before the rename say `labels` for the package now called `contracts`.
 
 | | Decision |
 |---|---|

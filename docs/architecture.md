@@ -33,10 +33,10 @@ Short names are used below for readability.
 | Package | Owns | Depends on |
 | --- | --- | --- |
 | `contracts` | what crosses a boundary: what an annotation *is* (value types, schema descriptors, the indexing contract); what enters a catalog (sample types, the metadata each requires, the prepared index); and the manifest a trainer is handed | `common` |
-| `catalog` | samples, storage, canonical form, grouping, annotations, datasets | `contracts` |
+| `catalog` | samples, storage, canonical form, grouping, annotations, datasets; runs the prepare engine | `contracts`, `common`, `prepare` |
 | `prepare` | getting raw data into a prepared corpus: preparers, the folder ones, the conformance suite | `contracts`, `common` |
 | `evaluation` | how a prediction is scored against an answer: tasks, each reading one label type, the span geometry they share, and tallies; tasks and failure modes are plugins, and a score carries the identity of the code that produced it | `contracts`, `common` |
-| `modelling` | train and predict; model plugins; runs and checkpoints; the `evaluate` stage, which scores through `evaluation` | `catalog`, `contracts`, `evaluation` |
+| `modelling` | train and predict; model plugins; runs and checkpoints; the `evaluate` stage, which scores through `evaluation` | `contracts`, `common`, `evaluation`; `catalog` behind the `service` extra |
 | `project` | the job as a file: catalog, collections, label set, model; the host's settings | `catalog`, `modelling`, `contracts` |
 | `labeller` | active learning, and the Label Studio adapter that feeds it | `project`, `catalog`, `prepare`, `modelling`, `contracts` |
 | `common` | what `catalog` and `modelling` both need and neither owns: migration plumbing, an engine factory, a service bootstrap, an entry-point resolver, the canonical form that gets hashed | — |
@@ -48,8 +48,10 @@ read, and neither imports the other (`docs/adr/0016`). `common`
 declares no dependency of its own; what a module needs sits behind an
 extra, so a plugin resolver never pulls in a database driver.
 
-`prepare` and `catalog` never import each other: what passes between them is
-a prepared index, which `contracts` defines (`docs/adr/0040`). Two preparer
+`prepare` never imports `catalog`: what passes between them is a prepared
+index, which `contracts` defines (`docs/adr/0040`), or the chain's inputs and
+outputs, since the catalog runs the prepare engine over its raw files
+(`docs/adr/0047`). Two preparer
 plugins sit outside the table. `strata-prepare-video` and the emails demo's
 `strata-prepare-email` turn a corpus into a sample type a catalog takes; each
 depends on `prepare`, and nothing depends on them.
@@ -81,8 +83,9 @@ the job carries without reading.
 A `uv` workspace, which the build already uses everywhere. That gives a
 `pyproject.toml` per package, independently declared dependencies, separate
 extras, and independent publishability — without a version-pinning dance on
-every change touching two packages. The split into a repository per package
-is on the roadmap; the workspace is what keeps it possible.
+every change touching two packages. Each package is now a repository of
+its own, held here as a submodule; the workspace is what keeps them in
+step.
 
 What keeps it possible is a CI job that builds every wheel and installs
 each package alone — the others coming from those wheels, as they would
@@ -174,7 +177,7 @@ SQLite index and one file per blob. The shared one is a Postgres index and
 tars in S3-compatible object storage (Garage, self-hosted) — packed rather
 than stored as individual objects, because small-object overhead and
 listing cost make per-file storage the wrong shape at volume.
-`catalog-repack` moves the blobs from the first to the second, and nothing
+`strata-catalog repack` moves the blobs from the first to the second, and nothing
 else changes.
 
 Tar has no index, so the index records `(location, offset, length)` per
@@ -211,23 +214,44 @@ full-text search is wanted.
 ```
 catalog.catalog_identity    id, created_at
 
+catalog.run                 id, kind, producer, code, spec, spec_hash, chain,
+                            files_digest, continues, counts, started_at,
+                            finished_at          -- what wrote to the catalog
+catalog.run_input           run_id, checksum
+catalog.raw                 id, collection, path, checksum, location, offset,
+                            length, run_id, ingested_at
+
 catalog.sample              id, location, offset, length, checksum, media,
                             subtype, metadata JSON, ingested_at, deleted_at
-catalog.sample_collection   sample_id, collection
+                            UNIQUE (checksum, media, subtype)
+catalog.sample_collection   id, sample_id, collection, added_at
+catalog.origin              id, sample_id, run_id, input_kind, input,
+                            input_type, role, position, metadata, recorded_at
+                            -- what a sample was made from
+catalog.generation          id, sample_id, run_id, model_host, model_run,
+                            checkpoint, ... digests, values, seed, recorded_at
 
 catalog.label_set           id, name, schema JSON (label_type, classes, ...)
 
-catalog.annotation          sample_id, label_set_id, state, value JSON,
-                            source, updated_at
-                            PK (sample_id, label_set_id)
-catalog.annotation_class    sample_id, label_set_id, class_name
-                            -- derived on write via labels' indexing contract
+catalog.annotation          id, sample_id, label_set_id, state, value JSON,
+                            source, batch, run_id, created_at, superseded_at
+                            -- append-only; the current answer is the
+                            -- unstamped row
+catalog.annotation_class    annotation_id, class_name
+                            -- derived on write via the indexing contract
+catalog.event               id, kind, sample_id, annotation_id, before, at
 catalog.annotation_conflict sample_id, label_set_id, kept_value,
                             other_value, other_origin, noticed_at
 
-catalog.dataset             id, name, version, label_set_id, query,
-                            annotation_digest, val_ratio, holdout_ratio
-                            (each asked and achieved), group_by, created_at
+catalog.list_version        id, name, version, digest, size, media, subtype,
+                            created_at
+catalog.list_member         list_id, checksum
+
+catalog.dataset             id, name, version, label_set_id, spec, spec_hash,
+                            watermark, selection, annotation_digest,
+                            val_ratio, holdout_ratio (each asked and
+                            achieved), group_by, sides_from_version, seed,
+                            given_split, disagreeing_inputs, created_at
 catalog.dataset_member      dataset_id, sample_id, side
 ```
 
@@ -463,8 +487,8 @@ same.
 
 **Registry, not entry points.** A hand-maintained table of five stages,
 readable in one place. There is no third-party stage, and a plugin seam
-is designed at the third implementation; the three entry-point groups the
-catalog and modelling already have stay as they are.
+is designed at the third implementation; the entry-point groups the other
+packages already have stay as they are.
 
 The first study, a learning-rate grid over a real project, is in the
 README's results. What it taught is recorded in `orchestrator.md`: a
@@ -500,10 +524,12 @@ different images. A checksum is globally meaningful by construction, which
 is why the dataset manifest already carries one beside every id.
 
 **Labelling from more than one machine reconciles at the catalog**, because
-annotations are keyed ``(sample_id, label_set_id)`` and written as upserts.
-Two machines labelling different samples merge cleanly. Two labelling the
-same sample on one catalog is last-write-wins. Across two catalogs — a
-laptop working offline on a copy — `catalog-merge` copies what the target
+an annotation is append-only: a write stamps the current row for its
+``(sample_id, label_set_id)`` as superseded and adds a new one
+(`docs/adr/0027`). Two machines labelling different samples merge cleanly.
+Two labelling the same sample on one catalog leave both rows, and the later
+one is the current answer. Across two catalogs — a
+laptop working offline on a copy — `strata-catalog merge` copies what the target
 lacks, is silent where both agree, and records a conflict where they
 disagree, which the review queue puts back in front of a person rather than
 resolving.
@@ -741,7 +767,7 @@ model version.
 
 **The name.** The repository, the namespace and every command are
 `strata`. The labelling tool the project began as, `auto-labeller`, is
-one package among seven, and its command is `strata-labeller` like the
+one package among nine, and its command is `strata-labeller` like the
 rest.
 
 **Infrastructure is not mandatory.** A catalog is a directory — a SQLite

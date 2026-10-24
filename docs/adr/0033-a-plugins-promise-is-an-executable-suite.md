@@ -66,3 +66,6 @@ a re-prepared corpus from re-checksumming.
   depends on its parameters and rule files as well as its source. So
   "the same source gives the same bytes" becomes "the same input under
   the same spec gives the same bytes".
+- **A corrupt index now refuses the corpus (record 0040).** The sentence
+  above that a corrupt index does not refuse one predates ingest reading
+  the prepared index as the declaration of what the corpus is.
