@@ -1,7 +1,7 @@
 # 50. A dataset version records the spec that selected it, and the spec can be run again
 
-**Status:** proposed; amends records 0003, 0022 and 0024, extends records
-0022 and 0039
+**Status:** proposed, revised as built (see Revisions); amends records
+0003, 0022 and 0024, extends records 0022 and 0039
 
 ## The decision
 
@@ -274,3 +274,52 @@ Nothing is quietly smaller (record 0036). A freeze records:
   filters in Python, as record 0021 requires.
 - **A condition on metadata with several origins** sees the combined
   view, so it inherits record 0049's stopgap: the first value wins.
+
+## Revisions
+
+- **Four changes are made in place, not two (revised as built).** This
+  record named a tombstone and a withdrawn skip. Two more change what a
+  replay reads, and each is now an event too. A sample's description,
+  its subtype and metadata, is rewritten in place when a known sample is
+  ingested again or a prepare run combines a new origin's facts (record
+  0049). Its event keeps what it replaced, so a replay reads the
+  description from before the watermark. An answer that arrives already
+  superseded, as history `import-answers` carries from another catalog,
+  can land after the current answer and have a higher id than it. Its
+  event says it was never the answer here. Without these two events a
+  replay would read today's metadata and, for some samples, an old
+  answer as current. An event is written only when a description
+  actually changes, and a sample a prepare run has just made has nothing
+  to replace.
+- **The command is `lists`, not `list` (revised as built).** `list`
+  already prints the catalogs a host is configured for. So the commands
+  are `strata-catalog lists put | show | ls`.
+- **An included list restricts (decided as built, confirmed by the user).**
+  The record said a list is included or excluded, and that the freeze
+  counts how many members each one added or removed. As built, `include`
+  keeps only the candidates whose checksums are in the list, and
+  `exclude` drops those that are. Neither adds anything: a member still
+  needs to be of a named type, in scope, with an answer that counts. A
+  hand-picked set is then an include, and near-duplicates are an
+  exclude. The freeze counts, for each list by itself, how many of the
+  samples that passed the conditions it removed.
+- **The spec a freeze without one records names the plain type of each
+  media (revised as built).** The record said it names the types those
+  collections hold. That would need every subtype's type installed on
+  the host that freezes. The spec names the plain case of each media
+  among the labelled samples instead, such as `text`. It covers every
+  subtype, so it selects exactly what a freeze did before.
+- **Members named outright record no spec (revised as built).**
+  `create_dataset` still takes sample ids. A version frozen that way
+  records no spec, and `dataset verify` says so, as it does for a version
+  frozen before this record. Every freeze the dataset stage makes has a
+  spec.
+- **The first freeze after the migration is a new version (a consequence,
+  noted as built).** The spec hash is part of a version's identity, and a
+  version frozen before this record has none. Unknown is not a match
+  (record 0024), so a freeze over unchanged members mints a new version
+  once.
+- **What a project and an experiment pass is not wired yet (TODO).** The
+  dataset stage takes `spec`, a path, and stores its content. Neither the
+  project config nor the labeller passes one yet, so they freeze as
+  before, and record the equivalent spec.
