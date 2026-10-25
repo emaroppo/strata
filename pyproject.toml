@@ -37,6 +37,10 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
+# The marks the suites use, registered so pytest does not warn on each.
+markers = [
+    "integration: needs the real stack (Postgres, a bucket)",
+]
 # The packages this workspace tests as one suite. The two sister packages
 # share test basenames with each other, so they run from their own
 # directories (uv run pytest packages/feature-store), as their CI does.
@@ -100,6 +104,7 @@ include = [
     "packages/project/strata",
     "packages/labeller/strata",
     "packages/experiment/strata",
+    "packages/evaluation/strata",
     "packages/plugins/prepare/prepare-video/strata",
 ]
 pythonVersion = "3.13"
